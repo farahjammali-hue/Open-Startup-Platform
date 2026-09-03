@@ -1,0 +1,47 @@
+# Test deployment for platform-test.open-startup.org
+#
+# Run all commands from the REPO ROOT (one level up from this file), e.g.:
+#   docker compose -f deploy/docker-compose.yml up -d --build
+#
+# This starts ONE service: the app itself. It deliberately does NOT start a
+# Postgres container — it connects to the Postgres that's already running on
+# this VPS, using a separate database created just for this test environment
+# (see deploy/README.md, step 2). Nothing here touches n8n, CloudPanel's own
+# containers, or any other existing service.
+
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    container_name: ost-platform-test
+    restart: unless-stopped
+    env_file:
+      - ../.env.test           # you create this from deploy/.env.test.example — never commit it
+    environment:
+      - NODE_ENV=production
+    # Lets the container reach Postgres running directly on the VPS host
+    # (outside Docker) via the special hostname "host.docker.internal".
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      # Bound to 127.0.0.1 only — NOT reachable from the public internet directly.
+      # CloudPanel's Nginx (running on the host) reverse-proxies to this address.
+      # If you change the port here, also update it in .env.test (PORT=...) and
+      # in the CloudPanel reverse-proxy target.
+      - "127.0.0.1:5100:5000"
+    volumes:
+      # Named volume so uploaded files (logos, decks, documents, signatures)
+      # survive `docker compose down` / image rebuilds. This is separate from
+      # any volume used by your other Docker services.
+      - ost_platform_test_uploads:/app/uploads
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:5000/api/auth/me', r => process.exit(r.statusCode < 500 ? 0 : 1)).on('error', () => process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  ost_platform_test_uploads:
+    name: ost_platform_test_uploads

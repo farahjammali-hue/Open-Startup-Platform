@@ -1,0 +1,11 @@
+node_modules
+dist
+uploads
+.env
+.env.local
+.env.test
+*.log
+.git
+.gitignore
+.claude
+server-out.log

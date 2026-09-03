@@ -1,0 +1,8 @@
+Save your Open Startup logo image in THIS folder, named exactly:
+
+    ost-logo.png
+
+(PNG with a transparent background works best, roughly square.)
+
+Once it's here, it appears automatically in the top-left of the sidebar and on
+the login screen. Until then, a simple "OST" placeholder mark is shown.

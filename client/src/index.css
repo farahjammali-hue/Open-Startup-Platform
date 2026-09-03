@@ -1,0 +1,263 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
+  color: #1d2853;
+  background: #ffffff;
+  -webkit-font-smoothing: antialiased;
+}
+
+@layer components {
+  /* ---- Layout ---------------------------------------------------------- */
+
+  /* Standard page frame: every AppShell page uses this so headers, tabs,
+     cards and buttons all share one left edge and one centered max-width,
+     regardless of how much content a given page has. */
+  .ost-page {
+    @apply mx-auto w-full max-w-[1200px] px-8 py-16;
+  }
+
+  /* Narrower reading column for text-heavy pages (forms, prose). No
+     mx-auto: it stays left-aligned with the rest of .ost-page instead of
+     re-centering itself inside the 1200px frame. */
+  .ost-prose-width {
+    @apply max-w-[640px];
+  }
+
+  /* ---- Typography -------------------------------------------------------
+     One class per rung of the hierarchy so every page reaches for the same
+     size/weight instead of one-off text-[Npx] values. */
+
+  .ost-eyebrow {
+    @apply text-xs font-extrabold uppercase tracking-[0.2em] text-secondary-300;
+  }
+
+  .ost-page-title {
+    @apply text-[32px] font-extrabold leading-tight text-white;
+  }
+
+  .ost-page-subtext {
+    @apply max-w-[640px] text-base leading-relaxed text-white/60;
+  }
+
+  .ost-section-label {
+    @apply text-xs font-extrabold uppercase tracking-wide text-white/50;
+  }
+
+  .ost-card-title {
+    @apply text-base font-bold text-primary;
+  }
+
+  .ost-card-subtext {
+    @apply text-sm leading-relaxed text-slate-500;
+  }
+
+  .ost-helper-text {
+    @apply text-xs text-slate-400;
+  }
+
+  .ost-muted-on-canvas {
+    @apply text-white/40;
+  }
+
+  .ost-back-link {
+    @apply text-white/50 transition hover:text-secondary-300;
+  }
+
+  /* ---- Controls & surfaces ----------------------------------------------- */
+
+  .ost-input {
+    @apply w-full rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-primary placeholder:text-slate-400 outline-none transition focus:border-secondary focus:ring-2 focus:ring-secondary/30;
+  }
+
+  .ost-label {
+    @apply mb-2 block text-sm font-semibold text-primary;
+  }
+
+  /* Button hierarchy: exactly one strong-emphasis action per screen.
+     - ost-btn-primary is THE default choice for a screen's main action.
+     - ost-btn-secondary (solid pink) is a rare, deliberate second emphasis —
+       it must never appear next to ost-btn-primary competing for the same
+       job. When in doubt, use ost-btn-primary for the important action and
+       ost-btn-ghost for everything else. */
+  .ost-btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-secondary-600 focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .ost-btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-secondary px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-secondary-500 focus:outline-none focus:ring-2 focus:ring-secondary/40 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .ost-btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-primary transition hover:border-secondary hover:text-secondary disabled:opacity-50;
+  }
+
+  /* Card padding rule: .ost-card intentionally ships with no padding, so
+     every usage picks one against this rule instead of guessing:
+       - p-6 is the default for a normal card.
+       - p-8 is reserved for a page's single hero/focus panel, or an empty
+         state — not for routine content.
+       - p-4 is for compact list rows living inside a card.
+     Prefer .ost-panel below over .ost-card for content that doesn't need a
+     full border + shadow treatment (e.g. secondary list items). */
+  .ost-card {
+    @apply rounded-2xl border border-slate-100 bg-offwhite shadow-card;
+  }
+
+  /* Lighter sibling of .ost-card: same surface (so ost-card-title,
+     ost-card-subtext, text-slate-*, etc. keep working unchanged inside it),
+     but no shadow and a smaller radius, so it reads as flatter and lower-
+     emphasis. Use for secondary lists/rows that shouldn't visually compete
+     with a page's main .ost-card content. */
+  .ost-panel {
+    @apply rounded-xl border border-slate-100 bg-offwhite;
+  }
+
+  .ost-chip {
+    @apply inline-flex items-center gap-1.5 rounded-full bg-secondary/10 px-3 py-1 text-xs font-semibold text-secondary-600;
+  }
+
+  /* Canvas: the dark "Science Road" page background used behind the light
+     content cards. Scoped to specific wrappers (not body) so unmigrated
+     pages, like the admin area, keep their light background. */
+  .ost-canvas {
+    background:
+      linear-gradient(180deg, rgba(255, 61, 130, 0.28) 0%, rgba(255, 61, 130, 0.1) 5%, transparent 16%),
+      radial-gradient(ellipse 900px 500px at 12% -10%, rgba(255, 61, 130, 0.16), transparent 60%),
+      radial-gradient(ellipse 700px 500px at 100% 0%, rgba(98, 221, 209, 0.1), transparent 55%),
+      #070b22;
+    background-attachment: fixed;
+  }
+}
+
+/* ---- Dark mode --------------------------------------------------------
+   Overrides keyed on Tailwind's own generated utility class names (not a
+   `dark:` prefix on every usage) so the handful of neutral classes used
+   across nearly every page — card surfaces, borders, and text-slate-* —
+   get dark coverage from one place instead of a per-file rewrite. */
+.dark {
+  color-scheme: dark;
+}
+
+.dark body {
+  background: #070b22;
+  color: #e7e9f3;
+}
+
+.dark .ost-card {
+  @apply border-white/10 bg-primary-600;
+}
+
+.dark .ost-input {
+  @apply border-white/15 bg-primary-800 text-white placeholder:text-white/30;
+}
+
+.dark .ost-label {
+  @apply text-white;
+}
+
+.dark .ost-btn-ghost {
+  @apply border-white/15 bg-transparent text-white;
+}
+
+.dark .ost-chip {
+  @apply bg-secondary/20 text-secondary-300;
+}
+
+.dark .text-primary {
+  @apply text-white;
+}
+
+.dark .text-slate-300 {
+  @apply text-white/50;
+}
+
+.dark .text-slate-400 {
+  @apply text-white/40;
+}
+
+.dark .text-slate-500 {
+  @apply text-white/50;
+}
+
+.dark .text-slate-600 {
+  @apply text-white/60;
+}
+
+.dark .border-slate-50 {
+  @apply border-white/5;
+}
+
+.dark .border-slate-100 {
+  @apply border-white/10;
+}
+
+.dark .border-slate-200 {
+  @apply border-white/15;
+}
+
+.dark .bg-white {
+  @apply bg-primary-600;
+}
+
+.dark .bg-offwhite {
+  @apply bg-primary-600;
+}
+
+.dark .bg-slate-50 {
+  @apply bg-primary-800;
+}
+
+.dark .bg-slate-100 {
+  @apply bg-primary-800;
+}
+
+.dark .bg-slate-200 {
+  @apply bg-primary-500;
+}
+
+.dark .hover\:bg-white\/60:hover {
+  @apply bg-white/10;
+}
+
+/* Status pill text colors (amber/turq/red) are tuned for a white card and
+   go unreadable on the dark card surface — swap in lighter, validated steps. */
+.dark .text-amber-text {
+  @apply text-amber-light;
+}
+
+.dark .text-turq-text {
+  @apply text-turq-light;
+}
+
+/* Note: Tailwind's stock red-500/600 and amber-700 text always pair with a
+   solid light bg (bg-red-50, bg-amber-50/100) in this codebase, which stays
+   solid in dark mode too — so those keep their light-mode color unchanged.
+   text-secondary-600/700 is different: every use here sits on a translucent
+   tint (ost-chip, bg-secondary/5) that picks up the dark card color, so it
+   needs a lighter step to stay legible. */
+.dark .text-secondary-600,
+.dark .text-secondary-700 {
+  @apply text-secondary-300;
+}
+
+/* Respect the OS-level "reduce motion" setting across the whole app. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
