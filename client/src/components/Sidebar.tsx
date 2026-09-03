@@ -9,7 +9,7 @@ import { showToast } from "../lib/toast";
 import {
   LayoutDashboard, Rocket, Trash2, Users, Lock,
   GraduationCap, Wrench, Wallet, Store, BookOpen, MessagesSquare,
-  FolderLock, CalendarClock, Home as HomeIcon, FileText, BarChart3, Contact, Layers, Presentation,
+  FolderLock, CalendarClock, Home as HomeIcon, FileText, BarChart3, Contact, Layers, Presentation, Sparkles,
 } from "lucide-react";
 
 interface Item {
@@ -22,6 +22,7 @@ interface Item {
 
 const ADMIN_ITEMS: Item[] = [
   { label: "Dashboard", to: "/admin", icon: LayoutDashboard },
+  { label: "Ask AI", to: "/admin/ask-ai", icon: Sparkles },
   { label: "Startups", to: "/admin/startups", icon: Rocket },
   { label: "Contracts & KYS", to: "/admin/contracts-kys", icon: FileText },
   { label: "Data Room", to: "/admin/data-room", icon: FolderLock },

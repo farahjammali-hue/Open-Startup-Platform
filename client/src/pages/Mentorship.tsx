@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/utils";
 import { AppShell } from "../components/AppShell";
 import { BackLink, PageHeader, TabBar } from "../components/PageHeader";
@@ -9,7 +9,6 @@ import { ModalShell } from "../components/ModalShell";
 import { StatusBadge } from "../components/StatusBadge";
 import { Skeleton } from "../components/Skeleton";
 import { useKysStatus } from "../lib/kysStatus";
-import { showToast } from "../lib/toast";
 import { MENTORSHIP_SESSION_STATUS_TONES, MENTORSHIP_SESSION_STATUS_ICONS } from "../lib/statusTones";
 import {
   Lock, ChevronRight, Video, FileText, Link2,
@@ -48,7 +47,6 @@ interface ExpertProfile {
   bio: string | null;
   industries: string[] | null;
   expertiseAreas: string[] | null;
-  priority: number | null;
 }
 
 const TABS = ["mentor", "sessions", "otherExperts"] as const;
@@ -214,46 +212,6 @@ function MentorTab({ mentor }: { mentor: MentorProfile | null }) {
   );
 }
 
-function ExpertPriorityPicker({ expert }: { expert: ExpertProfile }) {
-  const queryClient = useQueryClient();
-  const [priority, setPriority] = useState(expert.priority);
-  const [saving, setSaving] = useState(false);
-
-  async function select(value: number) {
-    setPriority(value);
-    setSaving(true);
-    try {
-      await api(`/api/other-experts/${expert.id}/priority`, {
-        method: "PATCH",
-        body: JSON.stringify({ priority: value }),
-      });
-      queryClient.invalidateQueries({ queryKey: ["other-experts"] });
-    } catch (err: any) {
-      showToast(err.message || "Couldn't save your priority");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <select
-      className="ost-input !h-auto !w-auto !py-1.5 text-xs"
-      value={priority ?? ""}
-      disabled={saving}
-      onClick={(ev) => ev.stopPropagation()}
-      onChange={(ev) => {
-        const v = Number(ev.target.value);
-        if (v) select(v);
-      }}
-    >
-      <option value="">Select priority</option>
-      {[1, 2, 3, 4, 5].map((n) => (
-        <option key={n} value={n}>Priority {n}</option>
-      ))}
-    </select>
-  );
-}
-
 function OtherExpertsTab({ experts, onOpen }: { experts: ExpertProfile[]; onOpen: (e: ExpertProfile) => void }) {
   if (experts.length === 0) {
     return (
@@ -274,7 +232,6 @@ function OtherExpertsTab({ experts, onOpen }: { experts: ExpertProfile[]; onOpen
               <th className="px-5 py-3 font-semibold">Expert</th>
               <th className="px-5 py-3 font-semibold">Industry / Technology</th>
               <th className="px-5 py-3 font-semibold">Areas of Expertise</th>
-              <th className="px-5 py-3 font-semibold">Your Priority</th>
             </tr>
           </thead>
           <tbody>
@@ -287,7 +244,6 @@ function OtherExpertsTab({ experts, onOpen }: { experts: ExpertProfile[]; onOpen
                 <td className="max-w-[160px] px-5 py-3 font-semibold text-primary">{e.name}</td>
                 <td className="max-w-[220px] px-5 py-3 text-slate-500">{(e.industries ?? []).join(", ") || "—"}</td>
                 <td className="max-w-[280px] px-5 py-3 text-slate-500">{(e.expertiseAreas ?? []).join(", ") || "—"}</td>
-                <td className="px-5 py-3"><ExpertPriorityPicker expert={e} /></td>
               </tr>
             ))}
           </tbody>
@@ -323,11 +279,6 @@ function ExpertDetailModal({ expert: e, onClose }: { expert: ExpertProfile; onCl
           </div>
         </div>
       )}
-
-      <div className="mt-5 flex items-center gap-2 border-t border-slate-100 pt-5">
-        <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Your priority</span>
-        <ExpertPriorityPicker expert={e} />
-      </div>
     </ModalShell>
   );
 }

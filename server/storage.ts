@@ -478,6 +478,121 @@ export const storage = {
     };
   },
 
+  /* ---------------- Ask AI (curated business-metric lookups) ---------------- */
+  // Sums a single numeric startups column, optionally scoped to a KYS track,
+  // and reports how many startups actually have that field filled in — the
+  // fields here are founder-entered and often incomplete.
+  async startupMetricSummary(
+    metric: "lastValuation" | "amountRaised" | "totalRevenueSinceFounding",
+    track?: "seed" | "pre_seed",
+  ): Promise<{ total: number; countWithData: number; countTotal: number }> {
+    const col =
+      metric === "lastValuation" ? startups.lastValuation :
+      metric === "amountRaised" ? startups.amountRaised :
+      startups.totalRevenueSinceFounding;
+    const [row] = await db
+      .select({
+        total: sql<number>`coalesce(sum(${col}), 0)::bigint`,
+        countWithData: sql<number>`count(${col})::int`,
+        countTotal: sql<number>`count(distinct ${startups.id})::int`,
+      })
+      .from(startups)
+      .leftJoin(kysProfiles, eq(kysProfiles.startupId, startups.id))
+      .where(track ? eq(kysProfiles.track, track) : undefined);
+    return { total: Number(row?.total ?? 0), countWithData: row?.countWithData ?? 0, countTotal: row?.countTotal ?? 0 };
+  },
+
+  async countStartups(track?: "seed" | "pre_seed"): Promise<number> {
+    const [row] = await db
+      .select({ c: sql<number>`count(distinct ${startups.id})::int` })
+      .from(startups)
+      .leftJoin(kysProfiles, eq(kysProfiles.startupId, startups.id))
+      .where(track ? eq(kysProfiles.track, track) : undefined);
+    return row?.c ?? 0;
+  },
+
+  async averageTeamSize(): Promise<{ avg: number; totalMembers: number; totalStartups: number }> {
+    const [tm] = await db.select({ c: sql<number>`count(*)::int` }).from(teamMembers);
+    const [s] = await db.select({ c: sql<number>`count(*)::int` }).from(startups);
+    const totalMembers = tm?.c ?? 0;
+    const totalStartups = s?.c ?? 0;
+    return { avg: totalStartups > 0 ? totalMembers / totalStartups : 0, totalMembers, totalStartups };
+  },
+
+  // For matching a startup name mentioned in a free-text question — small
+  // enough (a handful of dozen rows) to fetch every name once and search
+  // client-side rather than write a fuzzy-match SQL query.
+  async listStartupNames(): Promise<{ id: string; companyName: string }[]> {
+    return db.select({ id: startups.id, companyName: startups.companyName }).from(startups);
+  },
+
+  // Qualitative, per-startup profile — text fields and statuses only, never
+  // document/file contents (contract PDFs, decks, KYS uploads stay untouched).
+  async getStartupQualitativeProfile(startupId: string) {
+    const [row] = await db
+      .select({
+        companyName: startups.companyName,
+        shortDescription: startups.shortDescription,
+        location: startups.location,
+        markets: startups.markets,
+        stage: startups.stage,
+        track: kysProfiles.track,
+        contractStatus: contracts.status,
+        kysStatus: kysProfiles.status,
+      })
+      .from(startups)
+      .leftJoin(kysProfiles, eq(kysProfiles.startupId, startups.id))
+      .leftJoin(contracts, eq(contracts.startupId, startups.id))
+      .where(eq(startups.id, startupId));
+    const [tm] = await db
+      .select({ c: sql<number>`count(*)::int` })
+      .from(teamMembers)
+      .where(eq(teamMembers.startupId, startupId));
+    return row ? { ...row, teamSize: tm?.c ?? 0 } : undefined;
+  },
+
+  // Startups with a monthly update flagged at-risk/off-track, or where the
+  // founder explicitly asked for support — names only, no document contents.
+  async listStartupsNeedingAttention(): Promise<{ companyName: string; status: string; supportNeeded: string | null }[]> {
+    return db
+      .select({ companyName: startups.companyName, status: monthlyUpdates.status, supportNeeded: monthlyUpdates.supportNeeded })
+      .from(monthlyUpdates)
+      .innerJoin(startups, eq(monthlyUpdates.startupId, startups.id))
+      .where(sql`${monthlyUpdates.status} != 'on_track' or (${monthlyUpdates.supportNeeded} is not null and ${monthlyUpdates.supportNeeded} != '')`)
+      .orderBy(asc(startups.companyName));
+  },
+
+  // Startups with a pending Contract or KYS review — names + which is
+  // pending, never the document/file contents themselves.
+  async listStartupsWithPendingReviews(): Promise<{ companyName: string; contractPending: boolean; kysPending: boolean }[]> {
+    const rows = await db
+      .select({
+        companyName: startups.companyName,
+        contractStatus: contracts.status,
+        kysStatus: kysProfiles.status,
+      })
+      .from(startups)
+      .leftJoin(contracts, eq(contracts.startupId, startups.id))
+      .leftJoin(kysProfiles, eq(kysProfiles.startupId, startups.id))
+      .where(sql`${contracts.status} = 'pending' or ${kysProfiles.status} = 'pending'`)
+      .orderBy(asc(startups.companyName));
+    return rows.map((r) => ({
+      companyName: r.companyName,
+      contractPending: r.contractStatus === "pending",
+      kysPending: r.kysStatus === "pending",
+    }));
+  },
+
+  // Startup names + stage for a given KYS track — qualitative listing, no totals.
+  async listStartupNamesByTrack(track: "seed" | "pre_seed"): Promise<{ companyName: string; stage: string | null }[]> {
+    return db
+      .select({ companyName: startups.companyName, stage: startups.stage })
+      .from(startups)
+      .innerJoin(kysProfiles, eq(kysProfiles.startupId, startups.id))
+      .where(eq(kysProfiles.track, track))
+      .orderBy(asc(startups.companyName));
+  },
+
   /**
    * Resolve the user's currently active startup, falling back to their most
    * recent one (and persisting that choice) when none is set.

@@ -21,6 +21,7 @@ import Training from "./pages/Training";
 import OfficeHours from "./pages/OfficeHours";
 import OpenStartupSchool from "./pages/OpenStartupSchool";
 import AdminDashboard from "./pages/admin/AdminDashboard";
+import AdminAskAI from "./pages/admin/AdminAskAI";
 import AdminStartups from "./pages/admin/AdminStartups";
 import AdminStartupDetail from "./pages/admin/AdminStartupDetail";
 import AdminDeletionRequests from "./pages/admin/AdminDeletionRequests";
@@ -74,6 +75,7 @@ export default function App() {
     return (
       <Switch>
         <Route path="/admin" component={AdminDashboard} />
+        <Route path="/admin/ask-ai" component={AdminAskAI} />
         <Route path="/admin/startups" component={AdminStartups} />
         <Route path="/admin/startups/:id" component={AdminStartupDetail} />
         <Route path="/admin/deletion-requests" component={AdminDeletionRequests} />

@@ -2043,6 +2043,120 @@ export function registerRoutes(app: Express) {
     res.json(await storage.adminCounts());
   }));
 
+  const STAGE_LABELS: Record<string, string> = {
+    idea: "Idea", prototype: "Prototype", mvp: "MVP",
+    early_revenue: "Early revenue", growth: "Growth", scale: "Scale",
+  };
+  const REVIEW_LABELS: Record<string, string> = { pending: "pending", approved: "approved", rejected: "changes requested" };
+
+  // "Ask AI" preview — answers a curated set of business questions (totals,
+  // counts, and qualitative text/status fields) by keyword-matching the
+  // question and running a real query. It never reads document/file contents
+  // (contracts, decks, KYS uploads) — only structured fields already in the
+  // database. This is a stand-in for a real LLM call (no Anthropic API key
+  // configured yet); swapping in a real Claude tool-use loop later can reuse
+  // these same storage functions as its tools, so nothing here goes to waste.
+  app.post("/api/admin/ask", requireAdmin, ah(async (req, res) => {
+    const question = String(req.body?.question || "").trim();
+    if (!question) return res.status(400).json({ message: "Ask a question first" });
+    const q = question.toLowerCase();
+
+    const track: "seed" | "pre_seed" | undefined = /\bpre[\s-]?seed\b/.test(q)
+      ? "pre_seed"
+      : /\bseed\b/.test(q)
+        ? "seed"
+        : undefined;
+    const trackLabel = track === "seed" ? "Seed" : track === "pre_seed" ? "Pre-Seed" : "all";
+
+    const money = (n: number) => `$${Math.round(n).toLocaleString("en-US")}`;
+
+    // Per-startup lookup — only fires when a real startup name appears in the
+    // question, so it never accidentally swallows a general question.
+    const allStartups = await storage.listStartupNames();
+    const matched = allStartups
+      .filter((s) => s.companyName && q.includes(s.companyName.toLowerCase()))
+      .sort((a, b) => b.companyName.length - a.companyName.length)[0]; // longest match wins
+    if (matched) {
+      const p = await storage.getStartupQualitativeProfile(matched.id);
+      if (p) {
+        const parts = [
+          p.shortDescription ? `${p.companyName} — ${p.shortDescription}.` : `${p.companyName}.`,
+          p.stage ? `Stage: ${STAGE_LABELS[p.stage] ?? p.stage}.` : null,
+          p.track ? `Track: ${p.track === "seed" ? "Seed" : "Pre-Seed"}.` : null,
+          p.location ? `Based in ${p.location}.` : null,
+          p.markets?.length ? `Markets: ${p.markets.join(", ")}.` : null,
+          `Team size: ${p.teamSize}.`,
+          `Contract: ${p.contractStatus ? REVIEW_LABELS[p.contractStatus] ?? p.contractStatus : "not submitted"}.`,
+          `KYS: ${p.kysStatus ? REVIEW_LABELS[p.kysStatus] ?? p.kysStatus : "not submitted"}.`,
+        ].filter(Boolean);
+        return res.json({ preview: true, answer: parts.join(" ") });
+      }
+    }
+
+    if (/valuation/.test(q)) {
+      const { total, countWithData, countTotal } = await storage.startupMetricSummary("lastValuation", track);
+      return res.json({
+        preview: true,
+        answer: `The cumulative valuation across ${trackLabel} startups is ${money(total)}, based on ${countWithData} of ${countTotal} startup${countTotal === 1 ? "" : "s"} that have a valuation on file.`,
+      });
+    }
+    if (/revenue/.test(q)) {
+      const { total, countWithData, countTotal } = await storage.startupMetricSummary("totalRevenueSinceFounding", track);
+      return res.json({
+        preview: true,
+        answer: `Total revenue since founding across ${trackLabel} startups is ${money(total)}, based on ${countWithData} of ${countTotal} startups with revenue data on file.`,
+      });
+    }
+    if (/rais|fund|invest/.test(q)) {
+      const { total, countWithData, countTotal } = await storage.startupMetricSummary("amountRaised", track);
+      return res.json({
+        preview: true,
+        answer: `Total amount raised across ${trackLabel} startups is ${money(total)}, based on ${countWithData} of ${countTotal} startups with this reported.`,
+      });
+    }
+    if (/team size|employees|headcount/.test(q)) {
+      const { avg, totalMembers, totalStartups } = await storage.averageTeamSize();
+      return res.json({
+        preview: true,
+        answer: `The average team size is ${avg.toFixed(1)} people, across ${totalMembers} total team members over ${totalStartups} startups.`,
+      });
+    }
+    if (/attention|at risk|off.?track|behind|support needed|struggling/.test(q)) {
+      const rows = await storage.listStartupsNeedingAttention();
+      const answer = rows.length === 0
+        ? "No startups currently have a monthly update flagged at-risk or off-track, or asking for support."
+        : `${rows.length} startup${rows.length === 1 ? "" : "s"} need${rows.length === 1 ? "s" : ""} attention: ${rows.map((r) => `${r.companyName} (${r.status.replace("_", " ")}${r.supportNeeded ? `, asked: "${r.supportNeeded}"` : ""})`).join("; ")}.`;
+      return res.json({ preview: true, answer });
+    }
+    if (/pending review|waiting.*review|pending contract|pending kys|need.*review/.test(q)) {
+      const rows = await storage.listStartupsWithPendingReviews();
+      const answer = rows.length === 0
+        ? "No startups have a pending Contract or KYS review right now."
+        : `${rows.length} startup${rows.length === 1 ? "" : "s"} ${rows.length === 1 ? "has" : "have"} a pending review: ${rows.map((r) => `${r.companyName} (${[r.contractPending && "Contract", r.kysPending && "KYS"].filter(Boolean).join(" & ")})`).join("; ")}.`;
+      return res.json({ preview: true, answer });
+    }
+    if (/which startups|list.*startups|startups in\b/.test(q) && track) {
+      const rows = await storage.listStartupNamesByTrack(track);
+      const answer = rows.length === 0
+        ? `No startups are on the ${trackLabel} track yet.`
+        : `${rows.length} ${trackLabel} startup${rows.length === 1 ? "" : "s"}: ${rows.map((r) => `${r.companyName}${r.stage ? ` (${STAGE_LABELS[r.stage] ?? r.stage})` : ""}`).join(", ")}.`;
+      return res.json({ preview: true, answer });
+    }
+    if (/how many|number of|count/.test(q)) {
+      const count = await storage.countStartups(track);
+      return res.json({
+        preview: true,
+        answer: `There are ${count} ${trackLabel === "all" ? "" : trackLabel + " "}startup${count === 1 ? "" : "s"} in the program.`,
+      });
+    }
+
+    res.json({
+      preview: true,
+      unmatched: true,
+      answer: "I don't have a canned answer for that yet — this preview only understands a few example questions using simple keyword matching, not a real LLM. Connecting an Anthropic API key will let it understand any question.",
+    });
+  }));
+
   app.get("/api/admin/startups", requireAdmin, ah(async (_req, res) => {
     res.json({ startups: await storage.listStartupsWithOwners() });
   }));
