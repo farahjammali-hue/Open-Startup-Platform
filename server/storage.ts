@@ -1473,6 +1473,9 @@ export const storage = {
    * (every founder sees every session), so the audience is every active,
    * verified founder rather than a per-startup subset.
    *
+   * Admins are included too: they run the sessions, and excluding them meant
+   * the person scheduling a session never saw it in their own calendar.
+   *
    * Unverified addresses are excluded: we have no evidence they're reachable,
    * and inviting them would leak the session to a possibly-wrong inbox.
    */
@@ -1480,7 +1483,13 @@ export const storage = {
     return db
       .select({ email: users.email, name: users.name })
       .from(users)
-      .where(and(eq(users.role, "startup"), eq(users.isActive, true), eq(users.emailVerified, true)));
+      .where(
+        and(
+          inArray(users.role, ["startup", "admin"]),
+          eq(users.isActive, true),
+          eq(users.emailVerified, true),
+        ),
+      );
   },
 
   async listAllMentorshipSessions(): Promise<MentorshipModuleSession[]> {

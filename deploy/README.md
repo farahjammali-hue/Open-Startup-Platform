@@ -193,9 +193,16 @@ three ways to do it and you should run exactly ONE, because each creates its
 own calendar entry:
 
 **1. Emailed iCalendar invites (recommended).** Set `CALENDAR_INVITES=ics` in
-`.env.test` and make sure the SMTP settings are filled in. Every active,
-verified founder gets a real invite when a session is created, and an update
-or cancellation when it changes. No Google setup and no admin consent needed.
+`.env.test` and make sure the SMTP settings are filled in. Invites go to every
+active verified founder, every active verified admin, and the session's Zoom
+host, with an update or cancellation whenever the session changes. Admins are
+included on purpose: they run the sessions, so the person scheduling one
+should see it in their own calendar. No Google setup or admin consent needed.
+
+The invite's ORGANIZER is set from `SMTP_FROM`, which must match the account
+the mail is actually sent from. Gmail and Outlook only honour an invite when
+those agree; if they diverge, the invite silently arrives as a plain file
+attachment instead. Replies (accept/decline) go to that address.
 One message is sent per recipient, so founders never see each other's
 addresses. If SMTP is unset, invites are written to the container logs instead
 of emailed, which is useful for checking the content before going live.

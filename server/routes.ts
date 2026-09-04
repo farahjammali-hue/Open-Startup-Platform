@@ -295,12 +295,24 @@ async function dispatchSessionInvite(
     scheduledAt: Date | string;
     durationMinutes: number;
     calendarSequence?: number | null;
+    zoomHostEmail?: string | null;
   },
   opts: { cancelled?: boolean; sequence?: number } = {},
 ): Promise<void> {
   if (!icsInvitesEnabled) return;
   try {
     const recipients = await storage.listSessionInviteRecipients();
+
+    // The Zoom host needs it in their own calendar too, and they may not have
+    // a platform account at all. Deduplicated case-insensitively, since a
+    // host who is also an admin would otherwise be invited twice.
+    if (session.zoomHostEmail) {
+      const seen = new Set(recipients.map((r) => r.email.toLowerCase()));
+      if (!seen.has(session.zoomHostEmail.toLowerCase())) {
+        recipients.push({ email: session.zoomHostEmail, name: null });
+      }
+    }
+
     if (!recipients.length) return;
 
     const startsAt = new Date(session.scheduledAt);
