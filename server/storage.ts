@@ -1468,6 +1468,21 @@ export const storage = {
     return sessions.map((s) => ({ ...s, notes: notesBySessionId.get(s.id) ?? emptyNotes }));
   },
 
+  /**
+   * Who receives a session calendar invite. Module sessions are programme-wide
+   * (every founder sees every session), so the audience is every active,
+   * verified founder rather than a per-startup subset.
+   *
+   * Unverified addresses are excluded: we have no evidence they're reachable,
+   * and inviting them would leak the session to a possibly-wrong inbox.
+   */
+  async listSessionInviteRecipients(): Promise<{ email: string; name: string | null }[]> {
+    return db
+      .select({ email: users.email, name: users.name })
+      .from(users)
+      .where(and(eq(users.role, "startup"), eq(users.isActive, true), eq(users.emailVerified, true)));
+  },
+
   async listAllMentorshipSessions(): Promise<MentorshipModuleSession[]> {
     return db.select().from(mentorshipModuleSessions).orderBy(asc(mentorshipModuleSessions.scheduledAt));
   },

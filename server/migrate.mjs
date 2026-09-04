@@ -611,6 +611,11 @@ CREATE TABLE IF NOT EXISTS training_module_sessions (
 );
 ALTER TABLE training_module_sessions ADD COLUMN IF NOT EXISTS zoom_host_email text;
 
+-- Calendar invites: iCalendar SEQUENCE, bumped whenever we send an update so
+-- clients replace the existing entry rather than adding a second one.
+ALTER TABLE mentorship_module_sessions ADD COLUMN IF NOT EXISTS calendar_sequence integer NOT NULL DEFAULT 0;
+ALTER TABLE training_module_sessions ADD COLUMN IF NOT EXISTS calendar_sequence integer NOT NULL DEFAULT 0;
+
 -- Training: per-(session, startup) recap and trainer feedback.
 CREATE TABLE IF NOT EXISTS training_session_notes (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

@@ -55,7 +55,9 @@ import {
   smtpConfigured,
   sendEmailChangeVerification,
   sendPasswordChangedNotice,
+  sendSessionInvite,
 } from "./mailer";
+import { buildSessionIcs } from "./calendar";
 import {
   parseZoomMeetingId,
   verifyZoomWebhookSignature,
@@ -252,6 +254,85 @@ const requireAdmin = async (req: Request, res: Response, next: NextFunction) => 
   }
   next();
 };
+
+/* ---------------- Session calendar invites ----------------
+ * "off" (default) sends nothing. "ics" emails an iCalendar invite. "google"
+ * is reserved for the Google Calendar API integration.
+ *
+ * Exactly one mechanism should be active: each creates its own calendar entry,
+ * so enabling two puts the same session in founders' calendars twice. Zoom's
+ * own calendar sync is a third mechanism and lives entirely in Zoom's settings
+ * -- leave it off while this is set to anything but "off". */
+const CALENDAR_INVITES = (process.env.CALENDAR_INVITES || "off").trim().toLowerCase();
+const icsInvitesEnabled = CALENDAR_INVITES === "ics";
+const CALENDAR_ORGANIZER =
+  process.env.SMTP_FROM || process.env.SMTP_USER || "no-reply@open-startup.org";
+
+/** Host portion of APP_URL, used to build stable iCalendar UIDs. */
+function appHost(): string {
+  try {
+    return new URL(APP_URL).hostname;
+  } catch {
+    return "open-startup.org";
+  }
+}
+
+/**
+ * Email a calendar invite (or cancellation) for a session.
+ *
+ * Best-effort and never throws: the admin's save is already committed by the
+ * time this runs, so a mail problem must not surface as a failed save. It is
+ * also deliberately not awaited before responding, because SMTP is slow and
+ * scales with the size of the cohort.
+ */
+async function dispatchSessionInvite(
+  kind: "Mentorship" | "Training",
+  session: {
+    id: string;
+    title: string;
+    description?: string | null;
+    meetingLink?: string | null;
+    scheduledAt: Date | string;
+    durationMinutes: number;
+    calendarSequence?: number | null;
+  },
+  opts: { cancelled?: boolean; sequence?: number } = {},
+): Promise<void> {
+  if (!icsInvitesEnabled) return;
+  try {
+    const recipients = await storage.listSessionInviteRecipients();
+    if (!recipients.length) return;
+
+    const startsAt = new Date(session.scheduledAt);
+    const ics = buildSessionIcs({
+      uid: `session-${session.id}@${appHost()}`,
+      sequence: opts.sequence ?? session.calendarSequence ?? 0,
+      title: session.title,
+      description: session.description ?? null,
+      joinUrl: session.meetingLink ?? null,
+      startsAt,
+      durationMinutes: session.durationMinutes,
+      organizerName: "Open Startup",
+      organizerEmail: CALENDAR_ORGANIZER,
+      attendees: recipients,
+      cancelled: opts.cancelled,
+    });
+
+    const sent = await sendSessionInvite({
+      recipients,
+      kind,
+      title: session.title,
+      startsAt,
+      durationMinutes: session.durationMinutes,
+      joinUrl: session.meetingLink ?? null,
+      ics,
+      cancelled: opts.cancelled,
+    });
+    console.log(`[calendar] ${opts.cancelled ? "cancellation" : "invite"} for ${kind} session ${session.id}: ${sent}/${recipients.length} sent`);
+  } catch (error) {
+    console.error("[calendar] invite dispatch failed:", error);
+  }
+}
 
 const RECAPTCHA_SECRET = process.env.RECAPTCHA_SECRET_KEY || "";
 const captchaEnabled = !!(process.env.RECAPTCHA_SITE_KEY && RECAPTCHA_SECRET);
@@ -1651,6 +1732,7 @@ export function registerRoutes(app: Express) {
         zoomHostEmail: hostEmail,
       });
       res.status(201).json(session);
+      void dispatchSessionInvite("Mentorship", session);
     } catch (error) {
       if (createdMeetingId) await deleteZoomMeeting(createdMeetingId).catch(() => undefined);
       throw error;
@@ -1704,11 +1786,14 @@ export function registerRoutes(app: Express) {
     if (parsed.data.transcriptUrl !== undefined) patch.transcriptUrl = parsed.data.transcriptUrl || null;
     if (parsed.data.materialsUrl !== undefined) patch.materialsUrl = parsed.data.materialsUrl || null;
     if (parsed.data.mentorBio !== undefined) patch.mentorBio = parsed.data.mentorBio || null;
+    // A calendar update is only honoured if SEQUENCE increased.
+    patch.calendarSequence = (existing.calendarSequence ?? 0) + 1;
     const session = await storage.updateMentorshipModuleSession(existing.id, patch as any);
     if (requestedHost && requestedHost !== existing.zoomHostEmail && existing.zoomMeetingId && existing.zoomHostEmail) {
       await deleteZoomMeeting(existing.zoomMeetingId).catch((error) => console.error("[zoom] old meeting cleanup failed:", error));
     }
     res.json(session);
+    void dispatchSessionInvite("Mentorship", session);
   }));
 
   app.delete("/api/admin/mentorship/sessions/:id", requireAdmin, ah(async (req, res) => {
@@ -1719,6 +1804,10 @@ export function registerRoutes(app: Express) {
     }
     await storage.deleteMentorshipModuleSession(existing.id);
     res.json({ ok: true });
+    void dispatchSessionInvite("Mentorship", existing, {
+      cancelled: true,
+      sequence: (existing.calendarSequence ?? 0) + 1,
+    });
   }));
 
   /* ---------------- Admin: Mentors (directory, one assigned per startup) ---------------- */
@@ -1874,6 +1963,7 @@ export function registerRoutes(app: Express) {
         zoomHostEmail: hostEmail,
       });
       res.status(201).json(session);
+      void dispatchSessionInvite("Training", session);
     } catch (error) {
       if (createdMeetingId) await deleteZoomMeeting(createdMeetingId).catch(() => undefined);
       throw error;
@@ -1927,11 +2017,14 @@ export function registerRoutes(app: Express) {
     if (parsed.data.recordingUrl !== undefined) patch.recordingUrl = parsed.data.recordingUrl || null;
     if (parsed.data.transcriptUrl !== undefined) patch.transcriptUrl = parsed.data.transcriptUrl || null;
     if (parsed.data.trainerBio !== undefined) patch.trainerBio = parsed.data.trainerBio || null;
+    // A calendar update is only honoured if SEQUENCE increased.
+    patch.calendarSequence = (existing.calendarSequence ?? 0) + 1;
     const session = await storage.updateTrainingModuleSession(existing.id, patch as any);
     if (requestedHost && requestedHost !== existing.zoomHostEmail && existing.zoomMeetingId && existing.zoomHostEmail) {
       await deleteZoomMeeting(existing.zoomMeetingId).catch((error) => console.error("[zoom] old meeting cleanup failed:", error));
     }
     res.json(session);
+    void dispatchSessionInvite("Training", session);
   }));
 
   app.delete("/api/admin/training/sessions/:id", requireAdmin, ah(async (req, res) => {
@@ -1942,6 +2035,10 @@ export function registerRoutes(app: Express) {
     }
     await storage.deleteTrainingModuleSession(existing.id);
     res.json({ ok: true });
+    void dispatchSessionInvite("Training", existing, {
+      cancelled: true,
+      sequence: (existing.calendarSequence ?? 0) + 1,
+    });
   }));
 
   /* ---------------- Admin: Trainers (directory, one assigned per startup) ---------------- */

@@ -185,6 +185,39 @@ yet. That's expected; CloudPanel handles the public side next.
 
 ---
 
+## Calendar invites for sessions
+
+The platform creates the Zoom meeting and shows founders the join link, but it
+does not touch anyone's calendar unless you turn one of these on. There are
+three ways to do it and you should run exactly ONE, because each creates its
+own calendar entry:
+
+**1. Emailed iCalendar invites (recommended).** Set `CALENDAR_INVITES=ics` in
+`.env.test` and make sure the SMTP settings are filled in. Every active,
+verified founder gets a real invite when a session is created, and an update
+or cancellation when it changes. No Google setup and no admin consent needed.
+One message is sent per recipient, so founders never see each other's
+addresses. If SMTP is unset, invites are written to the container logs instead
+of emailed, which is useful for checking the content before going live.
+
+**2. Zoom's own calendar sync.** No code and nothing to deploy: connect each
+Zoom host account to its Google Calendar in Zoom's own settings. The catch is
+that the event lands on the host account's calendar rather than on each
+participant's, so founders get nothing. Leave `CALENDAR_INVITES=off` if you
+rely on this.
+
+**3. Google Calendar API.** Not built yet. It would create real Google
+Calendar events with founders as invitees and propagate edits automatically,
+but it needs a Google Cloud service account with the Calendar scope plus
+domain-wide delegation across the Workspace, which is an admin and security
+decision rather than just a code change.
+
+Session times are stored as `timestamp without time zone` and the container
+runs UTC, so invite times are correct as long as you do not set `TZ` on the
+container. If you ever do, existing sessions will appear to shift.
+
+---
+
 ## Redeploying after a code change
 
 ```bash

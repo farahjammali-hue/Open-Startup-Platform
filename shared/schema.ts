@@ -570,6 +570,9 @@ export const mentorshipModuleSessions = pgTable("mentorship_module_sessions", {
   zoomMeetingId: text("zoom_meeting_id"),
   // Set only for meetings created and managed by the platform.
   zoomHostEmail: text("zoom_host_email"),
+  // iCalendar SEQUENCE. Must increase on every change we send out, or
+  // calendar clients ignore the update. See server/calendar.ts.
+  calendarSequence: integer("calendar_sequence").notNull().default(0),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
@@ -640,6 +643,7 @@ export const trainingModuleSessions = pgTable("training_module_sessions", {
   // the Zoom recording webhook find this exact session with a direct lookup.
   zoomMeetingId: text("zoom_meeting_id"),
   zoomHostEmail: text("zoom_host_email"),
+  calendarSequence: integer("calendar_sequence").notNull().default(0),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
