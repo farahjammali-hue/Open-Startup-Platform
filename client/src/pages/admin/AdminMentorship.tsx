@@ -45,7 +45,10 @@ interface MentorshipSession {
   recordingUrl: string | null;
   transcriptUrl: string | null;
   materialsUrl: string | null;
+  zoomHostEmail: string | null;
 }
+
+interface ZoomHost { id: string; email: string; name: string; }
 
 /** datetime-local expects local time, no timezone suffix. */
 function toDatetimeLocal(d: Date) {
@@ -298,11 +301,17 @@ function SessionFormModal({
   const [mentorBio, setMentorBio] = useState(session?.mentorBio ?? "");
   const [status, setStatus] = useState<"upcoming" | "completed">(session?.status ?? "upcoming");
   const [meetingLink, setMeetingLink] = useState(session?.meetingLink ?? "");
+  const [zoomHostEmail, setZoomHostEmail] = useState(session?.zoomHostEmail ?? "");
   const [recordingUrl, setRecordingUrl] = useState(session?.recordingUrl ?? "");
   const [transcriptUrl, setTranscriptUrl] = useState(session?.transcriptUrl ?? "");
   const [materialsUrl, setMaterialsUrl] = useState(session?.materialsUrl ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { data: zoomData, isLoading: zoomHostsLoading } = useQuery<{ hosts: ZoomHost[] }>({
+    queryKey: ["zoom-hosts"],
+    queryFn: () => api("/api/admin/zoom/hosts"),
+    retry: false,
+  });
 
   async function save() {
     setSaving(true);
@@ -318,6 +327,7 @@ function SessionFormModal({
         mentorBio,
         status,
         meetingLink,
+        zoomHostEmail,
         recordingUrl,
         transcriptUrl,
         materialsUrl,
@@ -376,8 +386,37 @@ function SessionFormModal({
       <label className="ost-label">Mentor bio (optional, shown to founders)</label>
       <textarea className="ost-input mb-3 min-h-[50px]" value={mentorBio} onChange={(e) => setMentorBio(e.target.value)} placeholder="Short bio describing the mentor's background" />
 
-      <label className="ost-label">Meeting link (for upcoming sessions)</label>
-      <input className="ost-input mb-3" value={meetingLink} onChange={(e) => setMeetingLink(e.target.value)} placeholder="https://…" />
+      <label className="ost-label">Zoom host (optional)</label>
+      <select
+        className="ost-input mb-1"
+        value={zoomHostEmail}
+        onChange={(e) => {
+          const next = e.target.value;
+          setZoomHostEmail(next);
+          // Clearing the host cancels the meeting the platform created, so
+          // don't leave its now-dead join link sitting in the manual field.
+          if (!next && session?.zoomHostEmail) setMeetingLink("");
+        }}
+        disabled={zoomHostsLoading}
+      >
+        <option value="">Create no Zoom meeting</option>
+        {(zoomData?.hosts ?? []).map((host) => <option key={host.id} value={host.email}>{host.name} — {host.email}</option>)}
+      </select>
+      {zoomHostEmail ? (
+        <p className="mb-3 text-sm text-muted-foreground">
+          {session?.zoomHostEmail === zoomHostEmail
+            ? "The platform keeps this Zoom meeting's title, date and duration in sync when you save."
+            : "A Zoom meeting and participant join link will be created automatically when you save."}
+        </p>
+      ) : (
+        <>
+          {session?.zoomHostEmail ? (
+            <p className="mb-2 text-sm text-red-600">Saving will cancel the Zoom meeting the platform created for this session.</p>
+          ) : null}
+          <label className="ost-label">Meeting link (optional)</label>
+          <input className="ost-input mb-3" value={meetingLink} onChange={(e) => setMeetingLink(e.target.value)} placeholder="https://…" />
+        </>
+      )}
 
       <label className="ost-label">Recording link</label>
       <input className="ost-input mb-3" value={recordingUrl} onChange={(e) => setRecordingUrl(e.target.value)} placeholder="https://…" />

@@ -1499,6 +1499,7 @@ export const storage = {
     materialsUrl?: string | null;
     mentorBio?: string | null;
     zoomMeetingId?: string | null;
+    zoomHostEmail?: string | null;
   }): Promise<MentorshipModuleSession> {
     const [row] = await db
       .insert(mentorshipModuleSessions)
@@ -1724,6 +1725,7 @@ export const storage = {
       transcriptUrl?: string | null;
       trainerBio?: string | null;
       zoomMeetingId?: string | null;
+      zoomHostEmail?: string | null;
     },
   ): Promise<TrainingModuleSession> {
     const [row] = await db

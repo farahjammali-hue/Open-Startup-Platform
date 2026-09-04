@@ -568,6 +568,8 @@ export const mentorshipModuleSessions = pgTable("mentorship_module_sessions", {
   // Parsed automatically from meetingLink when it's a Zoom join link — lets
   // the Zoom recording webhook find this exact session with a direct lookup.
   zoomMeetingId: text("zoom_meeting_id"),
+  // Set only for meetings created and managed by the platform.
+  zoomHostEmail: text("zoom_host_email"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
@@ -637,6 +639,7 @@ export const trainingModuleSessions = pgTable("training_module_sessions", {
   // Parsed automatically from meetingLink when it's a Zoom join link — lets
   // the Zoom recording webhook find this exact session with a direct lookup.
   zoomMeetingId: text("zoom_meeting_id"),
+  zoomHostEmail: text("zoom_host_email"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
@@ -1098,6 +1101,7 @@ export const mentorshipModuleSessionSchema = z.object({
   mentorBio: z.string().max(500).optional().or(z.literal("")),
   status: z.enum(["upcoming", "completed"]).optional(),
   meetingLink: z.string().max(500).optional().or(z.literal("")),
+  zoomHostEmail: z.string().email("Choose a valid Zoom host").max(320).optional().or(z.literal("")),
   recordingUrl: z.string().max(500).optional().or(z.literal("")),
   transcriptUrl: z.string().max(500).optional().or(z.literal("")),
   materialsUrl: z.string().max(500).optional().or(z.literal("")),
@@ -1160,6 +1164,7 @@ export const trainingModuleSessionSchema = z.object({
   trainerBio: z.string().max(500).optional().or(z.literal("")),
   status: z.enum(["upcoming", "completed"]).optional(),
   meetingLink: z.string().max(500).optional().or(z.literal("")),
+  zoomHostEmail: z.string().email("Choose a valid Zoom host").max(320).optional().or(z.literal("")),
   presentationUrl: z.string().max(500).optional().or(z.literal("")),
   recordingUrl: z.string().max(500).optional().or(z.literal("")),
   transcriptUrl: z.string().max(500).optional().or(z.literal("")),

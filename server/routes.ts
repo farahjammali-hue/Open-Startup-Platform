@@ -61,6 +61,11 @@ import {
   verifyZoomWebhookSignature,
   respondToZoomUrlValidation,
   downloadZoomRecordingFile,
+  zoomConfigured,
+  listZoomHosts,
+  createZoomMeeting,
+  updateZoomMeeting,
+  deleteZoomMeeting,
 } from "./zoom";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -1560,7 +1565,9 @@ export function registerRoutes(app: Express) {
     }
 
     const meetingId = String(body?.payload?.object?.id ?? "");
-    const session = meetingId ? await storage.getMentorshipModuleSessionByZoomMeetingId(meetingId) : undefined;
+    const mentorshipSession = meetingId ? await storage.getMentorshipModuleSessionByZoomMeetingId(meetingId) : undefined;
+    const trainingSession = mentorshipSession ? undefined : meetingId ? await storage.getTrainingModuleSessionByZoomMeetingId(meetingId) : undefined;
+    const session = mentorshipSession ?? trainingSession;
 
     // Always 200 once the signature checks out — Zoom retries on non-2xx,
     // and there's nothing to retry if we simply don't recognize the meeting.
@@ -1570,7 +1577,8 @@ export function registerRoutes(app: Express) {
       const files: any[] = body.payload.object.recording_files ?? [];
       const video = files.find((f) => f.file_type === "MP4" && f.play_url);
       if (video) {
-        await storage.updateMentorshipModuleSession(session.id, { recordingUrl: video.play_url });
+        if (mentorshipSession) await storage.updateMentorshipModuleSession(session.id, { recordingUrl: video.play_url });
+        else await storage.updateTrainingModuleSession(session.id, { recordingUrl: video.play_url });
       }
     }
 
@@ -1583,7 +1591,8 @@ export function registerRoutes(app: Express) {
           const buf = await downloadZoomRecordingFile(transcript.download_url, downloadToken);
           const filename = `${session.id}-${Date.now()}.vtt`;
           fs.writeFileSync(path.join(TRANSCRIPTS_DIR, filename), buf);
-          await storage.updateMentorshipModuleSession(session.id, { transcriptUrl: `/uploads/transcripts/${filename}` });
+          if (mentorshipSession) await storage.updateMentorshipModuleSession(session.id, { transcriptUrl: `/uploads/transcripts/${filename}` });
+          else await storage.updateTrainingModuleSession(session.id, { transcriptUrl: `/uploads/transcripts/${filename}` });
         } catch (e) {
           console.error("[zoom webhook] transcript download failed:", e);
         }
@@ -1598,27 +1607,54 @@ export function registerRoutes(app: Express) {
     res.json({ sessions: await storage.listAllMentorshipSessions() });
   }));
 
+  // Only admins can see the account's available Zoom hosts. We deliberately
+  // return neither OAuth credentials nor Zoom's private host start URLs.
+  app.get("/api/admin/zoom/hosts", requireAdmin, ah(async (_req, res) => {
+    if (!zoomConfigured) return res.status(503).json({ message: "Zoom is not configured" });
+    res.json({ hosts: await listZoomHosts() });
+  }));
+
   app.post("/api/admin/mentorship/sessions", requireAdmin, ah(async (req, res) => {
     const parsed = mentorshipModuleSessionSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ message: parsed.error.errors[0].message });
     }
-    const session = await storage.createMentorshipModuleSession({
-      number: parsed.data.number,
-      title: parsed.data.title,
-      description: parsed.data.description || null,
-      scheduledAt: new Date(parsed.data.scheduledAt),
-      durationMinutes: parsed.data.durationMinutes ?? 120,
-      experts: parsed.data.experts || null,
-      status: parsed.data.status ?? "upcoming",
-      meetingLink: parsed.data.meetingLink || null,
-      recordingUrl: parsed.data.recordingUrl || null,
-      transcriptUrl: parsed.data.transcriptUrl || null,
-      materialsUrl: parsed.data.materialsUrl || null,
-      mentorBio: parsed.data.mentorBio || null,
-      zoomMeetingId: parseZoomMeetingId(parsed.data.meetingLink),
-    });
-    res.status(201).json(session);
+    const hostEmail = parsed.data.zoomHostEmail || null;
+    let meetingLink = parsed.data.meetingLink || null;
+    let zoomMeetingId = parseZoomMeetingId(meetingLink);
+    let createdMeetingId: string | null = null;
+    if (hostEmail) {
+      const meeting = await createZoomMeeting(hostEmail, {
+        topic: parsed.data.title,
+        scheduledAt: new Date(parsed.data.scheduledAt),
+        durationMinutes: parsed.data.durationMinutes ?? 120,
+      });
+      meetingLink = meeting.joinUrl;
+      zoomMeetingId = meeting.id;
+      createdMeetingId = meeting.id;
+    }
+    try {
+      const session = await storage.createMentorshipModuleSession({
+        number: parsed.data.number,
+        title: parsed.data.title,
+        description: parsed.data.description || null,
+        scheduledAt: new Date(parsed.data.scheduledAt),
+        durationMinutes: parsed.data.durationMinutes ?? 120,
+        experts: parsed.data.experts || null,
+        status: parsed.data.status ?? "upcoming",
+        meetingLink,
+        recordingUrl: parsed.data.recordingUrl || null,
+        transcriptUrl: parsed.data.transcriptUrl || null,
+        materialsUrl: parsed.data.materialsUrl || null,
+        mentorBio: parsed.data.mentorBio || null,
+        zoomMeetingId,
+        zoomHostEmail: hostEmail,
+      });
+      res.status(201).json(session);
+    } catch (error) {
+      if (createdMeetingId) await deleteZoomMeeting(createdMeetingId).catch(() => undefined);
+      throw error;
+    }
   }));
 
   app.patch("/api/admin/mentorship/sessions/:id", requireAdmin, ah(async (req, res) => {
@@ -1632,7 +1668,35 @@ export function registerRoutes(app: Express) {
     if (parsed.data.scheduledAt !== undefined) patch.scheduledAt = new Date(parsed.data.scheduledAt);
     if (parsed.data.description !== undefined) patch.description = parsed.data.description || null;
     if (parsed.data.experts !== undefined) patch.experts = parsed.data.experts || null;
-    if (parsed.data.meetingLink !== undefined) {
+    const requestedHost = parsed.data.zoomHostEmail;
+    if (requestedHost !== undefined) patch.zoomHostEmail = requestedHost || null;
+    if (requestedHost && requestedHost !== existing.zoomHostEmail) {
+      const meeting = await createZoomMeeting(requestedHost, {
+        topic: parsed.data.title ?? existing.title,
+        scheduledAt: parsed.data.scheduledAt ? new Date(parsed.data.scheduledAt) : existing.scheduledAt,
+        durationMinutes: parsed.data.durationMinutes ?? existing.durationMinutes,
+      });
+      patch.meetingLink = meeting.joinUrl;
+      patch.zoomMeetingId = meeting.id;
+      patch.zoomHostEmail = requestedHost;
+    } else if (requestedHost === "" && existing.zoomHostEmail) {
+      // Host cleared: cancel the meeting the platform created and fall back to
+      // whatever link the admin typed in its place (usually none).
+      if (existing.zoomMeetingId) {
+        await deleteZoomMeeting(existing.zoomMeetingId).catch((error) => console.error("[zoom] meeting cancel failed:", error));
+      }
+      patch.zoomHostEmail = null;
+      patch.meetingLink = parsed.data.meetingLink || null;
+      patch.zoomMeetingId = parseZoomMeetingId(parsed.data.meetingLink);
+    } else if (existing.zoomHostEmail && existing.zoomMeetingId) {
+      await updateZoomMeeting(existing.zoomMeetingId, {
+        topic: parsed.data.title ?? existing.title,
+        scheduledAt: parsed.data.scheduledAt ? new Date(parsed.data.scheduledAt) : existing.scheduledAt,
+        durationMinutes: parsed.data.durationMinutes ?? existing.durationMinutes,
+      });
+      patch.zoomHostEmail = existing.zoomHostEmail;
+      delete patch.meetingLink;
+    } else if (parsed.data.meetingLink !== undefined) {
       patch.meetingLink = parsed.data.meetingLink || null;
       patch.zoomMeetingId = parseZoomMeetingId(parsed.data.meetingLink);
     }
@@ -1641,12 +1705,18 @@ export function registerRoutes(app: Express) {
     if (parsed.data.materialsUrl !== undefined) patch.materialsUrl = parsed.data.materialsUrl || null;
     if (parsed.data.mentorBio !== undefined) patch.mentorBio = parsed.data.mentorBio || null;
     const session = await storage.updateMentorshipModuleSession(existing.id, patch as any);
+    if (requestedHost && requestedHost !== existing.zoomHostEmail && existing.zoomMeetingId && existing.zoomHostEmail) {
+      await deleteZoomMeeting(existing.zoomMeetingId).catch((error) => console.error("[zoom] old meeting cleanup failed:", error));
+    }
     res.json(session);
   }));
 
   app.delete("/api/admin/mentorship/sessions/:id", requireAdmin, ah(async (req, res) => {
     const existing = await storage.getMentorshipModuleSessionById(req.params.id);
     if (!existing) return res.status(404).json({ message: "Not found" });
+    if (existing.zoomHostEmail && existing.zoomMeetingId) {
+      await deleteZoomMeeting(existing.zoomMeetingId).catch((error) => console.error("[zoom] meeting delete failed:", error));
+    }
     await storage.deleteMentorshipModuleSession(existing.id);
     res.json({ ok: true });
   }));
@@ -1772,22 +1842,42 @@ export function registerRoutes(app: Express) {
     }
     const module = await storage.getTrainingModuleById(parsed.data.moduleId);
     if (!module) return res.status(404).json({ message: "Module not found" });
-    const session = await storage.createTrainingModuleSession(module.id, {
-      number: parsed.data.number,
-      title: parsed.data.title,
-      description: parsed.data.description || null,
-      scheduledAt: new Date(parsed.data.scheduledAt),
-      durationMinutes: parsed.data.durationMinutes ?? 120,
-      experts: parsed.data.experts || null,
-      status: parsed.data.status ?? "upcoming",
-      meetingLink: parsed.data.meetingLink || null,
-      presentationUrl: parsed.data.presentationUrl || null,
-      recordingUrl: parsed.data.recordingUrl || null,
-      transcriptUrl: parsed.data.transcriptUrl || null,
-      trainerBio: parsed.data.trainerBio || null,
-      zoomMeetingId: parseZoomMeetingId(parsed.data.meetingLink),
-    });
-    res.status(201).json(session);
+    const hostEmail = parsed.data.zoomHostEmail || null;
+    let meetingLink = parsed.data.meetingLink || null;
+    let zoomMeetingId = parseZoomMeetingId(meetingLink);
+    let createdMeetingId: string | null = null;
+    if (hostEmail) {
+      const meeting = await createZoomMeeting(hostEmail, {
+        topic: parsed.data.title,
+        scheduledAt: new Date(parsed.data.scheduledAt),
+        durationMinutes: parsed.data.durationMinutes ?? 120,
+      });
+      meetingLink = meeting.joinUrl;
+      zoomMeetingId = meeting.id;
+      createdMeetingId = meeting.id;
+    }
+    try {
+      const session = await storage.createTrainingModuleSession(module.id, {
+        number: parsed.data.number,
+        title: parsed.data.title,
+        description: parsed.data.description || null,
+        scheduledAt: new Date(parsed.data.scheduledAt),
+        durationMinutes: parsed.data.durationMinutes ?? 120,
+        experts: parsed.data.experts || null,
+        status: parsed.data.status ?? "upcoming",
+        meetingLink,
+        presentationUrl: parsed.data.presentationUrl || null,
+        recordingUrl: parsed.data.recordingUrl || null,
+        transcriptUrl: parsed.data.transcriptUrl || null,
+        trainerBio: parsed.data.trainerBio || null,
+        zoomMeetingId,
+        zoomHostEmail: hostEmail,
+      });
+      res.status(201).json(session);
+    } catch (error) {
+      if (createdMeetingId) await deleteZoomMeeting(createdMeetingId).catch(() => undefined);
+      throw error;
+    }
   }));
 
   app.patch("/api/admin/training/sessions/:id", requireAdmin, ah(async (req, res) => {
@@ -1801,7 +1891,35 @@ export function registerRoutes(app: Express) {
     if (parsed.data.scheduledAt !== undefined) patch.scheduledAt = new Date(parsed.data.scheduledAt);
     if (parsed.data.description !== undefined) patch.description = parsed.data.description || null;
     if (parsed.data.experts !== undefined) patch.experts = parsed.data.experts || null;
-    if (parsed.data.meetingLink !== undefined) {
+    const requestedHost = parsed.data.zoomHostEmail;
+    if (requestedHost !== undefined) patch.zoomHostEmail = requestedHost || null;
+    if (requestedHost && requestedHost !== existing.zoomHostEmail) {
+      const meeting = await createZoomMeeting(requestedHost, {
+        topic: parsed.data.title ?? existing.title,
+        scheduledAt: parsed.data.scheduledAt ? new Date(parsed.data.scheduledAt) : existing.scheduledAt,
+        durationMinutes: parsed.data.durationMinutes ?? existing.durationMinutes,
+      });
+      patch.meetingLink = meeting.joinUrl;
+      patch.zoomMeetingId = meeting.id;
+      patch.zoomHostEmail = requestedHost;
+    } else if (requestedHost === "" && existing.zoomHostEmail) {
+      // Host cleared: cancel the meeting the platform created and fall back to
+      // whatever link the admin typed in its place (usually none).
+      if (existing.zoomMeetingId) {
+        await deleteZoomMeeting(existing.zoomMeetingId).catch((error) => console.error("[zoom] meeting cancel failed:", error));
+      }
+      patch.zoomHostEmail = null;
+      patch.meetingLink = parsed.data.meetingLink || null;
+      patch.zoomMeetingId = parseZoomMeetingId(parsed.data.meetingLink);
+    } else if (existing.zoomHostEmail && existing.zoomMeetingId) {
+      await updateZoomMeeting(existing.zoomMeetingId, {
+        topic: parsed.data.title ?? existing.title,
+        scheduledAt: parsed.data.scheduledAt ? new Date(parsed.data.scheduledAt) : existing.scheduledAt,
+        durationMinutes: parsed.data.durationMinutes ?? existing.durationMinutes,
+      });
+      patch.zoomHostEmail = existing.zoomHostEmail;
+      delete patch.meetingLink;
+    } else if (parsed.data.meetingLink !== undefined) {
       patch.meetingLink = parsed.data.meetingLink || null;
       patch.zoomMeetingId = parseZoomMeetingId(parsed.data.meetingLink);
     }
@@ -1810,12 +1928,18 @@ export function registerRoutes(app: Express) {
     if (parsed.data.transcriptUrl !== undefined) patch.transcriptUrl = parsed.data.transcriptUrl || null;
     if (parsed.data.trainerBio !== undefined) patch.trainerBio = parsed.data.trainerBio || null;
     const session = await storage.updateTrainingModuleSession(existing.id, patch as any);
+    if (requestedHost && requestedHost !== existing.zoomHostEmail && existing.zoomMeetingId && existing.zoomHostEmail) {
+      await deleteZoomMeeting(existing.zoomMeetingId).catch((error) => console.error("[zoom] old meeting cleanup failed:", error));
+    }
     res.json(session);
   }));
 
   app.delete("/api/admin/training/sessions/:id", requireAdmin, ah(async (req, res) => {
     const existing = await storage.getTrainingModuleSessionById(req.params.id);
     if (!existing) return res.status(404).json({ message: "Not found" });
+    if (existing.zoomHostEmail && existing.zoomMeetingId) {
+      await deleteZoomMeeting(existing.zoomMeetingId).catch((error) => console.error("[zoom] meeting delete failed:", error));
+    }
     await storage.deleteTrainingModuleSession(existing.id);
     res.json({ ok: true });
   }));
