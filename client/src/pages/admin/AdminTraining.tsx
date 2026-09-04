@@ -416,7 +416,10 @@ function SessionFormModal({
         number: Number(number) || 1,
         title,
         description,
-        scheduledAt,
+        // Convert local wall-clock to a real instant here, where the
+        // browser's timezone is known. Sending the naive string let the
+        // server read it as UTC and drift the time on every edit.
+        scheduledAt: new Date(scheduledAt).toISOString(),
         durationMinutes: Number(durationMinutes) || 120,
         experts,
         trainerBio,
