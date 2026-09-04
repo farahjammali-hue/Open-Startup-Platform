@@ -20,6 +20,8 @@ section for how to get each one):
 - [ ] You know which teammate emails should be admins (`ADMIN_EMAILS`)
 - [ ] You've decided whether to enable Google login / email / captcha for
       testing, or leave them off (recommended default: off)
+- [ ] You know the Postgres container's name and the Docker network it runs
+      on (see step 2) — both are required in `.env.test`
 
 ---
 
@@ -47,13 +49,25 @@ GRANT ALL ON SCHEMA public TO ost_test_user;
 ```
 
 This database is completely separate from anything production uses — nothing
-here can touch real user data. Confirm Postgres is listening on the address
-the Docker container will reach it at (usually `localhost`/`127.0.0.1` on the
-host, which the container reaches via `host.docker.internal` — see
-docker-compose.yml). If Postgres's `pg_hba.conf` only allows local socket
-connections, you may need to allow TCP connections from the Docker bridge
-network (ask if you want the exact `pg_hba.conf` line — not included here
-since it depends on your Docker network range).
+here can touch real user data.
+
+On this VPS, Postgres runs as a Docker CONTAINER, not on the host. The app
+reaches it by container hostname over a shared Docker network, so
+`host.docker.internal` does not apply. Collect both values now:
+
+```bash
+docker ps                                      # the Postgres container's name
+docker inspect <postgres-container> --format "{{json .NetworkSettings.Networks}}"
+```
+
+The container name goes in `DATABASE_URL`; the network name goes in
+`POSTGRES_DOCKER_NETWORK`. Both are set in step 3.
+
+If your Postgres instead runs directly on the host, use
+`host.docker.internal` in `DATABASE_URL`, add
+`extra_hosts: ["host.docker.internal:host-gateway"]` back to the app service,
+and remove the `networks:` blocks from docker-compose.yml. You may also need
+to allow TCP connections from the Docker bridge range in `pg_hba.conf`.
 
 ## 3. Configure the environment
 
@@ -72,39 +86,48 @@ openssl rand -hex 32
 ## 4. Build the image
 
 ```bash
-docker compose -f deploy/docker-compose.yml build
+docker compose --env-file .env.test -f deploy/docker-compose.yml build
 ```
 
 ## 5. Create the database schema (one-time, or after a schema change)
 
-The production image intentionally excludes dev tools (like drizzle-kit) to
-stay small, so schema creation runs from the earlier "build" stage instead:
+The production image intentionally excludes dev tools (like drizzle-kit) and
+`server/migrate.mjs`, so schema work runs from the earlier "build" stage
+instead. Load the network name into your shell first, since these are plain
+`docker run` commands and don't read `.env.test` for it:
 
 ```bash
-docker build -f deploy/Dockerfile --target build -t ost-test-migrate ..
+export $(grep '^POSTGRES_DOCKER_NETWORK=' .env.test | xargs)
+
+docker build -f deploy/Dockerfile --target build -t ost-test-migrate .
 docker run --rm --env-file .env.test \
-  --add-host=host.docker.internal:host-gateway \
+  --network "$POSTGRES_DOCKER_NETWORK" \
   ost-test-migrate npm run db:push
+docker run --rm --env-file .env.test \
+  --network "$POSTGRES_DOCKER_NETWORK" \
+  ost-test-migrate npm run db:migrate
 ```
 
-This creates all tables (including the `session` table) from
-`shared/schema.ts` against the empty test database from step 2. It's safe to
-re-run.
+`db:push` creates all tables (including the `session` table) from
+`shared/schema.ts`. `db:migrate` then applies the incremental `ALTER`
+statements in `server/migrate.mjs` on top. Run BOTH: the two are kept in
+sync by hand and each covers changes the other doesn't. Both are idempotent
+and safe to re-run.
 
 Optional: seed the built-in Open Startup School catalogue and starter office
 hours slots:
 
 ```bash
 docker run --rm --env-file .env.test \
-  --add-host=host.docker.internal:host-gateway \
+  --network "$POSTGRES_DOCKER_NETWORK" \
   ost-test-migrate npm run db:seed
 ```
 
 ## 6. Start the app
 
 ```bash
-docker compose -f deploy/docker-compose.yml up -d
-docker compose -f deploy/docker-compose.yml logs -f app   # watch it boot; Ctrl+C to stop watching
+docker compose --env-file .env.test -f deploy/docker-compose.yml up -d
+docker compose --env-file .env.test -f deploy/docker-compose.yml logs -f app   # watch it boot; Ctrl+C to stop watching
 ```
 
 You should see `OST All-in-One running at http://localhost:5000` in the logs.
@@ -153,7 +176,7 @@ yet. That's expected; CloudPanel handles the public side next.
 
 - [ ] Basic Auth prompt appears before anything else loads
 - [ ] Sign up a new test account — if SMTP isn't configured, the verification
-      link appears in `docker compose -f deploy/docker-compose.yml logs app`
+      link appears in `docker compose --env-file .env.test -f deploy/docker-compose.yml logs app`
 - [ ] One of the `ADMIN_EMAILS` accounts sees the admin dashboard after login
 - [ ] Upload a small file (e.g. a logo) somewhere and confirm it appears —
       confirms the uploads volume is writable
@@ -166,10 +189,13 @@ yet. That's expected; CloudPanel handles the public side next.
 
 ```bash
 git pull
-docker compose -f deploy/docker-compose.yml up -d --build
+docker compose --env-file .env.test -f deploy/docker-compose.yml up -d --build
 ```
 
-If `shared/schema.ts` changed, also re-run the step 5 migrate command.
+If `shared/schema.ts` or `server/migrate.mjs` changed, run the step 5
+commands BEFORE the deploy above. Otherwise the new code queries columns the
+database doesn't have yet, and every page that touches them fails with "The
+database is out of date."
 
 ---
 
@@ -181,7 +207,7 @@ sites, or production data:
 
 ```bash
 # Stop and remove the app container
-docker compose -f deploy/docker-compose.yml down
+docker compose --env-file .env.test -f deploy/docker-compose.yml down
 
 # Also delete the uploaded-files volume (only if you want test uploads gone too)
 docker volume rm ost_platform_test_uploads
@@ -196,6 +222,6 @@ also removes its Nginx config and Let's Encrypt certificate).
 
 To pause without deleting anything (e.g. overnight), just:
 ```bash
-docker compose -f deploy/docker-compose.yml stop
+docker compose --env-file .env.test -f deploy/docker-compose.yml stop
 ```
-and restart later with `docker compose -f deploy/docker-compose.yml start`.
+and restart later with `docker compose --env-file .env.test -f deploy/docker-compose.yml start`.
