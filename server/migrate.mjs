@@ -556,6 +556,7 @@ ALTER TABLE startups ADD COLUMN IF NOT EXISTS data_room_updated_at timestamp;
 -- Zoom recording sync: lets the webhook find the exact session a completed
 -- recording belongs to.
 ALTER TABLE mentorship_module_sessions ADD COLUMN IF NOT EXISTS zoom_meeting_id text;
+ALTER TABLE mentorship_module_sessions ADD COLUMN IF NOT EXISTS zoom_host_email text;
 
 -- Contract: switched from in-platform e-signing to "sign externally, upload
 -- the signed PDF here." Old signature columns are relaxed (not dropped, so
@@ -604,9 +605,11 @@ CREATE TABLE IF NOT EXISTS training_module_sessions (
   recording_url text,
   transcript_url text,
   zoom_meeting_id text,
+  zoom_host_email text,
   created_at timestamp NOT NULL DEFAULT now(),
   updated_at timestamp NOT NULL DEFAULT now()
 );
+ALTER TABLE training_module_sessions ADD COLUMN IF NOT EXISTS zoom_host_email text;
 
 -- Training: per-(session, startup) recap and trainer feedback.
 CREATE TABLE IF NOT EXISTS training_session_notes (
