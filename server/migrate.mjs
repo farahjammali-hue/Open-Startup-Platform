@@ -685,6 +685,55 @@ CREATE TABLE IF NOT EXISTS expert_priorities (
 
 -- Mentorship sessions: a "Materials" link/button (slides, handouts, resources).
 ALTER TABLE mentorship_module_sessions ADD COLUMN IF NOT EXISTS materials_url text;
+
+-- Mentor assignment now sources from the "Other experts" catalog instead of
+-- the separate mentors directory (which had zero real usage) — admins pick a
+-- startup's mentor from the same list founders browse on their "Other
+-- experts" tab.
+DO $$
+DECLARE cname text;
+BEGIN
+  SELECT tc.constraint_name INTO cname
+    FROM information_schema.table_constraints tc
+    JOIN information_schema.key_column_usage kcu ON tc.constraint_name = kcu.constraint_name
+   WHERE tc.table_name = 'startups' AND tc.constraint_type = 'FOREIGN KEY' AND kcu.column_name = 'mentor_id';
+  IF cname IS NOT NULL THEN
+    EXECUTE 'ALTER TABLE startups DROP CONSTRAINT ' || quote_ident(cname);
+  END IF;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE startups ADD CONSTRAINT startups_mentor_id_experts_id_fkey FOREIGN KEY (mentor_id) REFERENCES experts(id) ON DELETE SET NULL;
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+DROP TABLE IF EXISTS mentors;
+
+-- Admin reorg: Mentorship sessions now belong to exactly one startup (1:1
+-- mentoring), replacing the old shared/cohort-wide session catalog. The two
+-- pre-existing shared sessions had zero real per-startup recap data attached
+-- and are removed per the admin's explicit call, rather than guessed at.
+DELETE FROM mentorship_session_notes;
+DELETE FROM mentorship_module_sessions;
+ALTER TABLE mentorship_module_sessions ADD COLUMN IF NOT EXISTS startup_id uuid REFERENCES startups(id) ON DELETE CASCADE;
+ALTER TABLE mentorship_module_sessions ALTER COLUMN startup_id SET NOT NULL;
+ALTER TABLE mentorship_module_sessions DROP COLUMN IF EXISTS module_id;
+DO $$
+DECLARE cnt integer;
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_tables WHERE tablename = 'mentorship_modules') THEN
+    SELECT COUNT(*) INTO cnt FROM mentorship_modules;
+    IF cnt = 0 THEN
+      EXECUTE 'DROP TABLE mentorship_modules';
+    END IF;
+  END IF;
+END $$;
+
+-- Training sessions can target several startups at once (e.g. everyone on
+-- the same track), unlike Mentorship's strictly one-startup-per-session model.
+CREATE TABLE IF NOT EXISTS training_session_startups (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  session_id uuid NOT NULL REFERENCES training_module_sessions(id) ON DELETE CASCADE,
+  startup_id uuid NOT NULL REFERENCES startups(id) ON DELETE CASCADE,
+  created_at timestamp NOT NULL DEFAULT now()
+);
 `;
 
 try {

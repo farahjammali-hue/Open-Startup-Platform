@@ -13,9 +13,9 @@ import {
   trainingProgress,
   mentorshipModuleSessions,
   mentorshipSessionNotes,
-  mentors,
   trainingModules,
   trainingModuleSessions,
+  trainingSessionStartups,
   trainingSessionNotes,
   trainingModuleHomework,
   trainers,
@@ -43,7 +43,6 @@ import {
   type TrainingProgress,
   type MentorshipModuleSession,
   type MentorshipSessionNotes,
-  type Mentor,
   type TrainingModule,
   type TrainingModuleSession,
   type TrainingSessionNotes,
@@ -399,10 +398,17 @@ export const storage = {
         ownerName: users.name,
         ownerEmail: users.email,
         kysTrack: kysProfiles.track,
+        kysStatus: kysProfiles.status,
+        contractStatus: contracts.status,
+        mentorName: experts.name,
+        trainerName: trainers.name,
       })
       .from(startups)
       .leftJoin(users, eq(startups.userId, users.id))
       .leftJoin(kysProfiles, eq(kysProfiles.startupId, startups.id))
+      .leftJoin(contracts, eq(contracts.startupId, startups.id))
+      .leftJoin(experts, eq(experts.id, startups.mentorId))
+      .leftJoin(trainers, eq(trainers.id, startups.trainerId))
       .orderBy(desc(startups.createdAt));
   },
 
@@ -1449,10 +1455,10 @@ export const storage = {
     return row;
   },
 
-  /* ---------------- Mentorship (flat list of sessions, no modules/locking) ---------------- */
+  /* ---------------- Mentorship (per-startup sessions, no modules/locking) ---------------- */
   async listMentorshipSessionsForFounder(startupId: string) {
     const [sessions, notes] = await Promise.all([
-      db.select().from(mentorshipModuleSessions).orderBy(asc(mentorshipModuleSessions.scheduledAt)),
+      db.select().from(mentorshipModuleSessions).where(eq(mentorshipModuleSessions.startupId, startupId)).orderBy(asc(mentorshipModuleSessions.scheduledAt)),
       db.select().from(mentorshipSessionNotes).where(eq(mentorshipSessionNotes.startupId, startupId)),
     ]);
     const notesBySessionId = new Map(notes.map((n) => [n.sessionId, n]));
@@ -1468,8 +1474,12 @@ export const storage = {
     return sessions.map((s) => ({ ...s, notes: notesBySessionId.get(s.id) ?? emptyNotes }));
   },
 
-  async listAllMentorshipSessions(): Promise<MentorshipModuleSession[]> {
-    return db.select().from(mentorshipModuleSessions).orderBy(asc(mentorshipModuleSessions.scheduledAt));
+  async listMentorshipSessionsForStartup(startupId: string): Promise<MentorshipModuleSession[]> {
+    return db
+      .select()
+      .from(mentorshipModuleSessions)
+      .where(eq(mentorshipModuleSessions.startupId, startupId))
+      .orderBy(asc(mentorshipModuleSessions.scheduledAt));
   },
 
   async getMentorshipModuleSessionById(id: string): Promise<MentorshipModuleSession | undefined> {
@@ -1486,6 +1496,7 @@ export const storage = {
   },
 
   async createMentorshipModuleSession(data: {
+    startupId: string;
     number: number;
     title: string;
     description?: string | null;
@@ -1567,56 +1578,25 @@ export const storage = {
     return row;
   },
 
-  /* ---------------- Mentors (reusable directory, one assigned per startup) ---------------- */
-  async listMentors(): Promise<Mentor[]> {
-    return db.select().from(mentors).orderBy(asc(mentors.name));
-  },
-
-  async getMentorById(id: string): Promise<Mentor | undefined> {
-    const [row] = await db.select().from(mentors).where(eq(mentors.id, id));
-    return row;
-  },
-
-  async createMentor(data: {
-    name: string;
-    introduction?: string | null;
-    email?: string | null;
-    whatsapp?: string | null;
-    linkedinUrl?: string | null;
-  }): Promise<Mentor> {
-    const [row] = await db.insert(mentors).values(data).returning();
-    return row;
-  },
-
-  async updateMentor(id: string, data: Partial<typeof mentors.$inferInsert>): Promise<Mentor> {
-    const [row] = await db
-      .update(mentors)
-      .set({ ...data, updatedAt: new Date() })
-      .where(eq(mentors.id, id))
-      .returning();
-    return row;
-  },
-
-  async deleteMentor(id: string): Promise<void> {
-    await db.delete(mentors).where(eq(mentors.id, id));
-  },
-
-  async getMentorForStartup(startupId: string): Promise<Mentor | undefined> {
+  /* ---------------- Mentor assignment (sourced from the Other-experts catalog) ---------------- */
+  async getMentorForStartup(startupId: string): Promise<Expert | undefined> {
     const startup = await this.getStartupById(startupId);
     if (!startup?.mentorId) return undefined;
-    return this.getMentorById(startup.mentorId);
+    return this.getExpertById(startup.mentorId);
   },
 
   /* ---------------- Training (Modules + Sessions) ---------------- */
   async listTrainingModulesForFounder(startupId: string) {
-    const [modules, sessions, notes, homework] = await Promise.all([
+    const [modules, sessions, notes, homework, targets] = await Promise.all([
       db.select().from(trainingModules).orderBy(asc(trainingModules.number)),
       db.select().from(trainingModuleSessions).orderBy(asc(trainingModuleSessions.number)),
       db.select().from(trainingSessionNotes).where(eq(trainingSessionNotes.startupId, startupId)),
       db.select().from(trainingModuleHomework).where(eq(trainingModuleHomework.startupId, startupId)),
+      db.select().from(trainingSessionStartups).where(eq(trainingSessionStartups.startupId, startupId)),
     ]);
     const notesBySessionId = new Map(notes.map((n) => [n.sessionId, n]));
     const homeworkByModuleId = new Map(homework.map((h) => [h.moduleId, h]));
+    const targetedSessionIds = new Set(targets.map((t) => t.sessionId));
     const emptyNotes = {
       teamMembersPresence: null,
       pointsDiscussed: null,
@@ -1628,10 +1608,11 @@ export const storage = {
     };
     const emptyHomework = { homeworkUrl: null, submissionFileUrl: null, submissionFileName: null };
     return modules.map((m) => {
-      // Locked modules never leak their session content to the founder side.
+      // Locked modules never leak their session content to the founder side,
+      // and a session only shows if this startup is one of its targets.
       const moduleSessions = m.unlocked
         ? sessions
-            .filter((s) => s.moduleId === m.id)
+            .filter((s) => s.moduleId === m.id && targetedSessionIds.has(s.id))
             .map((s) => ({ ...s, notes: notesBySessionId.get(s.id) ?? emptyNotes }))
         : [];
       return {
@@ -1646,14 +1627,49 @@ export const storage = {
   },
 
   async listTrainingModulesWithSessions() {
-    const [modules, sessions] = await Promise.all([
+    const [modules, sessions, targets] = await Promise.all([
       db.select().from(trainingModules).orderBy(asc(trainingModules.number)),
       db.select().from(trainingModuleSessions).orderBy(asc(trainingModuleSessions.number)),
+      db.select().from(trainingSessionStartups),
     ]);
+    const startupIdsBySessionId = new Map<string, string[]>();
+    for (const t of targets) {
+      const list = startupIdsBySessionId.get(t.sessionId) ?? [];
+      list.push(t.startupId);
+      startupIdsBySessionId.set(t.sessionId, list);
+    }
     return modules.map((m) => ({
       ...m,
-      sessions: sessions.filter((s) => s.moduleId === m.id),
+      sessions: sessions
+        .filter((s) => s.moduleId === m.id)
+        .map((s) => ({ ...s, startupIds: startupIdsBySessionId.get(s.id) ?? [] })),
     }));
+  },
+
+  async listTrainingSessionsForStartup(startupId: string) {
+    const targets = await db.select().from(trainingSessionStartups).where(eq(trainingSessionStartups.startupId, startupId));
+    if (targets.length === 0) return [];
+    const sessionIds = targets.map((t) => t.sessionId);
+    const [sessions, modules] = await Promise.all([
+      db.select().from(trainingModuleSessions).where(inArray(trainingModuleSessions.id, sessionIds)),
+      db.select().from(trainingModules),
+    ]);
+    const moduleById = new Map(modules.map((m) => [m.id, m]));
+    return sessions
+      .map((s) => ({ ...s, moduleTitle: moduleById.get(s.moduleId)?.title ?? null }))
+      .sort((a, b) => a.scheduledAt.getTime() - b.scheduledAt.getTime());
+  },
+
+  async getTrainingSessionStartupIds(sessionId: string): Promise<string[]> {
+    const rows = await db.select().from(trainingSessionStartups).where(eq(trainingSessionStartups.sessionId, sessionId));
+    return rows.map((r) => r.startupId);
+  },
+
+  async setTrainingSessionStartups(sessionId: string, startupIds: string[]): Promise<void> {
+    await db.delete(trainingSessionStartups).where(eq(trainingSessionStartups.sessionId, sessionId));
+    if (startupIds.length > 0) {
+      await db.insert(trainingSessionStartups).values(startupIds.map((startupId) => ({ sessionId, startupId })));
+    }
   },
 
   async getTrainingModuleById(id: string): Promise<TrainingModule | undefined> {
@@ -1910,6 +1926,16 @@ export const storage = {
   }): Promise<Expert> {
     const [row] = await db.insert(experts).values(data).returning();
     return row;
+  },
+
+  async createExperts(rows: {
+    name: string;
+    bio?: string | null;
+    industries?: string[];
+    expertiseAreas?: string[];
+  }[]): Promise<Expert[]> {
+    if (rows.length === 0) return [];
+    return db.insert(experts).values(rows).returning();
   },
 
   async updateExpert(id: string, data: Partial<typeof experts.$inferInsert>): Promise<Expert> {

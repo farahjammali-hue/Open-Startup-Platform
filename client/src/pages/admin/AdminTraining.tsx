@@ -1,16 +1,17 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { api } from "../../lib/utils";
 import { AppShell } from "../../components/AppShell";
 import { BackLink, PageHeader } from "../../components/PageHeader";
 import { EmptyState } from "../../components/EmptyState";
-import { SkeletonCards } from "../../components/Skeleton";
+import { SkeletonCards, SkeletonRows } from "../../components/Skeleton";
 import { ModalShell } from "../../components/ModalShell";
 import { StatusBadge } from "../../components/StatusBadge";
 import { MENTORSHIP_SESSION_STATUS_TONES } from "../../lib/statusTones";
 import { showToast } from "../../lib/toast";
 import {
-  Layers, Lock, Unlock, Pencil, Trash2, Plus, Loader2, ChevronDown, ChevronUp, User, Mail, MessageCircle, Linkedin, Camera,
+  Layers, Lock, Unlock, Pencil, Trash2, Plus, Loader2, ChevronDown, ChevronUp, User, Mail, MessageCircle, Linkedin, Camera, Building2,
 } from "lucide-react";
 
 interface Trainer {
@@ -39,6 +40,7 @@ interface TrainingSession {
   recordingUrl: string | null;
   transcriptUrl: string | null;
   zoomHostEmail: string | null;
+  startupIds: string[];
 }
 
 interface ZoomHost { id: string; email: string; name: string; }
@@ -53,6 +55,15 @@ interface TrainingModule {
   sessions: TrainingSession[];
 }
 
+interface StartupOption {
+  id: string;
+  companyName: string;
+  ownerName: string | null;
+  ownerEmail: string | null;
+  kysTrack: "pre_seed" | "seed" | null;
+  trainerName: string | null;
+}
+
 /** datetime-local expects local time, no timezone suffix. */
 function toDatetimeLocal(d: Date) {
   const pad = (n: number) => String(n).padStart(2, "0");
@@ -61,6 +72,7 @@ function toDatetimeLocal(d: Date) {
 
 export default function AdminTraining() {
   const qc = useQueryClient();
+  const [, navigate] = useLocation();
   const [expanded, setExpanded] = useState<string | null>(null);
   const [editingModule, setEditingModule] = useState<TrainingModule | "new" | null>(null);
   const [editingSession, setEditingSession] = useState<{ moduleId: string; session: TrainingSession | null } | null>(null);
@@ -77,6 +89,12 @@ export default function AdminTraining() {
     queryFn: () => api("/api/admin/trainers"),
   });
   const trainers = trainersData?.trainers ?? [];
+
+  const { data: startupsData, isLoading: startupsLoading } = useQuery<{ startups: StartupOption[] }>({
+    queryKey: ["admin-startups"],
+    queryFn: () => api("/api/admin/startups"),
+  });
+  const startups = startupsData?.startups ?? [];
 
   function invalidate() {
     qc.invalidateQueries({ queryKey: ["admin-training"] });
@@ -178,6 +196,51 @@ export default function AdminTraining() {
         )}
 
         <div className="mt-10 flex items-center justify-between">
+          <h2 className="text-sm font-bold uppercase tracking-wide text-slate-400">Startups</h2>
+        </div>
+
+        <div className="ost-card mt-3 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-100 text-left text-xs uppercase tracking-wide text-slate-400">
+                  <th className="px-5 py-3 font-semibold">Startup</th>
+                  <th className="px-5 py-3 font-semibold">Owner</th>
+                  <th className="px-5 py-3 font-semibold">Trainer</th>
+                </tr>
+              </thead>
+              <tbody>
+                {startupsLoading ? (
+                  <SkeletonRows rows={4} cols={3} />
+                ) : startups.length === 0 ? (
+                  <tr><td colSpan={3} className="px-5 py-6 text-slate-400">No startups yet.</td></tr>
+                ) : (
+                  startups.map((s) => (
+                    <tr
+                      key={s.id}
+                      onClick={() => navigate(`/admin/training/${s.id}`)}
+                      className="cursor-pointer border-b border-slate-50 last:border-0 hover:bg-slate-50"
+                    >
+                      <td className="px-5 py-3">
+                        <div className="flex items-center gap-2">
+                          <Building2 className="h-4 w-4 text-secondary" />
+                          <span className="font-semibold text-primary">{s.companyName}</span>
+                        </div>
+                      </td>
+                      <td className="px-5 py-3 text-slate-500">
+                        <div>{s.ownerName}</div>
+                        <div className="text-xs text-slate-400">{s.ownerEmail}</div>
+                      </td>
+                      <td className="px-5 py-3 text-slate-500">{s.trainerName || "—"}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className="mt-10 flex items-center justify-between">
           <h2 className="text-sm font-bold uppercase tracking-wide text-slate-400">Modules</h2>
           <button onClick={() => setEditingModule("new")} className="ost-btn-primary !px-3 !py-1.5 text-xs"><Plus className="h-3.5 w-3.5" /> Add module</button>
         </div>
@@ -250,6 +313,7 @@ export default function AdminTraining() {
                                 <span>{new Date(s.scheduledAt).toLocaleString()}</span>
                                 <span>{s.durationMinutes} min</span>
                                 {s.experts && <span>{s.experts}</span>}
+                                <span>{s.startupIds.length === 0 ? "No startups targeted" : `${s.startupIds.length} startup${s.startupIds.length === 1 ? "" : "s"}`}</span>
                               </div>
                             </div>
                             <div className="flex shrink-0 items-center gap-1">
@@ -286,6 +350,7 @@ export default function AdminTraining() {
           moduleId={editingSession.moduleId}
           session={editingSession.session}
           nextNumber={(modules.find((m) => m.id === editingSession.moduleId)?.sessions.length ?? 0) + 1}
+          startups={startups}
           onClose={() => setEditingSession(null)}
           onSaved={() => { invalidate(); setEditingSession(null); }}
         />
@@ -377,12 +442,14 @@ function SessionFormModal({
   moduleId,
   session,
   nextNumber,
+  startups,
   onClose,
   onSaved,
 }: {
   moduleId: string;
   session: TrainingSession | null;
   nextNumber: number;
+  startups: StartupOption[];
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -399,6 +466,7 @@ function SessionFormModal({
   const [presentationUrl, setPresentationUrl] = useState(session?.presentationUrl ?? "");
   const [recordingUrl, setRecordingUrl] = useState(session?.recordingUrl ?? "");
   const [transcriptUrl, setTranscriptUrl] = useState(session?.transcriptUrl ?? "");
+  const [startupIds, setStartupIds] = useState<string[]>(session?.startupIds ?? []);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { data: zoomData, isLoading: zoomHostsLoading } = useQuery<{ hosts: ZoomHost[] }>({
@@ -406,6 +474,10 @@ function SessionFormModal({
     queryFn: () => api("/api/admin/zoom/hosts"),
     retry: false,
   });
+
+  function toggleStartup(id: string) {
+    setStartupIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }
 
   async function save() {
     setSaving(true);
@@ -426,6 +498,7 @@ function SessionFormModal({
         presentationUrl,
         recordingUrl,
         transcriptUrl,
+        startupIds,
       });
       if (session) {
         await api(`/api/admin/training/sessions/${session.id}`, { method: "PATCH", body });
@@ -512,6 +585,24 @@ function SessionFormModal({
           <input className="ost-input mb-3" value={meetingLink} onChange={(e) => setMeetingLink(e.target.value)} placeholder="https://…" />
         </>
       )}
+
+      <div className="mb-1 flex items-center justify-between">
+        <label className="ost-label !mb-0">Which startups does this apply to?</label>
+        <div className="flex gap-1.5">
+          <button type="button" onClick={() => setStartupIds(startups.filter((s) => s.kysTrack === "seed").map((s) => s.id))} className="ost-btn-ghost !px-2 !py-1 text-[11px]">All Seed</button>
+          <button type="button" onClick={() => setStartupIds(startups.filter((s) => s.kysTrack === "pre_seed").map((s) => s.id))} className="ost-btn-ghost !px-2 !py-1 text-[11px]">All Pre-Seed</button>
+          <button type="button" onClick={() => setStartupIds([])} className="ost-btn-ghost !px-2 !py-1 text-[11px]">Clear</button>
+        </div>
+      </div>
+      <div className="mb-3 max-h-40 space-y-1 overflow-y-auto rounded-lg border border-slate-200 p-2">
+        {startups.length === 0 && <p className="px-2 py-1 text-sm text-slate-400">No startups yet.</p>}
+        {startups.map((s) => (
+          <label key={s.id} className="flex items-center gap-2 rounded px-2 py-1 text-sm hover:bg-slate-50">
+            <input type="checkbox" checked={startupIds.includes(s.id)} onChange={() => toggleStartup(s.id)} />
+            {s.companyName}
+          </label>
+        ))}
+      </div>
 
       <label className="ost-label">Presentation link</label>
       <input className="ost-input mb-3" value={presentationUrl} onChange={(e) => setPresentationUrl(e.target.value)} placeholder="https://…" />

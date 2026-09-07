@@ -29,7 +29,6 @@ import {
   mentorshipModuleSessionSchema,
   mentorshipSessionRecapSchema,
   mentorshipMentorFeedbackSchema,
-  mentorSchema,
   assignMentorSchema,
   trainingModuleSchema,
   trainingModuleSessionSchema,
@@ -115,21 +114,6 @@ const avatarUpload = multer({
       : cb(new Error("Only image files are allowed") as any, false),
 }).single("avatar");
 
-const MENTOR_PICTURES_DIR = path.resolve(__dirname, "..", "uploads", "mentors");
-fs.mkdirSync(MENTOR_PICTURES_DIR, { recursive: true });
-
-const mentorPictureUpload = multer({
-  storage: multer.diskStorage({
-    destination: (_req, _file, cb) => cb(null, MENTOR_PICTURES_DIR),
-    filename: (req, _file, cb) => cb(null, `${req.params.id as string}-${Date.now()}.jpg`),
-  }),
-  limits: { fileSize: 2 * 1024 * 1024 },
-  fileFilter: (_req, file, cb) =>
-    file.mimetype.startsWith("image/")
-      ? cb(null, true)
-      : cb(new Error("Only image files are allowed") as any, false),
-}).single("picture");
-
 const TRAINER_PICTURES_DIR = path.resolve(__dirname, "..", "uploads", "trainers");
 fs.mkdirSync(TRAINER_PICTURES_DIR, { recursive: true });
 
@@ -191,6 +175,30 @@ const homeworkUpload = multer({
     ALLOWED_DOC_TYPES.has(file.mimetype)
       ? cb(null, true)
       : cb(new Error("File type not allowed") as any, false),
+}).single("file");
+
+const MATERIALS_DIR = path.resolve(__dirname, "..", "uploads", "materials");
+fs.mkdirSync(MATERIALS_DIR, { recursive: true });
+
+const MATERIALS_ALLOWED_TYPES = new Set([
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+]);
+
+const materialsUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, MATERIALS_DIR),
+    filename: (_req, file, cb) => {
+      const safe = file.originalname.replace(/[^a-zA-Z0-9._-]/g, "_");
+      cb(null, `${Date.now()}-${crypto.randomBytes(4).toString("hex")}-${safe}`);
+    },
+  }),
+  limits: { fileSize: 20 * 1024 * 1024 }, // 20 MB
+  fileFilter: (_req, file, cb) =>
+    MATERIALS_ALLOWED_TYPES.has(file.mimetype)
+      ? cb(null, true)
+      : cb(new Error("Only PDF or Word files are allowed") as any, false),
 }).single("file");
 
 const CONTRACTS_DIR = path.resolve(__dirname, "..", "uploads", "contracts");
@@ -1303,6 +1311,8 @@ export function registerRoutes(app: Express) {
   app.patch("/api/mentorship/sessions/:sessionId/notes", requireAuth, ah(async (req, res) => {
     const startup = await requireActiveStartup(req, res);
     if (!startup) return;
+    const session = await storage.getMentorshipModuleSessionById(req.params.sessionId);
+    if (!session || session.startupId !== startup.id) return res.status(404).json({ message: "Not found" });
     const parsed = mentorshipSessionRecapSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ message: parsed.error.errors[0].message });
@@ -1602,10 +1612,23 @@ export function registerRoutes(app: Express) {
     res.json({ ok: true });
   }));
 
-  /* ---------------- Admin: Mentorship (flat list of sessions) ---------------- */
-  app.get("/api/admin/mentorship/sessions", requireAdmin, ah(async (_req, res) => {
-    res.json({ sessions: await storage.listAllMentorshipSessions() });
+  /* ---------------- Admin: Mentorship (each startup's own sessions) ---------------- */
+  app.get("/api/admin/startups/:id/mentorship-sessions", requireAdmin, ah(async (req, res) => {
+    const startup = await storage.getStartupById(req.params.id);
+    if (!startup) return res.status(404).json({ message: "Not found" });
+    res.json({ sessions: await storage.listMentorshipSessionsForStartup(startup.id) });
   }));
+
+  // Uploads a session's materials file (PDF or Word doc) and returns its URL —
+  // standalone, not tied to a session id, so it works while creating a brand
+  // new session too (the returned URL is just saved as materialsUrl).
+  app.post("/api/admin/mentorship-materials", requireAdmin, (req, res, next) => {
+    materialsUpload(req, res, (err) => {
+      if (err) return res.status(400).json({ message: err.message });
+      if (!req.file) return res.status(400).json({ message: "No file provided" });
+      res.status(201).json({ fileUrl: `/uploads/materials/${req.file.filename}`, fileName: req.file.originalname });
+    });
+  });
 
   // Only admins can see the account's available Zoom hosts. We deliberately
   // return neither OAuth credentials nor Zoom's private host start URLs.
@@ -1614,7 +1637,9 @@ export function registerRoutes(app: Express) {
     res.json({ hosts: await listZoomHosts() });
   }));
 
-  app.post("/api/admin/mentorship/sessions", requireAdmin, ah(async (req, res) => {
+  app.post("/api/admin/startups/:id/mentorship-sessions", requireAdmin, ah(async (req, res) => {
+    const startup = await storage.getStartupById(req.params.id);
+    if (!startup) return res.status(404).json({ message: "Not found" });
     const parsed = mentorshipModuleSessionSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ message: parsed.error.errors[0].message });
@@ -1635,6 +1660,7 @@ export function registerRoutes(app: Express) {
     }
     try {
       const session = await storage.createMentorshipModuleSession({
+        startupId: startup.id,
         number: parsed.data.number,
         title: parsed.data.title,
         description: parsed.data.description || null,
@@ -1657,9 +1683,9 @@ export function registerRoutes(app: Express) {
     }
   }));
 
-  app.patch("/api/admin/mentorship/sessions/:id", requireAdmin, ah(async (req, res) => {
+  app.patch("/api/admin/startups/:startupId/mentorship-sessions/:id", requireAdmin, ah(async (req, res) => {
     const existing = await storage.getMentorshipModuleSessionById(req.params.id);
-    if (!existing) return res.status(404).json({ message: "Not found" });
+    if (!existing || existing.startupId !== req.params.startupId) return res.status(404).json({ message: "Not found" });
     const parsed = mentorshipModuleSessionSchema.partial().safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ message: parsed.error.errors[0].message });
@@ -1711,9 +1737,9 @@ export function registerRoutes(app: Express) {
     res.json(session);
   }));
 
-  app.delete("/api/admin/mentorship/sessions/:id", requireAdmin, ah(async (req, res) => {
+  app.delete("/api/admin/startups/:startupId/mentorship-sessions/:id", requireAdmin, ah(async (req, res) => {
     const existing = await storage.getMentorshipModuleSessionById(req.params.id);
-    if (!existing) return res.status(404).json({ message: "Not found" });
+    if (!existing || existing.startupId !== req.params.startupId) return res.status(404).json({ message: "Not found" });
     if (existing.zoomHostEmail && existing.zoomMeetingId) {
       await deleteZoomMeeting(existing.zoomMeetingId).catch((error) => console.error("[zoom] meeting delete failed:", error));
     }
@@ -1721,74 +1747,18 @@ export function registerRoutes(app: Express) {
     res.json({ ok: true });
   }));
 
-  /* ---------------- Admin: Mentors (directory, one assigned per startup) ---------------- */
-  app.get("/api/admin/mentors", requireAdmin, ah(async (_req, res) => {
-    res.json({ mentors: await storage.listMentors() });
-  }));
-
-  app.post("/api/admin/mentors", requireAdmin, ah(async (req, res) => {
-    const parsed = mentorSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return res.status(400).json({ message: parsed.error.errors[0].message });
-    }
-    const d = parsed.data;
-    const mentor = await storage.createMentor({
-      name: d.name,
-      introduction: d.introduction || null,
-      email: d.email || null,
-      whatsapp: d.whatsapp || null,
-      linkedinUrl: d.linkedinUrl || null,
-    });
-    res.status(201).json(mentor);
-  }));
-
-  app.patch("/api/admin/mentors/:id", requireAdmin, ah(async (req, res) => {
-    const existing = await storage.getMentorById(req.params.id);
-    if (!existing) return res.status(404).json({ message: "Not found" });
-    const parsed = mentorSchema.partial().safeParse(req.body);
-    if (!parsed.success) {
-      return res.status(400).json({ message: parsed.error.errors[0].message });
-    }
-    const d = parsed.data;
-    const patch: Record<string, unknown> = { ...d };
-    if (d.introduction !== undefined) patch.introduction = d.introduction || null;
-    if (d.email !== undefined) patch.email = d.email || null;
-    if (d.whatsapp !== undefined) patch.whatsapp = d.whatsapp || null;
-    if (d.linkedinUrl !== undefined) patch.linkedinUrl = d.linkedinUrl || null;
-    const mentor = await storage.updateMentor(existing.id, patch as any);
-    res.json(mentor);
-  }));
-
-  app.delete("/api/admin/mentors/:id", requireAdmin, ah(async (req, res) => {
-    const existing = await storage.getMentorById(req.params.id);
-    if (!existing) return res.status(404).json({ message: "Not found" });
-    await storage.deleteMentor(existing.id);
-    res.json({ ok: true });
-  }));
-
-  app.post("/api/admin/mentors/:id/picture", requireAdmin, (req, res, next) => {
-    mentorPictureUpload(req, res, async (err) => {
-      if (err) return res.status(400).json({ message: err.message });
-      try {
-        const existing = await storage.getMentorById(req.params.id);
-        if (!existing) return res.status(404).json({ message: "Not found" });
-        if (!req.file) return res.status(400).json({ message: "No file provided" });
-        const pictureUrl = `/uploads/mentors/${req.file.filename}`;
-        const mentor = await storage.updateMentor(existing.id, { pictureUrl });
-        res.json(mentor);
-      } catch (e) {
-        next(e);
-      }
-    });
-  });
-
-  // Assign (or unassign, with mentorId: null) a mentor to a specific startup.
+  // Assign (or unassign, with mentorId: null) a startup's mentor — chosen
+  // from the "Other experts" catalog, the same list founders browse.
   app.patch("/api/admin/startups/:id/mentor", requireAdmin, ah(async (req, res) => {
     const startup = await storage.getStartupById(req.params.id);
     if (!startup) return res.status(404).json({ message: "Not found" });
     const parsed = assignMentorSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ message: parsed.error.errors[0].message });
+    }
+    if (parsed.data.mentorId) {
+      const expert = await storage.getExpertById(parsed.data.mentorId);
+      if (!expert) return res.status(400).json({ message: "That expert no longer exists" });
     }
     const updated = await storage.updateStartup(startup.id, { mentorId: parsed.data.mentorId });
     res.json(updated);
@@ -1873,7 +1843,10 @@ export function registerRoutes(app: Express) {
         zoomMeetingId,
         zoomHostEmail: hostEmail,
       });
-      res.status(201).json(session);
+      if (parsed.data.startupIds) {
+        await storage.setTrainingSessionStartups(session.id, parsed.data.startupIds);
+      }
+      res.status(201).json({ ...session, startupIds: parsed.data.startupIds ?? [] });
     } catch (error) {
       if (createdMeetingId) await deleteZoomMeeting(createdMeetingId).catch(() => undefined);
       throw error;
@@ -1927,11 +1900,16 @@ export function registerRoutes(app: Express) {
     if (parsed.data.recordingUrl !== undefined) patch.recordingUrl = parsed.data.recordingUrl || null;
     if (parsed.data.transcriptUrl !== undefined) patch.transcriptUrl = parsed.data.transcriptUrl || null;
     if (parsed.data.trainerBio !== undefined) patch.trainerBio = parsed.data.trainerBio || null;
+    delete patch.startupIds;
     const session = await storage.updateTrainingModuleSession(existing.id, patch as any);
+    if (parsed.data.startupIds !== undefined) {
+      await storage.setTrainingSessionStartups(session.id, parsed.data.startupIds);
+    }
     if (requestedHost && requestedHost !== existing.zoomHostEmail && existing.zoomMeetingId && existing.zoomHostEmail) {
       await deleteZoomMeeting(existing.zoomMeetingId).catch((error) => console.error("[zoom] old meeting cleanup failed:", error));
     }
-    res.json(session);
+    const startupIds = await storage.getTrainingSessionStartupIds(session.id);
+    res.json({ ...session, startupIds });
   }));
 
   app.delete("/api/admin/training/sessions/:id", requireAdmin, ah(async (req, res) => {
@@ -2017,6 +1995,15 @@ export function registerRoutes(app: Express) {
     res.json(updated);
   }));
 
+  // Read-only: the training sessions that target this specific startup
+  // (sessions are managed at the module level, but can target several
+  // startups at once, e.g. everyone on the same track).
+  app.get("/api/admin/startups/:id/training-sessions", requireAdmin, ah(async (req, res) => {
+    const startup = await storage.getStartupById(req.params.id);
+    if (!startup) return res.status(404).json({ message: "Not found" });
+    res.json({ sessions: await storage.listTrainingSessionsForStartup(startup.id) });
+  }));
+
   /* ---------------- Admin: Experts ("Other experts" catalog) ---------------- */
   app.get("/api/admin/experts", requireAdmin, ah(async (_req, res) => {
     res.json({ experts: await storage.listExperts() });
@@ -2035,6 +2022,35 @@ export function registerRoutes(app: Express) {
       expertiseAreas: d.expertiseAreas ?? [],
     });
     res.status(201).json(expert);
+  }));
+
+  // Bulk-add experts parsed from an uploaded CSV (client parses the file and
+  // sends rows as JSON). Always adds new rows — never replaces or matches
+  // against existing experts by name, so re-importing the same file creates
+  // duplicates; that's on the admin to avoid.
+  app.post("/api/admin/experts/bulk", requireAdmin, ah(async (req, res) => {
+    const rows = Array.isArray(req.body?.rows) ? req.body.rows : null;
+    if (!rows) return res.status(400).json({ message: "Expected a \"rows\" array" });
+    if (rows.length > 500) return res.status(400).json({ message: "Too many rows (max 500 per import)" });
+
+    const valid: { name: string; bio: string | null; industries: string[]; expertiseAreas: string[] }[] = [];
+    const errors: { row: number; message: string }[] = [];
+    rows.forEach((row: unknown, i: number) => {
+      const parsed = expertSchema.safeParse(row);
+      if (!parsed.success) {
+        errors.push({ row: i + 1, message: parsed.error.errors[0].message });
+        return;
+      }
+      valid.push({
+        name: parsed.data.name,
+        bio: parsed.data.bio || null,
+        industries: parsed.data.industries ?? [],
+        expertiseAreas: parsed.data.expertiseAreas ?? [],
+      });
+    });
+
+    const created = await storage.createExperts(valid);
+    res.status(201).json({ created: created.length, errors });
   }));
 
   app.patch("/api/admin/experts/:id", requireAdmin, ah(async (req, res) => {

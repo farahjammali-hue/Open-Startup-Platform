@@ -12,18 +12,8 @@ import { useKysStatus } from "../lib/kysStatus";
 import { MENTORSHIP_SESSION_STATUS_TONES, MENTORSHIP_SESSION_STATUS_ICONS } from "../lib/statusTones";
 import {
   Lock, ChevronRight, Video, FileText, Link2,
-  CalendarClock, User, MessageCircle, Mail, Linkedin, Users, Paperclip,
+  CalendarClock, User, Users, Paperclip,
 } from "lucide-react";
-
-interface MentorProfile {
-  id: string;
-  name: string;
-  introduction: string | null;
-  pictureUrl: string | null;
-  email: string | null;
-  whatsapp: string | null;
-  linkedinUrl: string | null;
-}
 
 interface MentorshipSession {
   id: string;
@@ -76,7 +66,7 @@ export default function Mentorship() {
   const [openSession, setOpenSession] = useState<MentorshipSession | null>(null);
   const [openExpert, setOpenExpert] = useState<ExpertProfile | null>(null);
 
-  const { data, isLoading } = useQuery<{ sessions: MentorshipSession[]; mentor: MentorProfile | null }>({
+  const { data, isLoading } = useQuery<{ sessions: MentorshipSession[]; mentor: ExpertProfile | null }>({
     queryKey: ["mentorship"],
     queryFn: () => api("/api/mentorship"),
     enabled: kysSubmitted,
@@ -157,7 +147,7 @@ export default function Mentorship() {
   );
 }
 
-function MentorTab({ mentor }: { mentor: MentorProfile | null }) {
+function MentorTab({ mentor }: { mentor: ExpertProfile | null }) {
   if (!mentor) {
     return (
       <EmptyState
@@ -171,43 +161,38 @@ function MentorTab({ mentor }: { mentor: MentorProfile | null }) {
   return (
     <div className="ost-card max-w-xl p-8">
       <div className="flex items-center gap-4">
-        {mentor.pictureUrl ? (
-          <img src={mentor.pictureUrl} alt={mentor.name} className="h-16 w-16 shrink-0 rounded-full object-cover" />
-        ) : (
-          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-secondary/10 text-secondary">
-            <User className="h-7 w-7" />
-          </div>
-        )}
+        <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-secondary/10 text-secondary">
+          <User className="h-7 w-7" />
+        </div>
         <div className="min-w-0">
           <h2 className="ost-card-title">{mentor.name}</h2>
           <p className="ost-helper-text">Your mentor</p>
         </div>
       </div>
 
-      {mentor.introduction && <p className="mt-5 text-sm leading-relaxed text-slate-600">{mentor.introduction}</p>}
+      {mentor.bio && <p className="mt-5 text-sm leading-relaxed text-slate-600">{mentor.bio}</p>}
 
-      <div className="mt-6 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-5">
-        {mentor.whatsapp && (
-          <a
-            href={`https://wa.me/${mentor.whatsapp.replace(/[^\d]/g, "")}`}
-            target="_blank"
-            rel="noreferrer"
-            className="ost-btn-primary !px-3 !py-1.5 text-xs"
-          >
-            <MessageCircle className="h-3.5 w-3.5" /> WhatsApp
-          </a>
-        )}
-        {mentor.email && (
-          <a href={`mailto:${mentor.email}`} className="ost-btn-ghost !px-3 !py-1.5 text-xs">
-            <Mail className="h-3.5 w-3.5" /> Email
-          </a>
-        )}
-        {mentor.linkedinUrl && (
-          <a href={mentor.linkedinUrl} target="_blank" rel="noreferrer" className="ost-btn-ghost !px-3 !py-1.5 text-xs">
-            <Linkedin className="h-3.5 w-3.5" /> LinkedIn
-          </a>
-        )}
-      </div>
+      {!!mentor.industries?.length && (
+        <div className="mt-5 border-t border-slate-100 pt-5">
+          <p className="ost-helper-text mb-1.5 font-bold">Industry / Technology</p>
+          <div className="flex flex-wrap gap-1.5">
+            {mentor.industries.map((tag) => (
+              <span key={tag} className="rounded-full bg-secondary/10 px-2.5 py-1 text-xs font-semibold text-secondary">{tag}</span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {!!mentor.expertiseAreas?.length && (
+        <div className="mt-3">
+          <p className="ost-helper-text mb-1.5 font-bold">Areas of Expertise</p>
+          <div className="flex flex-wrap gap-1.5">
+            {mentor.expertiseAreas.map((tag) => (
+              <span key={tag} className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-500">{tag}</span>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -27,11 +27,14 @@ import AdminStartupDetail from "./pages/admin/AdminStartupDetail";
 import AdminDeletionRequests from "./pages/admin/AdminDeletionRequests";
 import AdminUsers from "./pages/admin/AdminUsers";
 import AdminContractsKys from "./pages/admin/AdminContractsKys";
+import AdminContractsKysStartup from "./pages/admin/AdminContractsKysStartup";
 import AdminKpi from "./pages/admin/AdminKpi";
 import AdminMonthlyUpdates from "./pages/admin/AdminMonthlyUpdates";
 import AdminDataRoom from "./pages/admin/AdminDataRoom";
 import AdminMentorship from "./pages/admin/AdminMentorship";
+import AdminMentorshipStartup from "./pages/admin/AdminMentorshipStartup";
 import AdminTraining from "./pages/admin/AdminTraining";
+import AdminTrainingStartup from "./pages/admin/AdminTrainingStartup";
 import AdminTeam from "./pages/admin/AdminTeam";
 import AdminSchool from "./pages/admin/AdminSchool";
 
@@ -81,11 +84,14 @@ export default function App() {
         <Route path="/admin/deletion-requests" component={AdminDeletionRequests} />
         <Route path="/admin/users" component={AdminUsers} />
         <Route path="/admin/contracts-kys" component={AdminContractsKys} />
+        <Route path="/admin/contracts-kys/:startupId" component={AdminContractsKysStartup} />
         <Route path="/admin/kpi" component={AdminKpi} />
         <Route path="/admin/monthly-updates" component={AdminMonthlyUpdates} />
         <Route path="/admin/data-room" component={AdminDataRoom} />
         <Route path="/admin/mentorship" component={AdminMentorship} />
+        <Route path="/admin/mentorship/:startupId" component={AdminMentorshipStartup} />
         <Route path="/admin/training" component={AdminTraining} />
+        <Route path="/admin/training/:startupId" component={AdminTrainingStartup} />
         <Route path="/admin/team" component={AdminTeam} />
         <Route path="/admin/school" component={AdminSchool} />
         <Route>

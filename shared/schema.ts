@@ -221,22 +221,7 @@ export const users = pgTable("users", {
 });
 
 /* =========================================================
- * Mentors — a reusable directory; each startup gets assigned one.
- * =======================================================*/
-export const mentors = pgTable("mentors", {
-  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-  name: text("name").notNull(),
-  introduction: text("introduction"),
-  pictureUrl: text("picture_url"),
-  email: text("email"),
-  whatsapp: text("whatsapp"),
-  linkedinUrl: text("linkedin_url"),
-  createdAt: timestamp("created_at").notNull().default(sql`now()`),
-  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
-});
-
-/* =========================================================
- * Trainers — the same reusable-directory pattern as Mentors above,
+ * Trainers — the same reusable-directory pattern Mentors used to have,
  * but for the Training module (a duplicate of Mentorship). Kept as
  * its own table so a startup can have a different person assigned
  * to Mentorship vs. Training.
@@ -292,7 +277,10 @@ export const startups = pgTable("startups", {
   userId: uuid("user_id")
     .references(() => users.id, { onDelete: "cascade" })
     .notNull(),
-  mentorId: uuid("mentor_id").references(() => mentors.id, { onDelete: "set null" }),
+  // Sourced from the "Other experts" catalog (experts table) — not a
+  // separate mentors directory, so the same list founders browse is what
+  // admins assign from.
+  mentorId: uuid("mentor_id").references(() => experts.id, { onDelete: "set null" }),
   trainerId: uuid("trainer_id").references(() => trainers.id, { onDelete: "set null" }),
 
   // Basics
@@ -541,18 +529,20 @@ export const trainingProgress = pgTable("training_progress", {
 });
 
 /* =========================================================
- * Mentorship (Sessions) — a flat, ungrouped list of sessions;
- * there is no "module" concept and no per-module/session locking
- * (every session is visible once KYS is submitted). The DB table
- * is still named mentorship_module_sessions and an orphaned,
- * unused mentorship_modules table still exists from the earlier
- * module-based design — left in place non-destructively, same as
- * the older mentorship_sessions table before it.
+ * Mentorship (Sessions) — each session belongs to exactly one
+ * startup (1:1 mentoring, not a shared cohort catalog). There is
+ * no "module" concept and no per-module/session locking (every
+ * session is visible to its startup once KYS is submitted). The
+ * DB table is still named mentorship_module_sessions from an
+ * earlier module-based design.
  * =======================================================*/
 export const mentorshipModuleSessionStatusEnum = pgEnum("mentorship_module_session_status", ["upcoming", "completed"]);
 
 export const mentorshipModuleSessions = pgTable("mentorship_module_sessions", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  startupId: uuid("startup_id")
+    .references(() => startups.id, { onDelete: "cascade" })
+    .notNull(),
   number: integer("number").notNull(),
   title: text("title").notNull(),
   description: text("description"),
@@ -642,6 +632,21 @@ export const trainingModuleSessions = pgTable("training_module_sessions", {
   zoomHostEmail: text("zoom_host_email"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+// Which startups a given training session applies to — a session can be
+// shared across several startups (e.g. everyone on the same track), unlike
+// Mentorship sessions which belong to exactly one startup. A session with no
+// rows here targets nobody yet.
+export const trainingSessionStartups = pgTable("training_session_startups", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: uuid("session_id")
+    .references(() => trainingModuleSessions.id, { onDelete: "cascade" })
+    .notNull(),
+  startupId: uuid("startup_id")
+    .references(() => startups.id, { onDelete: "cascade" })
+    .notNull(),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
 // Per-(session, startup) recap — the trainer's notes and rating for THIS
@@ -1079,14 +1084,6 @@ export const trainingSchema = z.object({
   unlockMonth: z.number().int().min(0).max(60).optional(),
 });
 
-export const mentorSchema = z.object({
-  name: z.string().min(1, "Name is required").max(200),
-  introduction: z.string().max(1000).optional().or(z.literal("")),
-  email: z.string().email("Enter a valid email").max(320).optional().or(z.literal("")),
-  whatsapp: z.string().max(30).optional().or(z.literal("")),
-  linkedinUrl: z.string().url("Enter a valid link").max(500).optional().or(z.literal("")),
-});
-
 export const assignMentorSchema = z.object({
   mentorId: z.string().uuid().nullable(),
 });
@@ -1168,6 +1165,8 @@ export const trainingModuleSessionSchema = z.object({
   presentationUrl: z.string().max(500).optional().or(z.literal("")),
   recordingUrl: z.string().max(500).optional().or(z.literal("")),
   transcriptUrl: z.string().max(500).optional().or(z.literal("")),
+  // Which startups this session applies to — can span several (e.g. a whole track).
+  startupIds: z.array(z.string().uuid()).optional(),
 });
 
 // Filled in by the startup itself, briefly, after a session is held.
@@ -1277,7 +1276,6 @@ export const teamMemberSchema = z.object({
  * =======================================================*/
 export type User = typeof users.$inferSelect;
 export type Startup = typeof startups.$inferSelect;
-export type Mentor = typeof mentors.$inferSelect;
 export type Trainer = typeof trainers.$inferSelect;
 export type Expert = typeof experts.$inferSelect;
 export type ExpertPriority = typeof expertPriorities.$inferSelect;
@@ -1303,6 +1301,7 @@ export type MentorshipModuleSession = typeof mentorshipModuleSessions.$inferSele
 export type MentorshipSessionNotes = typeof mentorshipSessionNotes.$inferSelect;
 export type TrainingModule = typeof trainingModules.$inferSelect;
 export type TrainingModuleSession = typeof trainingModuleSessions.$inferSelect;
+export type TrainingSessionStartup = typeof trainingSessionStartups.$inferSelect;
 export type TrainingSessionNotes = typeof trainingSessionNotes.$inferSelect;
 export type TrainingModuleHomework = typeof trainingModuleHomework.$inferSelect;
 export type Contract = typeof contracts.$inferSelect;
@@ -1321,7 +1320,6 @@ export type DocumentReviewInput = z.infer<typeof documentReviewSchema>;
 export type OfficeHourBookingInput = z.infer<typeof officeHourBookingSchema>;
 export type TrainingProgressInput = z.infer<typeof trainingProgressSchema>;
 export type TrainingInput = z.infer<typeof trainingSchema>;
-export type MentorInput = z.infer<typeof mentorSchema>;
 export type AssignMentorInput = z.infer<typeof assignMentorSchema>;
 export type MentorshipModuleSessionInput = z.infer<typeof mentorshipModuleSessionSchema>;
 export type MentorshipSessionRecapInput = z.infer<typeof mentorshipSessionRecapSchema>;
