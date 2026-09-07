@@ -4,7 +4,9 @@ import {
   users,
   startups,
   goals,
-  kpiSubmissions,
+  startupMetricEntries,
+  startupMetricsProfile,
+  startupAchievements,
   documents,
   documentEvents,
   officeHourSlots,
@@ -34,7 +36,9 @@ import {
   type Startup,
   type PublicUser,
   type Goal,
-  type KpiSubmission,
+  type StartupMetricEntry,
+  type StartupMetricsProfile,
+  type StartupAchievement,
   type Document,
   type DocumentEvent,
   type OfficeHourSlot,
@@ -444,12 +448,10 @@ export const storage = {
       .select({ c: sql<number>`count(*)::int` })
       .from(kysProfiles)
       .where(eq(kysProfiles.status, "pending"));
-    // Inner join drops rows whose startup_id no longer matches a real startup
-    // (orphaned data from before FK cascades were consistently applied).
     const [ks] = await db
       .select({ c: sql<number>`count(*)::int` })
-      .from(kpiSubmissions)
-      .innerJoin(startups, eq(kpiSubmissions.startupId, startups.id));
+      .from(startupMetricEntries)
+      .innerJoin(startups, eq(startupMetricEntries.startupId, startups.id));
     // Monthly updates flagged at_risk/off_track, or where the founder explicitly asked for support.
     const [mu] = await db
       .select({ c: sql<number>`count(*)::int` })
@@ -475,7 +477,7 @@ export const storage = {
       pendingDeletions: d?.c ?? 0,
       pendingContracts: pc?.c ?? 0,
       pendingKys: pk?.c ?? 0,
-      kpiSubmissions: ks?.c ?? 0,
+      metricEntries: ks?.c ?? 0,
       monthlyUpdatesNeedingAttention: mu?.c ?? 0,
       pendingDocuments: pd?.c ?? 0,
       upcomingMentorshipSessions: ms?.c ?? 0,
@@ -655,90 +657,80 @@ export const storage = {
     await db.delete(goals).where(eq(goals.id, id));
   },
 
-  /* ---------------- KPI submissions ---------------- */
-  async listKpiSubmissions(startupId: string): Promise<KpiSubmission[]> {
-    // Enum columns sort in their declared order, which is the phase
-    // sequence (program_entry -> ... -> post_program) - exactly what we want.
-    return db
-      .select()
-      .from(kpiSubmissions)
-      .where(eq(kpiSubmissions.startupId, startupId))
-      .orderBy(asc(kpiSubmissions.phase));
+  /* ---------------- Metrics & KPIs ---------------- */
+  async listMetricEntries(startupId: string): Promise<StartupMetricEntry[]> {
+    return db.select().from(startupMetricEntries).where(eq(startupMetricEntries.startupId, startupId));
   },
 
-  // Admin: every KPI submission across every startup, for portfolio-wide coverage/comparison.
-  async listAllKpiSubmissions() {
-    return db
-      .select({
-        id: kpiSubmissions.id,
-        startupId: kpiSubmissions.startupId,
-        phase: kpiSubmissions.phase,
-        revenue: kpiSubmissions.revenue,
-        activeUsers: kpiSubmissions.activeUsers,
-        newCustomers: kpiSubmissions.newCustomers,
-        burnRate: kpiSubmissions.burnRate,
-        cashOnHand: kpiSubmissions.cashOnHand,
-        teamSize: kpiSubmissions.teamSize,
-        runwayMonths: kpiSubmissions.runwayMonths,
-        notes: kpiSubmissions.notes,
-        createdAt: kpiSubmissions.createdAt,
-        companyName: startups.companyName,
-        stage: startups.stage,
-      })
-      .from(kpiSubmissions)
-      .leftJoin(startups, eq(kpiSubmissions.startupId, startups.id))
-      .orderBy(asc(kpiSubmissions.phase));
-  },
-
-  async upsertKpiSubmission(
-    startupId: string,
-    data: {
-      phase: "program_entry" | "during_program_1" | "during_program_2" | "graduation" | "post_program";
-      revenue?: number | null;
-      activeUsers?: number | null;
-      newCustomers?: number | null;
-      burnRate?: number | null;
-      cashOnHand?: number | null;
-      teamSize?: number | null;
-      runwayMonths?: number | null;
-      metrics?: Record<string, unknown>;
-      notes?: string | null;
-    },
-  ): Promise<KpiSubmission> {
+  async upsertMetricEntry(startupId: string, period: string, values: Record<string, number | string>): Promise<StartupMetricEntry> {
     const [existing] = await db
       .select()
-      .from(kpiSubmissions)
-      .where(
-        and(
-          eq(kpiSubmissions.startupId, startupId),
-          eq(kpiSubmissions.phase, data.phase),
-        ),
-      );
+      .from(startupMetricEntries)
+      .where(and(eq(startupMetricEntries.startupId, startupId), eq(startupMetricEntries.period, period)));
     if (existing) {
+      const merged = { ...existing.values, ...values };
       const [row] = await db
-        .update(kpiSubmissions)
-        .set({ ...data, updatedAt: new Date() })
-        .where(eq(kpiSubmissions.id, existing.id))
+        .update(startupMetricEntries)
+        .set({ values: merged, updatedAt: new Date() })
+        .where(eq(startupMetricEntries.id, existing.id))
         .returning();
       return row;
     }
     const [row] = await db
-      .insert(kpiSubmissions)
+      .insert(startupMetricEntries)
+      .values({ startupId, period, values })
+      .returning();
+    return row;
+  },
+
+  async getMetricsProfile(startupId: string): Promise<StartupMetricsProfile | undefined> {
+    const [row] = await db.select().from(startupMetricsProfile).where(eq(startupMetricsProfile.startupId, startupId));
+    return row;
+  },
+
+  async upsertMetricsProfile(startupId: string, data: Partial<typeof startupMetricsProfile.$inferInsert>): Promise<StartupMetricsProfile> {
+    const existing = await this.getMetricsProfile(startupId);
+    if (existing) {
+      const patch = { ...data, updatedAt: new Date() } as Partial<typeof startupMetricsProfile.$inferInsert>;
+      if (data.dataRoom) patch.dataRoom = { ...existing.dataRoom, ...data.dataRoom };
+      if (data.companyProfile) patch.companyProfile = { ...existing.companyProfile, ...data.companyProfile };
+      const [row] = await db
+        .update(startupMetricsProfile)
+        .set(patch)
+        .where(eq(startupMetricsProfile.id, existing.id))
+        .returning();
+      return row;
+    }
+    const [row] = await db
+      .insert(startupMetricsProfile)
       .values({ startupId, ...data })
       .returning();
     return row;
   },
 
-  async getOwnedKpiSubmission(id: string, startupId: string): Promise<KpiSubmission | undefined> {
-    const [row] = await db
+  async listAchievements(startupId: string): Promise<StartupAchievement[]> {
+    return db
       .select()
-      .from(kpiSubmissions)
-      .where(and(eq(kpiSubmissions.id, id), eq(kpiSubmissions.startupId, startupId)));
+      .from(startupAchievements)
+      .where(eq(startupAchievements.startupId, startupId))
+      .orderBy(desc(startupAchievements.createdAt));
+  },
+
+  async createAchievement(startupId: string, data: { achievedAt?: string | null; details: string }): Promise<StartupAchievement> {
+    const [row] = await db.insert(startupAchievements).values({ startupId, ...data }).returning();
     return row;
   },
 
-  async deleteKpiSubmission(id: string): Promise<void> {
-    await db.delete(kpiSubmissions).where(eq(kpiSubmissions.id, id));
+  async getOwnedAchievement(id: string, startupId: string): Promise<StartupAchievement | undefined> {
+    const [row] = await db
+      .select()
+      .from(startupAchievements)
+      .where(and(eq(startupAchievements.id, id), eq(startupAchievements.startupId, startupId)));
+    return row;
+  },
+
+  async deleteAchievement(id: string): Promise<void> {
+    await db.delete(startupAchievements).where(eq(startupAchievements.id, id));
   },
 
   /* ---------------- Data Room ---------------- */
@@ -1125,22 +1117,22 @@ export const storage = {
     return row;
   },
 
-  /* ---------------- Monthly updates (Dashboard) ---------------- */
+  /* ---------------- Quarterly updates (Dashboard) ---------------- */
   async listMonthlyUpdates(startupId: string): Promise<MonthlyUpdate[]> {
     return db
       .select()
       .from(monthlyUpdates)
       .where(eq(monthlyUpdates.startupId, startupId))
-      .orderBy(desc(monthlyUpdates.periodYear), desc(monthlyUpdates.periodMonth));
+      .orderBy(desc(monthlyUpdates.periodYear), desc(monthlyUpdates.periodQuarter));
   },
 
-  // Admin: every monthly update across every startup, most recent first.
+  // Admin: every quarterly update across every startup, most recent first.
   async listAllMonthlyUpdates() {
     return db
       .select({
         id: monthlyUpdates.id,
         startupId: monthlyUpdates.startupId,
-        periodMonth: monthlyUpdates.periodMonth,
+        periodQuarter: monthlyUpdates.periodQuarter,
         periodYear: monthlyUpdates.periodYear,
         achieved: monthlyUpdates.achieved,
         blocked: monthlyUpdates.blocked,
@@ -1152,13 +1144,14 @@ export const storage = {
       })
       .from(monthlyUpdates)
       .innerJoin(startups, eq(monthlyUpdates.startupId, startups.id))
-      .orderBy(desc(monthlyUpdates.periodYear), desc(monthlyUpdates.periodMonth), desc(monthlyUpdates.createdAt));
+      .orderBy(desc(monthlyUpdates.periodYear), desc(monthlyUpdates.periodQuarter), desc(monthlyUpdates.createdAt));
   },
 
   async upsertMonthlyUpdate(
     startupId: string,
     data: {
       periodMonth: number;
+      periodQuarter: number;
       periodYear: number;
       achieved: string;
       blocked: string;
@@ -1167,16 +1160,21 @@ export const storage = {
       supportNeeded?: string | null;
     },
   ): Promise<MonthlyUpdate> {
+    // One row per (startup, quarter, year) going forward — if legacy monthly
+    // rows land in the same quarter, the most recently touched one is what
+    // a new submission updates; older ones stay visible in history as-is.
     const [existing] = await db
       .select()
       .from(monthlyUpdates)
       .where(
         and(
           eq(monthlyUpdates.startupId, startupId),
-          eq(monthlyUpdates.periodMonth, data.periodMonth),
+          eq(monthlyUpdates.periodQuarter, data.periodQuarter),
           eq(monthlyUpdates.periodYear, data.periodYear),
         ),
-      );
+      )
+      .orderBy(desc(monthlyUpdates.updatedAt))
+      .limit(1);
     if (existing) {
       const [row] = await db
         .update(monthlyUpdates)

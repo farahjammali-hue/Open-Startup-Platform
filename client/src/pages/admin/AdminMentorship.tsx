@@ -197,7 +197,6 @@ export default function AdminMentorship() {
             <button onClick={() => setEditingExpert("new")} className="ost-btn-ghost !px-3 !py-1.5 text-xs"><Plus className="h-3.5 w-3.5" /> Add expert</button>
           </div>
         </div>
-        <p className="mt-1 text-xs text-slate-400">CSV columns: name, bio, industries, expertiseAreas (industries/areas can hold several comma-separated values in one quoted cell). Each import adds new rows — it doesn't replace existing ones.</p>
 
         <div className="ost-card mt-3 overflow-hidden">
           <div className="overflow-x-auto">
@@ -220,7 +219,7 @@ export default function AdminMentorship() {
                     <tr key={e.id} className="border-b border-slate-50 last:border-0">
                       <td className="max-w-[220px] px-5 py-3">
                         <div className="font-semibold text-primary">{e.name}</div>
-                        {e.bio && <div className="mt-0.5 line-clamp-2 text-xs text-slate-400">{e.bio}</div>}
+                        {e.bio && <div className="mt-0.5 line-clamp-2 text-xs text-slate-400" title={e.bio}>{e.bio}</div>}
                       </td>
                       <td className="max-w-[220px] px-5 py-3 text-slate-500">{(e.industries ?? []).join(", ") || "—"}</td>
                       <td className="max-w-[280px] px-5 py-3 text-slate-500">{(e.expertiseAreas ?? []).join(", ") || "—"}</td>

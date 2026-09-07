@@ -60,6 +60,10 @@ async function start() {
   } else {
     const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
+      // Explicit configFile: `root` points inside client/, which is not
+      // where vite.config.ts lives, so Vite's own auto-discovery would miss
+      // it (and silently drop the "@shared" alias) without this.
+      configFile: path.resolve(__dirname, "..", "vite.config.ts"),
       root: path.resolve(__dirname, "..", "client"),
       server: { middlewareMode: true },
       appType: "spa",

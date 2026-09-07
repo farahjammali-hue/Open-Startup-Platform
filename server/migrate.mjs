@@ -654,12 +654,18 @@ CREATE TABLE IF NOT EXISTS trainers (
 ALTER TABLE startups ADD COLUMN IF NOT EXISTS trainer_id uuid REFERENCES trainers(id) ON DELETE SET NULL;
 
 -- Mentorship: dropped the module-grouping/locking design in favor of a flat
--- session list. module_id is relaxed (not dropped, so existing sessions keep
--- their historical link) rather than removed, and mentorship_module_homework
--- had zero rows so it's dropped outright — homework is not part of Mentorship
--- anymore. The orphaned mentorship_modules table is left in place, same as
--- the older mentorship_sessions table before it.
-ALTER TABLE mentorship_module_sessions ALTER COLUMN module_id DROP NOT NULL;
+-- session list. module_id was relaxed here first (not dropped, so existing
+-- sessions kept their historical link), then actually dropped further below
+-- once Mentorship became per-startup — guarded since module_id may already be
+-- gone on a database that's run this script since.
+DO $$ BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'mentorship_module_sessions' AND column_name = 'module_id'
+  ) THEN
+    ALTER TABLE mentorship_module_sessions ALTER COLUMN module_id DROP NOT NULL;
+  END IF;
+END $$;
 DROP TABLE IF EXISTS mentorship_module_homework;
 
 -- "Other experts" catalog — a browse-only directory (no contact info),
@@ -734,6 +740,46 @@ CREATE TABLE IF NOT EXISTS training_session_startups (
   startup_id uuid NOT NULL REFERENCES startups(id) ON DELETE CASCADE,
   created_at timestamp NOT NULL DEFAULT now()
 );
+
+-- Metrics & KPIs tab: replaces the old phase-based kpi_submissions (left in
+-- place, orphaned, non-destructively — it has real rows) with the program's
+-- actual monthly tracking template.
+CREATE TABLE IF NOT EXISTS startup_metric_entries (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  startup_id uuid NOT NULL REFERENCES startups(id) ON DELETE CASCADE,
+  period text NOT NULL,
+  values jsonb NOT NULL DEFAULT '{}',
+  created_at timestamp NOT NULL DEFAULT now(),
+  updated_at timestamp NOT NULL DEFAULT now(),
+  UNIQUE (startup_id, period)
+);
+CREATE TABLE IF NOT EXISTS startup_metrics_profile (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  startup_id uuid NOT NULL UNIQUE REFERENCES startups(id) ON DELETE CASCADE,
+  sales_notes text,
+  revenue_notes text,
+  team_recruit_notes text,
+  partnership_notes text,
+  fundraising_notes text,
+  data_room jsonb NOT NULL DEFAULT '{}',
+  company_profile jsonb NOT NULL DEFAULT '{}',
+  created_at timestamp NOT NULL DEFAULT now(),
+  updated_at timestamp NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS startup_achievements (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  startup_id uuid NOT NULL REFERENCES startups(id) ON DELETE CASCADE,
+  achieved_at text,
+  details text NOT NULL,
+  created_at timestamp NOT NULL DEFAULT now()
+);
+
+-- Dashboard's "Monthly updates" narrative check-in is now quarterly. The
+-- table/column keep their old "monthly" names non-destructively; period_month
+-- is left in place (unused by the app going forward) and period_quarter is
+-- backfilled from it so existing check-ins keep their real period.
+ALTER TABLE monthly_updates ADD COLUMN IF NOT EXISTS period_quarter integer NOT NULL DEFAULT 1;
+UPDATE monthly_updates SET period_quarter = CEIL(period_month::numeric / 3) WHERE period_month IS NOT NULL;
 `;
 
 try {

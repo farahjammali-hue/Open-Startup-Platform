@@ -7,7 +7,7 @@ import { Users, Rocket, Trash2, ArrowRight, FileSignature, LineChart, CalendarCl
 
 interface Stats {
   users: number; startups: number; pendingDeletions: number;
-  pendingContracts: number; pendingKys: number; kpiSubmissions: number;
+  pendingContracts: number; pendingKys: number; metricEntries: number;
   monthlyUpdatesNeedingAttention: number; pendingDocuments: number; upcomingMentorshipSessions: number;
   teamMembers: number; trainings: number;
 }
@@ -26,8 +26,8 @@ export default function AdminDashboard() {
     { label: "Startups", value: data?.startups, icon: Rocket, to: "/admin/startups" },
     { label: "Pending deletions", value: data?.pendingDeletions, icon: Trash2, to: "/admin/deletion-requests" },
     { label: "Contracts & KYS to review", value: pendingReviews, icon: FileSignature, to: "/admin/contracts-kys" },
-    { label: "KPI submissions", value: data?.kpiSubmissions, icon: LineChart, to: "/admin/kpi" },
-    { label: "Monthly updates needing attention", value: data?.monthlyUpdatesNeedingAttention, icon: CalendarClock, to: "/admin/monthly-updates" },
+    { label: "Metrics & KPIs entries recorded", value: data?.metricEntries, icon: LineChart, to: "/admin/startups" },
+    { label: "Quarterly updates needing attention", value: data?.monthlyUpdatesNeedingAttention, icon: CalendarClock, to: "/admin/monthly-updates" },
     { label: "Data Room documents pending", value: data?.pendingDocuments, icon: FolderLock, to: "/admin/data-room" },
     { label: "Upcoming mentorship sessions", value: data?.upcomingMentorshipSessions, icon: UsersRound, to: "/admin/mentorship" },
     { label: "Team members", value: data?.teamMembers, icon: Contact, to: "/admin/team" },
@@ -89,7 +89,7 @@ export default function AdminDashboard() {
         {!isLoading && (data?.monthlyUpdatesNeedingAttention ?? 0) > 0 && (
           <div className="mt-6 flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50 px-5 py-4">
             <span className="text-sm font-medium text-amber-700">
-              {data!.monthlyUpdatesNeedingAttention} monthly update{data!.monthlyUpdatesNeedingAttention > 1 ? "s" : ""} flagged at-risk, off-track, or requesting support.
+              {data!.monthlyUpdatesNeedingAttention} quarterly update{data!.monthlyUpdatesNeedingAttention > 1 ? "s" : ""} flagged at-risk, off-track, or requesting support.
             </span>
             <button onClick={() => navigate("/admin/monthly-updates")} className="ost-btn-primary">
               Review now

@@ -156,7 +156,7 @@ export function OverviewTab({
                 <Field label="Founders (number)" value={String(founderCount)} />
                 <Field label="Full-Time Employees (counting founders)" value={String(fullTimeCount)} />
               </div>
-              <p className="mt-2 text-xs text-slate-400">Counted from your Team tab roster.</p>
+              <p className="mt-2 text-xs text-slate-400">Managed by the program team.</p>
             </div>
           </div>
 

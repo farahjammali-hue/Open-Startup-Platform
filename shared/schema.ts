@@ -162,16 +162,6 @@ export const kysActionEnum = pgEnum("kys_action", [
   "commented",
 ]);
 
-// Five fixed lifetime stages of the program. KPIs are collected once per
-// phase, not monthly.
-export const kpiPhaseEnum = pgEnum("kpi_phase", [
-  "program_entry",
-  "during_program_1",
-  "during_program_2",
-  "graduation",
-  "post_program",
-]);
-
 export const monthlyUpdateStatusEnum = pgEnum("monthly_update_status", [
   "on_track",
   "at_risk",
@@ -387,28 +377,62 @@ export const goals = pgTable("goals", {
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
 
+// The old kpi_submissions table (phase-based KPI snapshots) is orphaned —
+// replaced by startupMetricEntries below. Left in place non-destructively
+// (it has real rows) but no longer modeled here, same as mentorship_modules.
+
 /* =========================================================
- * KPI submissions (Dashboard / KPI Visualizations)
- * One row per startup per month.
+ * Metrics & KPIs (Dashboard tab) — the program's real monthly tracking
+ * template: five sections of named metrics (Sales, Revenues, Human
+ * Resources, Partnerships, Fundraising Status), each with an Initial Data
+ * baseline plus one entry per real calendar month. Quarterly rollups are
+ * computed client-side from the quarter's last month, never stored. Section
+ * VI ("Other metrics") is a different shape — a Data Room checklist and a
+ * company profile captured at Inception/Graduation, plus a free-form
+ * achievements log — modeled separately below.
  * =======================================================*/
-export const kpiSubmissions = pgTable("kpi_submissions", {
+export const startupMetricEntries = pgTable("startup_metric_entries", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   startupId: uuid("startup_id")
     .references(() => startups.id, { onDelete: "cascade" })
     .notNull(),
-  phase: kpiPhaseEnum("phase").notNull(),
-  revenue: bigint("revenue", { mode: "number" }),
-  activeUsers: integer("active_users"),
-  newCustomers: integer("new_customers"),
-  burnRate: bigint("burn_rate", { mode: "number" }),
-  cashOnHand: bigint("cash_on_hand", { mode: "number" }),
-  teamSize: integer("team_size"),
-  runwayMonths: integer("runway_months"),
-  // Extra metrics beyond the core columns above, kept flexible on purpose.
-  metrics: jsonb("metrics").$type<Record<string, unknown>>().default({}),
-  notes: text("notes"),
+  // "initial" for the pre-program baseline, or "YYYY-MM" for a real month.
+  period: text("period").notNull(),
+  values: jsonb("values").$type<Record<string, number | string>>().notNull().default({}),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+// One row per startup — the 4 section notes plus Section VI's point-in-time
+// data (Data Room checklist, company profile). Created on first save.
+export const startupMetricsProfile = pgTable("startup_metrics_profile", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  startupId: uuid("startup_id")
+    .references(() => startups.id, { onDelete: "cascade" })
+    .notNull()
+    .unique(),
+  salesNotes: text("sales_notes"),
+  revenueNotes: text("revenue_notes"),
+  teamRecruitNotes: text("team_recruit_notes"),
+  partnershipNotes: text("partnership_notes"),
+  fundraisingNotes: text("fundraising_notes"),
+  // checklist key -> { inception: boolean, graduation: boolean }
+  dataRoom: jsonb("data_room").$type<Record<string, { inception?: boolean; graduation?: boolean }>>().notNull().default({}),
+  // field key -> { inception: string, graduation: string }
+  companyProfile: jsonb("company_profile").$type<Record<string, { inception?: string; graduation?: string }>>().notNull().default({}),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+// Section VI's free-form achievements log — one row per entry.
+export const startupAchievements = pgTable("startup_achievements", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  startupId: uuid("startup_id")
+    .references(() => startups.id, { onDelete: "cascade" })
+    .notNull(),
+  achievedAt: text("achieved_at"),
+  details: text("details").notNull(),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
 /* =========================================================
@@ -796,15 +820,18 @@ export const kysDocuments = pgTable("kys_documents", {
 });
 
 /* =========================================================
- * Monthly updates (Dashboard)
- * One row per startup per calendar month.
+ * Quarterly updates (Dashboard) — one row per startup per calendar
+ * quarter. The table/columns are still named "monthly_updates" /
+ * periodMonth for historical reasons (kept non-destructively);
+ * periodQuarter (1-4) is what the app now reads and writes.
  * =======================================================*/
 export const monthlyUpdates = pgTable("monthly_updates", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   startupId: uuid("startup_id")
     .references(() => startups.id, { onDelete: "cascade" })
     .notNull(),
-  periodMonth: integer("period_month").notNull(), // 1-12
+  periodMonth: integer("period_month").notNull(), // legacy, 1-12 — no longer shown in the UI
+  periodQuarter: integer("period_quarter").notNull().default(1), // 1-4
   periodYear: integer("period_year").notNull(),
   achieved: text("achieved").notNull(),
   blocked: text("blocked").notNull(),
@@ -988,17 +1015,29 @@ export const goalSchema = z.object({
   status: z.enum(["on_track", "at_risk", "off_track", "done"]).optional(),
 });
 
-export const kpiSubmissionSchema = z.object({
-  phase: z.enum(["program_entry", "during_program_1", "during_program_2", "graduation", "post_program"]),
-  revenue: z.number().nonnegative().optional(),
-  activeUsers: z.number().int().nonnegative().optional(),
-  newCustomers: z.number().int().nonnegative().optional(),
-  burnRate: z.number().nonnegative().optional(),
-  cashOnHand: z.number().nonnegative().optional(),
-  teamSize: z.number().int().nonnegative().optional(),
-  runwayMonths: z.number().int().nonnegative().optional(),
-  metrics: z.record(z.any()).optional(),
-  notes: z.string().max(2000).optional().or(z.literal("")),
+export const metricEntrySchema = z.object({
+  values: z.record(z.union([z.number(), z.string()])),
+});
+
+export const metricsProfileSchema = z.object({
+  salesNotes: z.string().max(2000).optional().or(z.literal("")),
+  revenueNotes: z.string().max(2000).optional().or(z.literal("")),
+  teamRecruitNotes: z.string().max(2000).optional().or(z.literal("")),
+  partnershipNotes: z.string().max(2000).optional().or(z.literal("")),
+  fundraisingNotes: z.string().max(2000).optional().or(z.literal("")),
+  dataRoom: z.record(z.object({
+    inception: z.boolean().optional(),
+    graduation: z.boolean().optional(),
+  })).optional(),
+  companyProfile: z.record(z.object({
+    inception: z.string().max(500).optional().or(z.literal("")),
+    graduation: z.string().max(500).optional().or(z.literal("")),
+  })).optional(),
+});
+
+export const achievementSchema = z.object({
+  achievedAt: z.string().max(50).optional().or(z.literal("")),
+  details: z.string().min(1, "Details are required").max(2000),
 });
 
 export const documentUploadSchema = z.object({
@@ -1288,7 +1327,9 @@ export type DataRoomSubmissionInput = z.infer<typeof dataRoomSubmissionSchema>;
 export type PublicUser = Omit<User, "password">;
 
 export type Goal = typeof goals.$inferSelect;
-export type KpiSubmission = typeof kpiSubmissions.$inferSelect;
+export type StartupMetricEntry = typeof startupMetricEntries.$inferSelect;
+export type StartupMetricsProfile = typeof startupMetricsProfile.$inferSelect;
+export type StartupAchievement = typeof startupAchievements.$inferSelect;
 export type Document = typeof documents.$inferSelect;
 export type DocumentEvent = typeof documentEvents.$inferSelect;
 export type DataRoomShare = typeof dataRoomShares.$inferSelect;
@@ -1314,7 +1355,9 @@ export type TeamMember = typeof teamMembers.$inferSelect;
 export type CapTableEntry = typeof capTableEntries.$inferSelect;
 
 export type GoalInput = z.infer<typeof goalSchema>;
-export type KpiSubmissionInput = z.infer<typeof kpiSubmissionSchema>;
+export type MetricEntryInput = z.infer<typeof metricEntrySchema>;
+export type MetricsProfileInput = z.infer<typeof metricsProfileSchema>;
+export type AchievementInput = z.infer<typeof achievementSchema>;
 export type DocumentUploadInput = z.infer<typeof documentUploadSchema>;
 export type DocumentReviewInput = z.infer<typeof documentReviewSchema>;
 export type OfficeHourBookingInput = z.infer<typeof officeHourBookingSchema>;

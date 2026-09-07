@@ -13,13 +13,12 @@ import { TrainerAssignment, type TrainerOption } from "../../components/admin/Tr
 import { TrainingModuleHomeworkModal, type TrainingModuleHomeworkRow } from "../../components/admin/TrainingModuleHomeworkModal";
 import { showToast } from "../../lib/toast";
 import {
-  GOAL_STATUS_LABELS, GOAL_STATUS_TONES, MONTHLY_STATUS_LABELS, MONTHLY_STATUS_TONES, MONTH_NAMES,
-  type Goal, type KpiSubmission, type MonthlyUpdateRow, type TeamMemberRow,
+  GOAL_STATUS_LABELS, GOAL_STATUS_TONES, MONTHLY_STATUS_LABELS, MONTHLY_STATUS_TONES,
+  type Goal, type MonthlyUpdateRow, type TeamMemberRow,
 } from "../dashboard/types";
-import { KPI_PHASE_LABELS } from "../../lib/kpiPhases";
+import { MetricsKpiPanel } from "../../components/metrics/MetricsKpiPanel";
 import { STAGE_LABELS, type StartupStage } from "../../lib/stageLabels";
 import { REVIEW_STATUS_TONES, REVIEW_STATUS_ICONS } from "../../lib/statusTones";
-import { formatMoney } from "../../lib/format";
 import {
   Building2, Globe, MapPin, Users, Target, LineChart, CalendarClock, FolderLock,
   FileSignature, ShieldCheck, ExternalLink, Inbox, Layers, Pencil, Loader2, Paperclip, User, Presentation,
@@ -57,7 +56,6 @@ interface Detail {
   };
   owner: { name: string; email: string } | null;
   goals: Goal[];
-  kpiSubmissions: KpiSubmission[];
   monthlyUpdates: MonthlyUpdateRow[];
   teamMembers: TeamMemberRow[];
   contract: (ReviewEntity & { signerName: string; signedAt: string }) | null;
@@ -143,7 +141,7 @@ export default function AdminStartupDetail() {
     );
   }
 
-  const { startup, owner, goals, kpiSubmissions, monthlyUpdates, teamMembers, contract, kysProfile, mentorshipNotes, trainingNotes, trainingHomework } = data;
+  const { startup, owner, goals, monthlyUpdates, teamMembers, contract, kysProfile, mentorshipNotes, trainingNotes, trainingHomework } = data;
 
   const notesBySessionId = new Map(mentorshipNotes.map((n) => [n.sessionId, n]));
   const mentorshipSessions = (mentorshipData?.sessions ?? [])
@@ -232,48 +230,19 @@ export default function AdminStartupDetail() {
           )}
         </Section>
 
-        {/* KPI submissions */}
-        <Section title="KPI submissions" icon={LineChart}>
-          {kpiSubmissions.length === 0 ? <EmptyRow text="No KPI data submitted yet." /> : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-slate-100 text-left text-xs uppercase tracking-wide text-slate-400">
-                    <th className="py-2 pr-4 font-semibold">Phase</th>
-                    <th className="py-2 pr-4 font-semibold">Revenue</th>
-                    <th className="py-2 pr-4 font-semibold">Active users</th>
-                    <th className="py-2 pr-4 font-semibold">Burn rate</th>
-                    <th className="py-2 pr-4 font-semibold">Cash on hand</th>
-                    <th className="py-2 pr-4 font-semibold">Team size</th>
-                    <th className="py-2 pr-4 font-semibold">Runway (mo)</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {kpiSubmissions.map((k) => (
-                    <tr key={k.id} className="border-b border-slate-50 last:border-0">
-                      <td className="py-2 pr-4 font-semibold text-primary">{KPI_PHASE_LABELS[k.phase] || k.phase}</td>
-                      <td className="py-2 pr-4 tabular-nums text-slate-500">{formatMoney(k.revenue)}</td>
-                      <td className="py-2 pr-4 tabular-nums text-slate-500">{k.activeUsers ?? "—"}</td>
-                      <td className="py-2 pr-4 tabular-nums text-slate-500">{formatMoney(k.burnRate)}</td>
-                      <td className="py-2 pr-4 tabular-nums text-slate-500">{formatMoney(k.cashOnHand)}</td>
-                      <td className="py-2 pr-4 tabular-nums text-slate-500">{k.teamSize ?? "—"}</td>
-                      <td className="py-2 pr-4 tabular-nums text-slate-500">{k.runwayMonths ?? "—"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+        {/* Metrics & KPIs */}
+        <Section title="Metrics & KPIs" icon={LineChart}>
+          <MetricsKpiPanel apiBase={`/api/admin/startups/${id}/metrics`} />
         </Section>
 
-        {/* Monthly updates */}
-        <Section title="Monthly updates" icon={CalendarClock}>
-          {monthlyUpdates.length === 0 ? <EmptyRow text="No monthly updates submitted yet." /> : (
+        {/* Quarterly updates */}
+        <Section title="Quarterly updates" icon={CalendarClock}>
+          {monthlyUpdates.length === 0 ? <EmptyRow text="No quarterly updates submitted yet." /> : (
             <div className="space-y-3">
               {monthlyUpdates.map((u) => (
                 <div key={u.id} className="rounded-lg border border-slate-100 p-4">
                   <div className="mb-2 flex items-center justify-between">
-                    <span className="text-sm font-semibold text-primary">{MONTH_NAMES[u.periodMonth - 1]} {u.periodYear}</span>
+                    <span className="text-sm font-semibold text-primary">Q{u.periodQuarter} {u.periodYear}</span>
                     <StatusBadge tone={MONTHLY_STATUS_TONES[u.status]}>{MONTHLY_STATUS_LABELS[u.status]}</StatusBadge>
                   </div>
                   <p className="text-xs text-slate-500"><b className="text-slate-600">Achieved:</b> {u.achieved}</p>

@@ -8,7 +8,6 @@ import StartupSurvey from "./pages/onboarding/StartupSurvey";
 import Home from "./pages/Home";
 import ContractKys from "./pages/ContractKys";
 import StartupDashboard from "./pages/StartupDashboard";
-import KpiVisualizations from "./pages/KpiVisualizations";
 import VerifyEmail from "./pages/VerifyEmail";
 import Account from "./pages/Account";
 import CreateStartup from "./pages/CreateStartup";
@@ -28,7 +27,6 @@ import AdminDeletionRequests from "./pages/admin/AdminDeletionRequests";
 import AdminUsers from "./pages/admin/AdminUsers";
 import AdminContractsKys from "./pages/admin/AdminContractsKys";
 import AdminContractsKysStartup from "./pages/admin/AdminContractsKysStartup";
-import AdminKpi from "./pages/admin/AdminKpi";
 import AdminMonthlyUpdates from "./pages/admin/AdminMonthlyUpdates";
 import AdminDataRoom from "./pages/admin/AdminDataRoom";
 import AdminMentorship from "./pages/admin/AdminMentorship";
@@ -85,7 +83,6 @@ export default function App() {
         <Route path="/admin/users" component={AdminUsers} />
         <Route path="/admin/contracts-kys" component={AdminContractsKys} />
         <Route path="/admin/contracts-kys/:startupId" component={AdminContractsKysStartup} />
-        <Route path="/admin/kpi" component={AdminKpi} />
         <Route path="/admin/monthly-updates" component={AdminMonthlyUpdates} />
         <Route path="/admin/data-room" component={AdminDataRoom} />
         <Route path="/admin/mentorship" component={AdminMentorship} />
@@ -124,7 +121,6 @@ export default function App() {
       <Route path="/" component={Home} />
       <Route path="/contract-kys" component={ContractKys} />
       <Route path="/dashboard" component={StartupDashboard} />
-      <Route path="/kpi" component={KpiVisualizations} />
       <Route path="/data-room" component={DataRoom} />
       <Route path="/mentorship" component={Mentorship} />
       <Route path="/training" component={Training} />

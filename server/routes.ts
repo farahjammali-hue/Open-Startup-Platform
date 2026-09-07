@@ -20,7 +20,9 @@ import {
   requestDeletionSchema,
   changeEmailSchema,
   goalSchema,
-  kpiSubmissionSchema,
+  metricEntrySchema,
+  metricsProfileSchema,
+  achievementSchema,
   documentUploadSchema,
   documentReviewSchema,
   officeHourBookingSchema,
@@ -49,6 +51,7 @@ import {
   capTableEntrySchema,
   startupTechTrackSchema,
 } from "@shared/schema";
+import { ALL_METRIC_KEYS } from "@shared/metricsCatalog";
 import {
   sendVerificationEmail,
   smtpConfigured,
@@ -892,33 +895,73 @@ export function registerRoutes(app: Express) {
     res.json({ ok: true });
   }));
 
-  /* ---------------- KPIs (Dashboard / KPI Visualizations) ---------------- */
-  app.get("/api/kpis", requireAuth, ah(async (req, res) => {
+  /* ---------------- Metrics & KPIs (Dashboard tab) ---------------- */
+  app.get("/api/metrics", requireAuth, ah(async (req, res) => {
     const startup = await requireActiveStartup(req, res);
     if (!startup) return;
-    res.json({ submissions: await storage.listKpiSubmissions(startup.id) });
+    const [entries, profile, achievements] = await Promise.all([
+      storage.listMetricEntries(startup.id),
+      storage.getMetricsProfile(startup.id),
+      storage.listAchievements(startup.id),
+    ]);
+    res.json({ entries, profile: profile ?? null, achievements });
   }));
 
-  app.post("/api/kpis", requireAuth, ah(async (req, res) => {
+  // Registered before the generic ":period" route below — otherwise Express
+  // would match "profile" as a period value first.
+  app.patch("/api/metrics/profile", requireAuth, ah(async (req, res) => {
     const startup = await requireActiveStartup(req, res);
     if (!startup) return;
-    const parsed = kpiSubmissionSchema.safeParse(req.body);
+    const parsed = metricsProfileSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ message: parsed.error.errors[0].message });
     }
-    const submission = await storage.upsertKpiSubmission(startup.id, {
-      ...parsed.data,
-      notes: parsed.data.notes || null,
+    const d = parsed.data;
+    const profile = await storage.upsertMetricsProfile(startup.id, {
+      ...(d.salesNotes !== undefined && { salesNotes: d.salesNotes || null }),
+      ...(d.revenueNotes !== undefined && { revenueNotes: d.revenueNotes || null }),
+      ...(d.teamRecruitNotes !== undefined && { teamRecruitNotes: d.teamRecruitNotes || null }),
+      ...(d.partnershipNotes !== undefined && { partnershipNotes: d.partnershipNotes || null }),
+      ...(d.fundraisingNotes !== undefined && { fundraisingNotes: d.fundraisingNotes || null }),
+      ...(d.dataRoom !== undefined && { dataRoom: d.dataRoom }),
+      ...(d.companyProfile !== undefined && { companyProfile: d.companyProfile }),
     });
-    res.status(201).json(submission);
+    res.json(profile);
   }));
 
-  app.delete("/api/kpis/:id", requireAuth, ah(async (req, res) => {
+  app.patch("/api/metrics/:period", requireAuth, ah(async (req, res) => {
     const startup = await requireActiveStartup(req, res);
     if (!startup) return;
-    const owned = await storage.getOwnedKpiSubmission(req.params.id, startup.id);
+    const parsed = metricEntrySchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: parsed.error.errors[0].message });
+    }
+    const unknownKey = Object.keys(parsed.data.values).find((k) => !ALL_METRIC_KEYS.has(k));
+    if (unknownKey) return res.status(400).json({ message: `Unknown metric: ${unknownKey}` });
+    const entry = await storage.upsertMetricEntry(startup.id, req.params.period, parsed.data.values);
+    res.json(entry);
+  }));
+
+  app.post("/api/metrics/achievements", requireAuth, ah(async (req, res) => {
+    const startup = await requireActiveStartup(req, res);
+    if (!startup) return;
+    const parsed = achievementSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: parsed.error.errors[0].message });
+    }
+    const achievement = await storage.createAchievement(startup.id, {
+      achievedAt: parsed.data.achievedAt || null,
+      details: parsed.data.details,
+    });
+    res.status(201).json(achievement);
+  }));
+
+  app.delete("/api/metrics/achievements/:id", requireAuth, ah(async (req, res) => {
+    const startup = await requireActiveStartup(req, res);
+    if (!startup) return;
+    const owned = await storage.getOwnedAchievement(req.params.id, startup.id);
     if (!owned) return res.status(404).json({ message: "Not found" });
-    await storage.deleteKpiSubmission(owned.id);
+    await storage.deleteAchievement(owned.id);
     res.json({ ok: true });
   }));
 
@@ -1225,6 +1268,7 @@ export function registerRoutes(app: Express) {
     const now = new Date();
     const update = await storage.upsertMonthlyUpdate(startup.id, {
       periodMonth: now.getMonth() + 1,
+      periodQuarter: Math.ceil((now.getMonth() + 1) / 3),
       periodYear: now.getFullYear(),
       achieved: parsed.data.achieved,
       blocked: parsed.data.blocked,
@@ -2311,28 +2355,17 @@ export function registerRoutes(app: Express) {
     res.json({ members: await storage.listAllTeamMembers() });
   }));
 
-  // Portfolio-wide KPI coverage + comparison across every startup.
-  app.get("/api/admin/kpi", requireAdmin, ah(async (_req, res) => {
-    const [submissions, startups] = await Promise.all([
-      storage.listAllKpiSubmissions(),
-      storage.listStartupsWithOwners(),
-    ]);
-    res.json({
-      submissions,
-      startups: startups.map((s) => ({ id: s.id, companyName: s.companyName })),
-    });
-  }));
-
-  // Full detail view of one startup — goals, KPIs, monthly updates, team,
-  // Data Room documents, and contract/KYS status, all in one call.
+  // Full detail view of one startup — goals, monthly updates, team,
+  // Data Room documents, and contract/KYS status, all in one call. Metrics &
+  // KPIs data has its own dedicated endpoint (see below) rather than being
+  // embedded here.
   app.get("/api/admin/startups/:id", requireAdmin, ah(async (req, res) => {
     const startup = await storage.getStartupById(req.params.id);
     if (!startup) return res.status(404).json({ message: "Not found" });
     const owner = await storage.getUserById(startup.userId);
-    const [goals, kpiSubmissions, monthlyUpdates, teamMembers, contract, kysProfile, documents, mentorshipNotes, trainingNotes, trainingHomework] =
+    const [goals, monthlyUpdates, teamMembers, contract, kysProfile, documents, mentorshipNotes, trainingNotes, trainingHomework] =
       await Promise.all([
         storage.listGoals(startup.id),
-        storage.listKpiSubmissions(startup.id),
         storage.listMonthlyUpdates(startup.id),
         storage.listTeamMembers(startup.id),
         storage.getContract(startup.id),
@@ -2346,7 +2379,6 @@ export function registerRoutes(app: Express) {
       startup,
       owner: owner ? toPublicUser(owner) : null,
       goals,
-      kpiSubmissions,
       monthlyUpdates,
       teamMembers,
       contract: contract ?? null,
@@ -2356,6 +2388,72 @@ export function registerRoutes(app: Express) {
       trainingNotes,
       trainingHomework,
     });
+  }));
+
+  /* ---------------- Admin: Metrics & KPIs (mirrors the founder routes above) ---------------- */
+  app.get("/api/admin/startups/:id/metrics", requireAdmin, ah(async (req, res) => {
+    const startup = await storage.getStartupById(req.params.id);
+    if (!startup) return res.status(404).json({ message: "Not found" });
+    const [entries, profile, achievements] = await Promise.all([
+      storage.listMetricEntries(startup.id),
+      storage.getMetricsProfile(startup.id),
+      storage.listAchievements(startup.id),
+    ]);
+    res.json({ entries, profile: profile ?? null, achievements });
+  }));
+
+  app.patch("/api/admin/startups/:id/metrics/profile", requireAdmin, ah(async (req, res) => {
+    const startup = await storage.getStartupById(req.params.id);
+    if (!startup) return res.status(404).json({ message: "Not found" });
+    const parsed = metricsProfileSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: parsed.error.errors[0].message });
+    }
+    const d = parsed.data;
+    const profile = await storage.upsertMetricsProfile(startup.id, {
+      ...(d.salesNotes !== undefined && { salesNotes: d.salesNotes || null }),
+      ...(d.revenueNotes !== undefined && { revenueNotes: d.revenueNotes || null }),
+      ...(d.teamRecruitNotes !== undefined && { teamRecruitNotes: d.teamRecruitNotes || null }),
+      ...(d.partnershipNotes !== undefined && { partnershipNotes: d.partnershipNotes || null }),
+      ...(d.fundraisingNotes !== undefined && { fundraisingNotes: d.fundraisingNotes || null }),
+      ...(d.dataRoom !== undefined && { dataRoom: d.dataRoom }),
+      ...(d.companyProfile !== undefined && { companyProfile: d.companyProfile }),
+    });
+    res.json(profile);
+  }));
+
+  app.patch("/api/admin/startups/:id/metrics/:period", requireAdmin, ah(async (req, res) => {
+    const startup = await storage.getStartupById(req.params.id);
+    if (!startup) return res.status(404).json({ message: "Not found" });
+    const parsed = metricEntrySchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: parsed.error.errors[0].message });
+    }
+    const unknownKey = Object.keys(parsed.data.values).find((k) => !ALL_METRIC_KEYS.has(k));
+    if (unknownKey) return res.status(400).json({ message: `Unknown metric: ${unknownKey}` });
+    const entry = await storage.upsertMetricEntry(startup.id, req.params.period, parsed.data.values);
+    res.json(entry);
+  }));
+
+  app.post("/api/admin/startups/:id/metrics/achievements", requireAdmin, ah(async (req, res) => {
+    const startup = await storage.getStartupById(req.params.id);
+    if (!startup) return res.status(404).json({ message: "Not found" });
+    const parsed = achievementSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: parsed.error.errors[0].message });
+    }
+    const achievement = await storage.createAchievement(startup.id, {
+      achievedAt: parsed.data.achievedAt || null,
+      details: parsed.data.details,
+    });
+    res.status(201).json(achievement);
+  }));
+
+  app.delete("/api/admin/startups/:id/metrics/achievements/:achievementId", requireAdmin, ah(async (req, res) => {
+    const owned = await storage.getOwnedAchievement(req.params.achievementId, req.params.id);
+    if (!owned) return res.status(404).json({ message: "Not found" });
+    await storage.deleteAchievement(owned.id);
+    res.json({ ok: true });
   }));
 
   // Admin/mentor upsert of a startup's rating and written feedback. Never

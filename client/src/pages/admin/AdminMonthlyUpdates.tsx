@@ -7,7 +7,7 @@ import { BackLink, PageHeader } from "../../components/PageHeader";
 import { EmptyState } from "../../components/EmptyState";
 import { SkeletonCards } from "../../components/Skeleton";
 import { StatusBadge } from "../../components/StatusBadge";
-import { MONTHLY_STATUS_LABELS, MONTHLY_STATUS_TONES, MONTH_NAMES, type MonthlyUpdateRow } from "../dashboard/types";
+import { MONTHLY_STATUS_LABELS, MONTHLY_STATUS_TONES, type MonthlyUpdateRow } from "../dashboard/types";
 import { CalendarClock, LifeBuoy } from "lucide-react";
 
 interface Update extends MonthlyUpdateRow {
@@ -33,7 +33,7 @@ export default function AdminMonthlyUpdates() {
         <BackLink to="/admin" label="Back to Admin Dashboard" />
         <PageHeader
           eyebrow="Administration"
-          title="Monthly updates"
+          title="Quarterly updates"
           subtitle="Achieved / blocked / focus-next across every startup, most recent first."
           action={
             <label className="flex items-center gap-2 text-sm text-slate-500">
@@ -49,8 +49,8 @@ export default function AdminMonthlyUpdates() {
           ) : rows.length === 0 ? (
             <EmptyState
               icon={CalendarClock}
-              title={attentionOnly ? "Nothing needs attention" : "No monthly updates yet"}
-              description={attentionOnly ? "No at-risk, off-track, or support-requested updates right now." : "Monthly updates submitted by startups will show up here."}
+              title={attentionOnly ? "Nothing needs attention" : "No quarterly updates yet"}
+              description={attentionOnly ? "No at-risk, off-track, or support-requested updates right now." : "Quarterly updates submitted by startups will show up here."}
             />
           ) : (
             rows.map((u) => {
@@ -64,7 +64,7 @@ export default function AdminMonthlyUpdates() {
                   <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                     <div>
                       <span className="text-sm font-bold text-primary">{u.companyName}</span>
-                      <span className="ml-2 text-xs text-slate-400">{MONTH_NAMES[u.periodMonth - 1]} {u.periodYear}</span>
+                      <span className="ml-2 text-xs text-slate-400">Q{u.periodQuarter} {u.periodYear}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       {u.supportNeeded && (

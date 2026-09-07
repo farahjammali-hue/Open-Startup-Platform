@@ -1,5 +1,4 @@
 import type { StatusTone } from "../../components/StatusBadge";
-import type { KpiPhase } from "../../lib/kpiPhases";
 import { MONTH_NAMES } from "../../lib/months";
 
 export { MONTH_NAMES };
@@ -12,22 +11,9 @@ export interface Goal {
   status: "on_track" | "at_risk" | "off_track" | "done";
 }
 
-export interface KpiSubmission {
-  id: string;
-  phase: KpiPhase;
-  revenue: number | null;
-  activeUsers: number | null;
-  newCustomers: number | null;
-  burnRate: number | null;
-  cashOnHand: number | null;
-  teamSize: number | null;
-  runwayMonths: number | null;
-  notes: string | null;
-}
-
 export interface MonthlyUpdateRow {
   id: string;
-  periodMonth: number;
+  periodQuarter: number;
   periodYear: number;
   achieved: string;
   blocked: string;
