@@ -4,7 +4,7 @@ import { api } from "../../lib/utils";
 import { showToast } from "../../lib/toast";
 import { Skeleton } from "../Skeleton";
 import {
-  METRIC_SECTIONS, MONTHS, monthPeriodsForYear, QUARTER_END_MONTH_INDEX,
+  METRIC_SECTIONS, MONTHS, monthPeriodsForYear,
   DATA_ROOM_ITEMS, COMPANY_PROFILE_GROUPS,
   type MetricSection, type MetricDef,
 } from "@shared/metricsCatalog";
@@ -235,7 +235,7 @@ export function MetricsKpiPanel({ apiBase }: { apiBase: string }) {
                 </button>
               ))}
             </div>
-            <p className="mt-2 text-xs text-slate-400">Quarterly summaries (Q1–Q4) are shown in Full table view, once March/June/September/December have values.</p>
+            <p className="mt-2 text-xs text-slate-400">Quarterly summaries (Q1–Q4) are shown on the Quarterly Updates tab, once March/June/September/December have values.</p>
           </div>
 
           {METRIC_SECTIONS.map((section) => (
@@ -449,12 +449,6 @@ function SectionTable({
 }) {
   const monthPeriods = periods.slice(1); // drop "initial"
 
-  function quarterValue(metricKey: string, quarterIdx: number): string {
-    const monthIdx = QUARTER_END_MONTH_INDEX[quarterIdx];
-    const period = monthPeriods[monthIdx];
-    return values[period]?.[metricKey] ?? "";
-  }
-
   return (
     <div className="ost-card overflow-hidden">
       <SectionHeader title={section.title} isOpen={isOpen} onToggle={onToggle} />
@@ -467,10 +461,6 @@ function SectionTable({
                   <th className="sticky left-0 z-10 bg-white py-2 pr-4 font-semibold">Metric</th>
                   <th className="py-2 px-2 font-semibold">Initial Data</th>
                   {MONTHS.map((m) => <th key={m} className="py-2 px-2 font-semibold">{m.slice(0, 3)}</th>)}
-                  <th className="py-2 px-2 font-semibold text-slate-300">Q1</th>
-                  <th className="py-2 px-2 font-semibold text-slate-300">Q2</th>
-                  <th className="py-2 px-2 font-semibold text-slate-300">Q3</th>
-                  <th className="py-2 px-2 font-semibold text-slate-300">Q4</th>
                 </tr>
               </thead>
               <tbody>
@@ -494,17 +484,6 @@ function SectionTable({
                           aria-label={`${metric.label} — ${MONTHS[i]}`}
                           value={values[period]?.[metric.key] ?? ""}
                           onChange={(e) => setCell(period, metric.key, e.target.value)}
-                        />
-                      </td>
-                    ))}
-                    {(["Q1", "Q2", "Q3", "Q4"] as const).map((q, i) => (
-                      <td key={q} className="px-1 py-1.5">
-                        <MetricInput
-                          metric={metric}
-                          className="ost-input !py-1 w-20 bg-slate-50 text-xs tabular-nums text-slate-400"
-                          aria-label={`${metric.label} — ${q} (computed from ${MONTHS[QUARTER_END_MONTH_INDEX[i]]})`}
-                          value={quarterValue(metric.key, i)}
-                          disabled
                         />
                       </td>
                     ))}

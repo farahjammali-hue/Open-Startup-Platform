@@ -13,10 +13,11 @@ import { TrainerAssignment, type TrainerOption } from "../../components/admin/Tr
 import { TrainingModuleHomeworkModal, type TrainingModuleHomeworkRow } from "../../components/admin/TrainingModuleHomeworkModal";
 import { showToast } from "../../lib/toast";
 import {
-  GOAL_STATUS_LABELS, GOAL_STATUS_TONES, MONTHLY_STATUS_LABELS, MONTHLY_STATUS_TONES,
-  type Goal, type MonthlyUpdateRow, type TeamMemberRow,
+  GOAL_STATUS_LABELS, GOAL_STATUS_TONES,
+  type Goal, type TeamMemberRow,
 } from "../dashboard/types";
 import { MetricsKpiPanel } from "../../components/metrics/MetricsKpiPanel";
+import { QuarterlySummaryPanel } from "../../components/metrics/QuarterlySummaryPanel";
 import { STAGE_LABELS, type StartupStage } from "../../lib/stageLabels";
 import { REVIEW_STATUS_TONES, REVIEW_STATUS_ICONS } from "../../lib/statusTones";
 import {
@@ -56,7 +57,6 @@ interface Detail {
   };
   owner: { name: string; email: string } | null;
   goals: Goal[];
-  monthlyUpdates: MonthlyUpdateRow[];
   teamMembers: TeamMemberRow[];
   contract: (ReviewEntity & { signerName: string; signedAt: string }) | null;
   kysProfile: (ReviewEntity & { track: string; submittedAt: string }) | null;
@@ -141,7 +141,7 @@ export default function AdminStartupDetail() {
     );
   }
 
-  const { startup, owner, goals, monthlyUpdates, teamMembers, contract, kysProfile, mentorshipNotes, trainingNotes, trainingHomework } = data;
+  const { startup, owner, goals, teamMembers, contract, kysProfile, mentorshipNotes, trainingNotes, trainingHomework } = data;
 
   const notesBySessionId = new Map(mentorshipNotes.map((n) => [n.sessionId, n]));
   const mentorshipSessions = (mentorshipData?.sessions ?? [])
@@ -235,23 +235,9 @@ export default function AdminStartupDetail() {
           <MetricsKpiPanel apiBase={`/api/admin/startups/${id}/metrics`} />
         </Section>
 
-        {/* Quarterly updates */}
+        {/* Quarterly updates — mirrors the founder Dashboard's Quarterly Updates tab exactly */}
         <Section title="Quarterly updates" icon={CalendarClock}>
-          {monthlyUpdates.length === 0 ? <EmptyRow text="No quarterly updates submitted yet." /> : (
-            <div className="space-y-3">
-              {monthlyUpdates.map((u) => (
-                <div key={u.id} className="rounded-lg border border-slate-100 p-4">
-                  <div className="mb-2 flex items-center justify-between">
-                    <span className="text-sm font-semibold text-primary">Q{u.periodQuarter} {u.periodYear}</span>
-                    <StatusBadge tone={MONTHLY_STATUS_TONES[u.status]}>{MONTHLY_STATUS_LABELS[u.status]}</StatusBadge>
-                  </div>
-                  <p className="text-xs text-slate-500"><b className="text-slate-600">Achieved:</b> {u.achieved}</p>
-                  <p className="mt-1 text-xs text-slate-500"><b className="text-slate-600">Blocked:</b> {u.blocked}</p>
-                  <p className="mt-1 text-xs text-slate-500"><b className="text-slate-600">Focus next:</b> {u.focusNext}</p>
-                </div>
-              ))}
-            </div>
-          )}
+          <QuarterlySummaryPanel apiBase={`/api/admin/startups/${id}/metrics`} />
         </Section>
 
         {/* Team */}

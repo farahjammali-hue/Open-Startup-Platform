@@ -9,7 +9,7 @@ import { showToast } from "../lib/toast";
 import {
   LayoutDashboard, Rocket, Trash2, Users, Lock,
   GraduationCap, Wrench, Wallet, Store, BookOpen, MessagesSquare,
-  FolderLock, CalendarClock, Home as HomeIcon, FileText, Contact, Layers, Presentation, Sparkles,
+  FolderLock, Home as HomeIcon, FileText, Layers, Presentation, Sparkles, Handshake,
 } from "lucide-react";
 
 interface Item {
@@ -20,25 +20,42 @@ interface Item {
   lockedIf?: boolean;
 }
 
-const ADMIN_ITEMS: Item[] = [
-  { label: "Dashboard", to: "/admin", icon: LayoutDashboard },
-  { label: "Ask AI", to: "/admin/ask-ai", icon: Sparkles },
-  { label: "Startups", to: "/admin/startups", icon: Rocket },
-  { label: "Contracts & KYS", to: "/admin/contracts-kys", icon: FileText },
-  { label: "Data Room", to: "/admin/data-room", icon: FolderLock },
-  { label: "Quarterly Updates", to: "/admin/monthly-updates", icon: CalendarClock },
-  { label: "Mentorship", to: "/admin/mentorship", icon: Layers },
-  { label: "Training", to: "/admin/training", icon: Presentation },
-  { label: "Team Rosters", to: "/admin/team", icon: Contact },
-  { label: "Open Startup School", to: "/admin/school", icon: GraduationCap },
-  { label: "Deletion Requests", to: "/admin/deletion-requests", icon: Trash2 },
-  { label: "Users", to: "/admin/users", icon: Users },
-  { label: "Programs", icon: Rocket, soon: true },
-  { label: "Tools", icon: Wrench, soon: true },
-  { label: "Capital", icon: Wallet, soon: true },
-  { label: "Marketplace", icon: Store, soon: true },
-  { label: "Resources", icon: BookOpen, soon: true },
-  { label: "Forums", icon: MessagesSquare, soon: true },
+const ADMIN_GROUPS: { label: string; items: Item[] }[] = [
+  {
+    label: "Overview",
+    items: [
+      { label: "Dashboard", to: "/admin", icon: LayoutDashboard },
+      { label: "Ask AI", to: "/admin/ask-ai", icon: Sparkles },
+      { label: "Users", to: "/admin/users", icon: Users },
+      { label: "Deletion Requests", to: "/admin/deletion-requests", icon: Trash2 },
+    ],
+  },
+  {
+    label: "Startups",
+    items: [{ label: "Startups", to: "/admin/startups", icon: Rocket }],
+  },
+  {
+    label: "Program",
+    items: [
+      { label: "Data Room", to: "/admin/data-room", icon: FolderLock },
+      { label: "Contracts & KYS", to: "/admin/contracts-kys", icon: FileText },
+      { label: "CRM", to: "/admin/crm", icon: Handshake },
+      { label: "Mentorship", to: "/admin/mentorship", icon: Layers },
+      { label: "Training", to: "/admin/training", icon: Presentation },
+      { label: "Open Startup School", to: "/admin/school", icon: GraduationCap },
+    ],
+  },
+  {
+    label: "Coming soon",
+    items: [
+      { label: "Programs", icon: Rocket, soon: true },
+      { label: "Tools", icon: Wrench, soon: true },
+      { label: "Capital", icon: Wallet, soon: true },
+      { label: "Marketplace", icon: Store, soon: true },
+      { label: "Resources", icon: BookOpen, soon: true },
+      { label: "Forums", icon: MessagesSquare, soon: true },
+    ],
+  },
 ];
 
 interface StartupProfile {
@@ -73,12 +90,15 @@ export function Sidebar() {
       items: [
         { label: "Mentorship", to: "/mentorship", icon: Layers, lockedIf: !kysSubmitted },
         { label: "Training", to: "/training", icon: Presentation, lockedIf: !kysSubmitted },
+        { label: "CRM", to: "/crm", icon: Handshake, lockedIf: !kysSubmitted },
         // KPI Visualizations and Office Hours are hidden from the nav for
         // now while they get more development; routes/pages stay intact.
       ],
     },
     { label: "Learning", items: [{ label: "Open Startup School", to: "/school", icon: GraduationCap }] },
   ];
+
+  const groups = isAdmin ? ADMIN_GROUPS : STARTUP_GROUPS;
 
   function go(to?: string, lockedIf?: boolean) {
     if (!to) return;
@@ -144,19 +164,12 @@ export function Sidebar() {
       )}
 
       <div className="flex-1 overflow-y-auto px-4 py-5">
-        {isAdmin ? (
-          <>
-            <p className="px-2 pb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-white/40">Administration</p>
-            <nav className="space-y-1">{ADMIN_ITEMS.map(renderItem)}</nav>
-          </>
-        ) : (
-          STARTUP_GROUPS.map((group) => (
-            <div key={group.label} className="mb-1">
-              <p className="px-2 pb-1.5 pt-3.5 text-[11px] font-bold uppercase tracking-[0.16em] text-white/40 first:pt-0">{group.label}</p>
-              <nav className="space-y-1">{group.items.map(renderItem)}</nav>
-            </div>
-          ))
-        )}
+        {groups.map((group) => (
+          <div key={group.label} className="mb-1">
+            <p className="px-2 pb-1.5 pt-3.5 text-[11px] font-bold uppercase tracking-[0.16em] text-white/40 first:pt-0">{group.label}</p>
+            <nav className="space-y-1">{group.items.map(renderItem)}</nav>
+          </div>
+        ))}
       </div>
     </aside>
   );

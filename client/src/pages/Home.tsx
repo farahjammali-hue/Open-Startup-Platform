@@ -9,7 +9,7 @@ import { showToast } from "../lib/toast";
 import { StatusBadge, TONE_CLASSES, type StatusTone } from "../components/StatusBadge";
 import { Skeleton } from "../components/Skeleton";
 import {
-  FileText, LayoutDashboard, FolderLock, Lock, BarChart3, CalendarClock, Layers, GraduationCap,
+  FileText, LayoutDashboard, FolderLock, Lock, Layers, Presentation, Handshake, GraduationCap,
   AlertTriangle, CheckCircle2, ArrowRight, Video,
 } from "lucide-react";
 
@@ -44,8 +44,8 @@ interface UpcomingItem {
 
 const EXPLORE_TOOLS = [
   { icon: Layers, title: "Mentorship", desc: "Sessions with your mentor", to: "/mentorship", gated: true },
-  { icon: BarChart3, title: "KPI visualizations", desc: "Auto-built charts", to: "/kpi", gated: false },
-  { icon: CalendarClock, title: "Office hours", desc: "Book time with OST", to: "/office-hours", gated: false },
+  { icon: Presentation, title: "Training", desc: "Modules & sessions", to: "/training", gated: true },
+  { icon: Handshake, title: "CRM", desc: "Investors, clients & partners", to: "/crm", gated: true },
   { icon: GraduationCap, title: "Open Startup School", desc: "Unlocks over time", to: "/school", gated: false },
 ];
 

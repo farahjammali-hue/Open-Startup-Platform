@@ -11,17 +11,6 @@ export interface Goal {
   status: "on_track" | "at_risk" | "off_track" | "done";
 }
 
-export interface MonthlyUpdateRow {
-  id: string;
-  periodQuarter: number;
-  periodYear: number;
-  achieved: string;
-  blocked: string;
-  focusNext: string;
-  status: "on_track" | "at_risk" | "off_track";
-  supportNeeded: string | null;
-}
-
 export interface TeamMemberRow {
   id: string;
   name: string;
@@ -41,10 +30,4 @@ export const GOAL_STATUS_LABELS: Record<Goal["status"], string> = {
 };
 export const GOAL_STATUS_TONES: Record<Goal["status"], StatusTone> = {
   on_track: "teal", at_risk: "amber", off_track: "red", done: "primary",
-};
-export const MONTHLY_STATUS_LABELS: Record<MonthlyUpdateRow["status"], string> = {
-  on_track: "On track", at_risk: "At risk", off_track: "Off track",
-};
-export const MONTHLY_STATUS_TONES: Record<MonthlyUpdateRow["status"], StatusTone> = {
-  on_track: "teal", at_risk: "amber", off_track: "red",
 };

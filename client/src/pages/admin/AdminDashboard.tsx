@@ -3,12 +3,12 @@ import { useLocation } from "wouter";
 import { api } from "../../lib/utils";
 import { AppShell } from "../../components/AppShell";
 import { PageHeader } from "../../components/PageHeader";
-import { Users, Rocket, Trash2, ArrowRight, FileSignature, LineChart, CalendarClock, FolderLock, UsersRound, Contact, GraduationCap } from "lucide-react";
+import { Users, Rocket, Trash2, ArrowRight, FileSignature, LineChart, FolderLock, UsersRound, Contact, GraduationCap } from "lucide-react";
 
 interface Stats {
   users: number; startups: number; pendingDeletions: number;
   pendingContracts: number; pendingKys: number; metricEntries: number;
-  monthlyUpdatesNeedingAttention: number; pendingDocuments: number; upcomingMentorshipSessions: number;
+  pendingDocuments: number; upcomingMentorshipSessions: number;
   teamMembers: number; trainings: number;
 }
 
@@ -27,10 +27,9 @@ export default function AdminDashboard() {
     { label: "Pending deletions", value: data?.pendingDeletions, icon: Trash2, to: "/admin/deletion-requests" },
     { label: "Contracts & KYS to review", value: pendingReviews, icon: FileSignature, to: "/admin/contracts-kys" },
     { label: "Metrics & KPIs entries recorded", value: data?.metricEntries, icon: LineChart, to: "/admin/startups" },
-    { label: "Quarterly updates needing attention", value: data?.monthlyUpdatesNeedingAttention, icon: CalendarClock, to: "/admin/monthly-updates" },
     { label: "Data Room documents pending", value: data?.pendingDocuments, icon: FolderLock, to: "/admin/data-room" },
     { label: "Upcoming mentorship sessions", value: data?.upcomingMentorshipSessions, icon: UsersRound, to: "/admin/mentorship" },
-    { label: "Team members", value: data?.teamMembers, icon: Contact, to: "/admin/team" },
+    { label: "Team members", value: data?.teamMembers, icon: Contact, to: "/admin/startups" },
     { label: "Open Startup School trainings", value: data?.trainings, icon: GraduationCap, to: "/admin/school" },
   ];
 
@@ -81,17 +80,6 @@ export default function AdminDashboard() {
               {pendingReviews} contract/KYS submission{pendingReviews > 1 ? "s" : ""} awaiting your review.
             </span>
             <button onClick={() => navigate("/admin/contracts-kys")} className="ost-btn-primary">
-              Review now
-            </button>
-          </div>
-        )}
-
-        {!isLoading && (data?.monthlyUpdatesNeedingAttention ?? 0) > 0 && (
-          <div className="mt-6 flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50 px-5 py-4">
-            <span className="text-sm font-medium text-amber-700">
-              {data!.monthlyUpdatesNeedingAttention} quarterly update{data!.monthlyUpdatesNeedingAttention > 1 ? "s" : ""} flagged at-risk, off-track, or requesting support.
-            </span>
-            <button onClick={() => navigate("/admin/monthly-updates")} className="ost-btn-primary">
               Review now
             </button>
           </div>

@@ -436,6 +436,36 @@ export const startupAchievements = pgTable("startup_achievements", {
 });
 
 /* =========================================================
+ * CRM — Investors / Clients / Partners relationship tracker, transcribed
+ * from the program's real CRM spreadsheet. The sheet's "Category" column
+ * becomes this table's `category`, which the UI renders as three tabs
+ * instead of a stored column the user edits directly.
+ * =======================================================*/
+export const crmCategoryEnum = pgEnum("crm_category", ["investor", "client", "partner"]);
+
+export const startupCrmEntries = pgTable("startup_crm_entries", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  startupId: uuid("startup_id")
+    .references(() => startups.id, { onDelete: "cascade" })
+    .notNull(),
+  category: crmCategoryEnum("category").notNull(),
+  name: text("name").notNull(),
+  type: text("type"),
+  description: text("description"),
+  priority: text("priority"),
+  status: text("status"),
+  introVia: text("intro_via"),
+  lastContact: text("last_contact"),
+  ctaStartup: text("cta_startup"),
+  ctaOst: text("cta_ost"),
+  howItHelps: text("how_it_helps"),
+  contractValue: text("contract_value"),
+  proof: text("proof"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+/* =========================================================
  * Data Room
  * =======================================================*/
 export const documents = pgTable("documents", {
@@ -1040,6 +1070,28 @@ export const achievementSchema = z.object({
   details: z.string().min(1, "Details are required").max(2000),
 });
 
+const crmEntryFieldsSchema = {
+  name: z.string().min(1, "Name is required").max(200),
+  type: z.string().max(200).optional().or(z.literal("")),
+  description: z.string().max(4000).optional().or(z.literal("")),
+  priority: z.string().max(50).optional().or(z.literal("")),
+  status: z.string().max(100).optional().or(z.literal("")),
+  introVia: z.string().max(300).optional().or(z.literal("")),
+  lastContact: z.string().max(200).optional().or(z.literal("")),
+  ctaStartup: z.string().max(4000).optional().or(z.literal("")),
+  ctaOst: z.string().max(4000).optional().or(z.literal("")),
+  howItHelps: z.string().max(4000).optional().or(z.literal("")),
+  contractValue: z.string().max(200).optional().or(z.literal("")),
+  proof: z.string().max(4000).optional().or(z.literal("")),
+};
+
+export const crmEntrySchema = z.object({
+  category: z.enum(["investor", "client", "partner"]),
+  ...crmEntryFieldsSchema,
+});
+
+export const crmEntryUpdateSchema = crmEntrySchema.partial();
+
 export const documentUploadSchema = z.object({
   category: z.enum(["legal", "financial", "product", "team", "fundraising", "other", "main_docs", "intellectual_property", "metrics"]),
   title: z.string().min(1, "Title is required").max(200),
@@ -1353,11 +1405,14 @@ export type KysDocument = typeof kysDocuments.$inferSelect;
 export type MonthlyUpdate = typeof monthlyUpdates.$inferSelect;
 export type TeamMember = typeof teamMembers.$inferSelect;
 export type CapTableEntry = typeof capTableEntries.$inferSelect;
+export type StartupCrmEntry = typeof startupCrmEntries.$inferSelect;
 
 export type GoalInput = z.infer<typeof goalSchema>;
 export type MetricEntryInput = z.infer<typeof metricEntrySchema>;
 export type MetricsProfileInput = z.infer<typeof metricsProfileSchema>;
 export type AchievementInput = z.infer<typeof achievementSchema>;
+export type CrmEntryInput = z.infer<typeof crmEntrySchema>;
+export type CrmEntryUpdateInput = z.infer<typeof crmEntryUpdateSchema>;
 export type DocumentUploadInput = z.infer<typeof documentUploadSchema>;
 export type DocumentReviewInput = z.infer<typeof documentReviewSchema>;
 export type OfficeHourBookingInput = z.infer<typeof officeHourBookingSchema>;

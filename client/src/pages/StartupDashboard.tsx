@@ -5,8 +5,8 @@ import { AppShell } from "../components/AppShell";
 import { BackLink, PageHeader, TabBar } from "../components/PageHeader";
 import { OverviewTab } from "./dashboard/OverviewTab";
 import { MetricsKpiTab } from "./dashboard/MetricsKpiTab";
-import { MonthlyUpdatesTab } from "./dashboard/MonthlyUpdatesTab";
-import type { MonthlyUpdateRow, TeamMemberRow, CapTableEntryRow } from "./dashboard/types";
+import { QuarterlyUpdatesTab } from "./dashboard/QuarterlyUpdatesTab";
+import type { TeamMemberRow, CapTableEntryRow } from "./dashboard/types";
 
 export interface StartupProfile {
   id: string;
@@ -51,10 +51,8 @@ export default function StartupDashboard() {
   const [tab, setTab] = useState<TabKey>("overview");
 
   const { data: startup } = useQuery<StartupProfile>({ queryKey: ["startup-me"], queryFn: () => api("/api/startup/me") });
-  const { data: monthlyData } = useQuery<{ updates: MonthlyUpdateRow[] }>({ queryKey: ["monthly-updates"], queryFn: () => api("/api/monthly-updates") });
   const { data: teamData } = useQuery<{ members: TeamMemberRow[] }>({ queryKey: ["team"], queryFn: () => api("/api/team") });
   const { data: capTableData } = useQuery<{ entries: CapTableEntryRow[] }>({ queryKey: ["cap-table"], queryFn: () => api("/api/cap-table") });
-  const monthlyUpdates = monthlyData?.updates ?? [];
   const team = teamData?.members ?? [];
   const capTable = capTableData?.entries ?? [];
 
@@ -68,7 +66,7 @@ export default function StartupDashboard() {
 
         {tab === "overview" && <OverviewTab startup={startup ?? null} team={team} capTable={capTable} />}
         {tab === "metrics" && <MetricsKpiTab />}
-        {tab === "monthly" && <MonthlyUpdatesTab updates={monthlyUpdates} />}
+        {tab === "monthly" && <QuarterlyUpdatesTab />}
       </main>
     </AppShell>
   );

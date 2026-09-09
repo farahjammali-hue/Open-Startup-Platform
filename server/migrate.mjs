@@ -780,6 +780,32 @@ CREATE TABLE IF NOT EXISTS startup_achievements (
 -- backfilled from it so existing check-ins keep their real period.
 ALTER TABLE monthly_updates ADD COLUMN IF NOT EXISTS period_quarter integer NOT NULL DEFAULT 1;
 UPDATE monthly_updates SET period_quarter = CEIL(period_month::numeric / 3) WHERE period_month IS NOT NULL;
+
+-- CRM module: Investors / Clients / Partners relationship tracker, editable
+-- by both the founder and the OST team. "category" replaces the source
+-- spreadsheet's "Category" column and drives the UI's three tabs.
+DO $$ BEGIN
+  CREATE TYPE crm_category AS ENUM ('investor','client','partner');
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+CREATE TABLE IF NOT EXISTS startup_crm_entries (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  startup_id uuid NOT NULL REFERENCES startups(id) ON DELETE CASCADE,
+  category crm_category NOT NULL,
+  name text NOT NULL,
+  type text,
+  description text,
+  priority text,
+  status text,
+  intro_via text,
+  last_contact text,
+  cta_startup text,
+  cta_ost text,
+  how_it_helps text,
+  contract_value text,
+  proof text,
+  created_at timestamp NOT NULL DEFAULT now(),
+  updated_at timestamp NOT NULL DEFAULT now()
+);
 `;
 
 try {

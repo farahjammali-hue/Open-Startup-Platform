@@ -17,6 +17,7 @@ import DataRoom from "./pages/DataRoom";
 import PublicDataRoomShare from "./pages/PublicDataRoomShare";
 import Mentorship from "./pages/Mentorship";
 import Training from "./pages/Training";
+import Crm from "./pages/Crm";
 import OfficeHours from "./pages/OfficeHours";
 import OpenStartupSchool from "./pages/OpenStartupSchool";
 import AdminDashboard from "./pages/admin/AdminDashboard";
@@ -27,13 +28,13 @@ import AdminDeletionRequests from "./pages/admin/AdminDeletionRequests";
 import AdminUsers from "./pages/admin/AdminUsers";
 import AdminContractsKys from "./pages/admin/AdminContractsKys";
 import AdminContractsKysStartup from "./pages/admin/AdminContractsKysStartup";
-import AdminMonthlyUpdates from "./pages/admin/AdminMonthlyUpdates";
 import AdminDataRoom from "./pages/admin/AdminDataRoom";
 import AdminMentorship from "./pages/admin/AdminMentorship";
 import AdminMentorshipStartup from "./pages/admin/AdminMentorshipStartup";
 import AdminTraining from "./pages/admin/AdminTraining";
 import AdminTrainingStartup from "./pages/admin/AdminTrainingStartup";
-import AdminTeam from "./pages/admin/AdminTeam";
+import AdminCrm from "./pages/admin/AdminCrm";
+import AdminCrmStartup from "./pages/admin/AdminCrmStartup";
 import AdminSchool from "./pages/admin/AdminSchool";
 
 function Loading() {
@@ -83,13 +84,13 @@ export default function App() {
         <Route path="/admin/users" component={AdminUsers} />
         <Route path="/admin/contracts-kys" component={AdminContractsKys} />
         <Route path="/admin/contracts-kys/:startupId" component={AdminContractsKysStartup} />
-        <Route path="/admin/monthly-updates" component={AdminMonthlyUpdates} />
         <Route path="/admin/data-room" component={AdminDataRoom} />
         <Route path="/admin/mentorship" component={AdminMentorship} />
         <Route path="/admin/mentorship/:startupId" component={AdminMentorshipStartup} />
         <Route path="/admin/training" component={AdminTraining} />
         <Route path="/admin/training/:startupId" component={AdminTrainingStartup} />
-        <Route path="/admin/team" component={AdminTeam} />
+        <Route path="/admin/crm" component={AdminCrm} />
+        <Route path="/admin/crm/:startupId" component={AdminCrmStartup} />
         <Route path="/admin/school" component={AdminSchool} />
         <Route>
           <Redirect to="/admin" />
@@ -124,6 +125,7 @@ export default function App() {
       <Route path="/data-room" component={DataRoom} />
       <Route path="/mentorship" component={Mentorship} />
       <Route path="/training" component={Training} />
+      <Route path="/crm" component={Crm} />
       <Route path="/office-hours" component={OfficeHours} />
       <Route path="/school" component={OpenStartupSchool} />
       <Route path="/account" component={Account} />

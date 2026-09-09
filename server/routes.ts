@@ -23,6 +23,8 @@ import {
   metricEntrySchema,
   metricsProfileSchema,
   achievementSchema,
+  crmEntrySchema,
+  crmEntryUpdateSchema,
   documentUploadSchema,
   documentReviewSchema,
   officeHourBookingSchema,
@@ -962,6 +964,53 @@ export function registerRoutes(app: Express) {
     const owned = await storage.getOwnedAchievement(req.params.id, startup.id);
     if (!owned) return res.status(404).json({ message: "Not found" });
     await storage.deleteAchievement(owned.id);
+    res.json({ ok: true });
+  }));
+
+  /* ---------------- CRM ---------------- */
+  app.get("/api/crm", requireAuth, ah(async (req, res) => {
+    const startup = await requireActiveStartup(req, res);
+    if (!startup) return;
+    res.json({ entries: await storage.listCrmEntries(startup.id) });
+  }));
+
+  app.post("/api/crm", requireAuth, ah(async (req, res) => {
+    const startup = await requireActiveStartup(req, res);
+    if (!startup) return;
+    const parsed = crmEntrySchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: parsed.error.errors[0].message });
+    }
+    const { category, name, ...rest } = parsed.data;
+    const entry = await storage.createCrmEntry(startup.id, {
+      category, name,
+      ...Object.fromEntries(Object.entries(rest).map(([k, v]) => [k, v || null])),
+    });
+    res.status(201).json(entry);
+  }));
+
+  app.patch("/api/crm/:id", requireAuth, ah(async (req, res) => {
+    const startup = await requireActiveStartup(req, res);
+    if (!startup) return;
+    const owned = await storage.getOwnedCrmEntry(req.params.id, startup.id);
+    if (!owned) return res.status(404).json({ message: "Not found" });
+    const parsed = crmEntryUpdateSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: parsed.error.errors[0].message });
+    }
+    const patch = Object.fromEntries(
+      Object.entries(parsed.data).map(([k, v]) => [k, k === "category" ? v : (v || null)]),
+    );
+    const entry = await storage.updateCrmEntry(owned.id, patch);
+    res.json(entry);
+  }));
+
+  app.delete("/api/crm/:id", requireAuth, ah(async (req, res) => {
+    const startup = await requireActiveStartup(req, res);
+    if (!startup) return;
+    const owned = await storage.getOwnedCrmEntry(req.params.id, startup.id);
+    if (!owned) return res.status(404).json({ message: "Not found" });
+    await storage.deleteCrmEntry(owned.id);
     res.json({ ok: true });
   }));
 
@@ -2346,15 +2395,6 @@ export function registerRoutes(app: Express) {
   }));
 
   // Portfolio-wide monthly update stream (achieved/blocked/focus-next) across every startup.
-  app.get("/api/admin/monthly-updates", requireAdmin, ah(async (_req, res) => {
-    res.json({ updates: await storage.listAllMonthlyUpdates() });
-  }));
-
-  // Portfolio-wide team roster visibility across every startup.
-  app.get("/api/admin/team", requireAdmin, ah(async (_req, res) => {
-    res.json({ members: await storage.listAllTeamMembers() });
-  }));
-
   // Full detail view of one startup — goals, monthly updates, team,
   // Data Room documents, and contract/KYS status, all in one call. Metrics &
   // KPIs data has its own dedicated endpoint (see below) rather than being
@@ -2453,6 +2493,49 @@ export function registerRoutes(app: Express) {
     const owned = await storage.getOwnedAchievement(req.params.achievementId, req.params.id);
     if (!owned) return res.status(404).json({ message: "Not found" });
     await storage.deleteAchievement(owned.id);
+    res.json({ ok: true });
+  }));
+
+  /* ---------------- Admin: CRM (mirrors the founder routes above) ---------------- */
+  app.get("/api/admin/startups/:id/crm", requireAdmin, ah(async (req, res) => {
+    const startup = await storage.getStartupById(req.params.id);
+    if (!startup) return res.status(404).json({ message: "Not found" });
+    res.json({ entries: await storage.listCrmEntries(startup.id) });
+  }));
+
+  app.post("/api/admin/startups/:id/crm", requireAdmin, ah(async (req, res) => {
+    const startup = await storage.getStartupById(req.params.id);
+    if (!startup) return res.status(404).json({ message: "Not found" });
+    const parsed = crmEntrySchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: parsed.error.errors[0].message });
+    }
+    const { category, name, ...rest } = parsed.data;
+    const entry = await storage.createCrmEntry(startup.id, {
+      category, name,
+      ...Object.fromEntries(Object.entries(rest).map(([k, v]) => [k, v || null])),
+    });
+    res.status(201).json(entry);
+  }));
+
+  app.patch("/api/admin/startups/:id/crm/:entryId", requireAdmin, ah(async (req, res) => {
+    const owned = await storage.getOwnedCrmEntry(req.params.entryId, req.params.id);
+    if (!owned) return res.status(404).json({ message: "Not found" });
+    const parsed = crmEntryUpdateSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: parsed.error.errors[0].message });
+    }
+    const patch = Object.fromEntries(
+      Object.entries(parsed.data).map(([k, v]) => [k, k === "category" ? v : (v || null)]),
+    );
+    const entry = await storage.updateCrmEntry(owned.id, patch);
+    res.json(entry);
+  }));
+
+  app.delete("/api/admin/startups/:id/crm/:entryId", requireAdmin, ah(async (req, res) => {
+    const owned = await storage.getOwnedCrmEntry(req.params.entryId, req.params.id);
+    if (!owned) return res.status(404).json({ message: "Not found" });
+    await storage.deleteCrmEntry(owned.id);
     res.json({ ok: true });
   }));
 

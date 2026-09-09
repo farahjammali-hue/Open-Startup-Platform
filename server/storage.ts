@@ -32,6 +32,7 @@ import {
   teamMembers,
   dataRoomShares,
   capTableEntries,
+  startupCrmEntries,
   type User,
   type Startup,
   type PublicUser,
@@ -39,6 +40,7 @@ import {
   type StartupMetricEntry,
   type StartupMetricsProfile,
   type StartupAchievement,
+  type StartupCrmEntry,
   type Document,
   type DocumentEvent,
   type OfficeHourSlot,
@@ -452,12 +454,6 @@ export const storage = {
       .select({ c: sql<number>`count(*)::int` })
       .from(startupMetricEntries)
       .innerJoin(startups, eq(startupMetricEntries.startupId, startups.id));
-    // Monthly updates flagged at_risk/off_track, or where the founder explicitly asked for support.
-    const [mu] = await db
-      .select({ c: sql<number>`count(*)::int` })
-      .from(monthlyUpdates)
-      .innerJoin(startups, eq(monthlyUpdates.startupId, startups.id))
-      .where(sql`${monthlyUpdates.status} != 'on_track' or (${monthlyUpdates.supportNeeded} is not null and ${monthlyUpdates.supportNeeded} != '')`);
     const [pd] = await db
       .select({ c: sql<number>`count(*)::int` })
       .from(documents)
@@ -478,7 +474,6 @@ export const storage = {
       pendingContracts: pc?.c ?? 0,
       pendingKys: pk?.c ?? 0,
       metricEntries: ks?.c ?? 0,
-      monthlyUpdatesNeedingAttention: mu?.c ?? 0,
       pendingDocuments: pd?.c ?? 0,
       upcomingMentorshipSessions: ms?.c ?? 0,
       teamMembers: tm?.c ?? 0,
@@ -731,6 +726,41 @@ export const storage = {
 
   async deleteAchievement(id: string): Promise<void> {
     await db.delete(startupAchievements).where(eq(startupAchievements.id, id));
+  },
+
+  /* ---------------- CRM ---------------- */
+  async listCrmEntries(startupId: string): Promise<StartupCrmEntry[]> {
+    return db
+      .select()
+      .from(startupCrmEntries)
+      .where(eq(startupCrmEntries.startupId, startupId))
+      .orderBy(asc(startupCrmEntries.createdAt));
+  },
+
+  async createCrmEntry(startupId: string, data: Partial<typeof startupCrmEntries.$inferInsert> & { category: "investor" | "client" | "partner"; name: string }): Promise<StartupCrmEntry> {
+    const [row] = await db.insert(startupCrmEntries).values({ startupId, ...data }).returning();
+    return row;
+  },
+
+  async getOwnedCrmEntry(id: string, startupId: string): Promise<StartupCrmEntry | undefined> {
+    const [row] = await db
+      .select()
+      .from(startupCrmEntries)
+      .where(and(eq(startupCrmEntries.id, id), eq(startupCrmEntries.startupId, startupId)));
+    return row;
+  },
+
+  async updateCrmEntry(id: string, data: Partial<typeof startupCrmEntries.$inferInsert>): Promise<StartupCrmEntry> {
+    const [row] = await db
+      .update(startupCrmEntries)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(startupCrmEntries.id, id))
+      .returning();
+    return row;
+  },
+
+  async deleteCrmEntry(id: string): Promise<void> {
+    await db.delete(startupCrmEntries).where(eq(startupCrmEntries.id, id));
   },
 
   /* ---------------- Data Room ---------------- */
@@ -1126,27 +1156,6 @@ export const storage = {
       .orderBy(desc(monthlyUpdates.periodYear), desc(monthlyUpdates.periodQuarter));
   },
 
-  // Admin: every quarterly update across every startup, most recent first.
-  async listAllMonthlyUpdates() {
-    return db
-      .select({
-        id: monthlyUpdates.id,
-        startupId: monthlyUpdates.startupId,
-        periodQuarter: monthlyUpdates.periodQuarter,
-        periodYear: monthlyUpdates.periodYear,
-        achieved: monthlyUpdates.achieved,
-        blocked: monthlyUpdates.blocked,
-        focusNext: monthlyUpdates.focusNext,
-        status: monthlyUpdates.status,
-        supportNeeded: monthlyUpdates.supportNeeded,
-        createdAt: monthlyUpdates.createdAt,
-        companyName: startups.companyName,
-      })
-      .from(monthlyUpdates)
-      .innerJoin(startups, eq(monthlyUpdates.startupId, startups.id))
-      .orderBy(desc(monthlyUpdates.periodYear), desc(monthlyUpdates.periodQuarter), desc(monthlyUpdates.createdAt));
-  },
-
   async upsertMonthlyUpdate(
     startupId: string,
     data: {
@@ -1194,23 +1203,6 @@ export const storage = {
       .from(teamMembers)
       .where(eq(teamMembers.startupId, startupId))
       .orderBy(asc(teamMembers.joinedAt));
-  },
-
-  // Admin: every team member across every startup, for portfolio-wide roster visibility.
-  async listAllTeamMembers() {
-    return db
-      .select({
-        id: teamMembers.id,
-        startupId: teamMembers.startupId,
-        name: teamMembers.name,
-        role: teamMembers.role,
-        type: teamMembers.type,
-        joinedAt: teamMembers.joinedAt,
-        companyName: startups.companyName,
-      })
-      .from(teamMembers)
-      .innerJoin(startups, eq(teamMembers.startupId, startups.id))
-      .orderBy(asc(startups.companyName), asc(teamMembers.joinedAt));
   },
 
   async createTeamMember(
