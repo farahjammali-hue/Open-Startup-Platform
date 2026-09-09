@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLocation, useSearch } from "wouter";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/utils";
 import { AppShell } from "../components/AppShell";
 import { BackLink, PageHeader, TabBar } from "../components/PageHeader";
@@ -9,11 +9,10 @@ import { ModalShell } from "../components/ModalShell";
 import { StatusBadge, type StatusTone } from "../components/StatusBadge";
 import { Skeleton } from "../components/Skeleton";
 import { useKysStatus } from "../lib/kysStatus";
-import { showToast } from "../lib/toast";
 import { MENTORSHIP_SESSION_STATUS_TONES, MENTORSHIP_SESSION_STATUS_ICONS } from "../lib/statusTones";
 import {
   Layers, Lock, ChevronRight, ChevronLeft, Presentation, Video, FileText, Link2,
-  CalendarClock, Clock, Loader2, User, MessageCircle, Mail, Linkedin,
+  CalendarClock, Clock, User, MessageCircle, Mail, Linkedin,
 } from "lucide-react";
 
 interface TrainerProfile {
@@ -78,12 +77,11 @@ interface TrainingModuleData {
 const MODULE_STATUS_LABELS: Record<ModuleStatus, string> = { locked: "Locked", upcoming: "Upcoming", active: "Active", completed: "Completed" };
 const MODULE_STATUS_TONES: Record<ModuleStatus, StatusTone> = { locked: "gray", upcoming: "amber", active: "teal", completed: "primary" };
 
-const TABS = ["trainer", "modules", "sessionDetails"] as const;
+const TABS = ["trainer", "modules"] as const;
 type Tab = (typeof TABS)[number];
 const TAB_LABELS: Record<Tab, string> = {
   trainer: "Trainer",
   modules: "Program modules",
-  sessionDetails: "Session details",
 };
 
 function googleCalendarLink(title: string, scheduledAt: string, durationMinutes: number) {
@@ -189,7 +187,6 @@ export default function Training() {
         )}
 
         {!isLoading && tab === "trainer" && <TrainerTab trainer={trainer} />}
-        {!isLoading && tab === "sessionDetails" && <SessionDetailsTab modules={modules} />}
       </main>
 
       {openSession && <SessionDetailModal session={openSession} onClose={() => setOpenSession(null)} />}
@@ -247,113 +244,6 @@ function TrainerTab({ trainer }: { trainer: TrainerProfile | null }) {
             <Linkedin className="h-3.5 w-3.5" /> LinkedIn
           </a>
         )}
-      </div>
-    </div>
-  );
-}
-
-function FlatSessionsTab({
-  modules,
-  emptyText,
-  renderContent,
-}: {
-  modules: TrainingModuleData[];
-  emptyText: string;
-  renderContent: (session: TrainingSession) => React.ReactNode;
-}) {
-  const rows = modules
-    .flatMap((m) => m.sessions.filter((s) => s.status === "completed").map((s) => ({ session: s, moduleNumber: m.number, moduleTitle: m.title })))
-    .sort((a, b) => +new Date(a.session.scheduledAt) - +new Date(b.session.scheduledAt));
-
-  if (rows.length === 0) return <p className="ost-card-subtext">{emptyText}</p>;
-
-  return (
-    <div className="space-y-3">
-      {rows.map(({ session, moduleNumber, moduleTitle }) => (
-        <div key={session.id} className="ost-card p-5">
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Module {moduleNumber} · {moduleTitle}</p>
-              <p className="font-semibold text-primary">Session {session.number} · {session.title}</p>
-            </div>
-            <span className="shrink-0 text-xs text-slate-400">{new Date(session.scheduledAt).toLocaleDateString()}</span>
-          </div>
-          <div className="mt-3">{renderContent(session)}</div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function SessionDetailsTab({ modules }: { modules: TrainingModuleData[] }) {
-  return (
-    <FlatSessionsTab
-      modules={modules}
-      emptyText="No completed sessions yet."
-      renderContent={(s) => <SessionRecapForm session={s} />}
-    />
-  );
-}
-
-function SessionRecapForm({ session: s }: { session: TrainingSession }) {
-  const queryClient = useQueryClient();
-  const n = s.notes;
-  const [teamMembersPresence, setTeamMembersPresence] = useState(n.teamMembersPresence ?? "");
-  const [pointsDiscussed, setPointsDiscussed] = useState(n.pointsDiscussed ?? "");
-  const [whatIsGoingWell, setWhatIsGoingWell] = useState(n.whatIsGoingWell ?? "");
-  const [whatIsNotGoingWell, setWhatIsNotGoingWell] = useState(n.whatIsNotGoingWell ?? "");
-  const [actionItems, setActionItems] = useState(n.actionItems ?? "");
-  const [saving, setSaving] = useState(false);
-
-  async function save() {
-    setSaving(true);
-    try {
-      await api(`/api/training/sessions/${s.id}/notes`, {
-        method: "PATCH",
-        body: JSON.stringify({ teamMembersPresence, pointsDiscussed, whatIsGoingWell, whatIsNotGoingWell, actionItems }),
-      });
-      queryClient.invalidateQueries({ queryKey: ["training"] });
-      showToast("Recap saved");
-    } catch (e: any) {
-      showToast(e.message || "Couldn't save recap");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  const rows: [string, string, (v: string) => void][] = [
-    ["Team members presence", teamMembersPresence, setTeamMembersPresence],
-    ["Points discussed", pointsDiscussed, setPointsDiscussed],
-    ["What's going well", whatIsGoingWell, setWhatIsGoingWell],
-    ["What's not going well", whatIsNotGoingWell, setWhatIsNotGoingWell],
-    ["Action items", actionItems, setActionItems],
-  ];
-
-  return (
-    <div className="space-y-3">
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <tbody>
-            {rows.map(([label, value, setValue]) => (
-              <tr key={label} className="border-b border-slate-50 last:border-0">
-                <th scope="row" className="w-44 py-2 pr-4 text-left align-top text-xs font-semibold uppercase tracking-wide text-slate-400">{label}</th>
-                <td className="py-2 align-top">
-                  <textarea
-                    className="ost-input min-h-[44px] w-full text-sm"
-                    value={value}
-                    onChange={(e) => setValue(e.target.value)}
-                    placeholder="—"
-                  />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <div className="flex justify-end">
-        <button type="button" onClick={save} disabled={saving} className="ost-btn-primary !px-3 !py-1.5 text-xs disabled:opacity-50">
-          {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />} Save
-        </button>
       </div>
     </div>
   );

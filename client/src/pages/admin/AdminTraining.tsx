@@ -1,18 +1,25 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useLocation } from "wouter";
 import { api } from "../../lib/utils";
 import { AppShell } from "../../components/AppShell";
 import { BackLink, PageHeader } from "../../components/PageHeader";
 import { EmptyState } from "../../components/EmptyState";
-import { SkeletonCards, SkeletonRows } from "../../components/Skeleton";
+import { SkeletonCards } from "../../components/Skeleton";
 import { ModalShell } from "../../components/ModalShell";
 import { StatusBadge } from "../../components/StatusBadge";
 import { MENTORSHIP_SESSION_STATUS_TONES } from "../../lib/statusTones";
 import { showToast } from "../../lib/toast";
 import {
-  Layers, Lock, Unlock, Pencil, Trash2, Plus, Loader2, ChevronDown, ChevronUp, User, Mail, MessageCircle, Linkedin, Camera, Building2,
+  Layers, Lock, Unlock, Pencil, Trash2, Plus, Loader2, ChevronDown, ChevronUp, User, Mail, MessageCircle, Linkedin, Camera,
 } from "lucide-react";
+
+type ModuleTrack = "seed" | "pre_seed" | "all";
+
+const TRACK_LABELS: Record<ModuleTrack, string> = {
+  seed: "Seed",
+  pre_seed: "Pre-Seed",
+  all: "All startups",
+};
 
 interface Trainer {
   id: string;
@@ -22,6 +29,13 @@ interface Trainer {
   email: string | null;
   whatsapp: string | null;
   linkedinUrl: string | null;
+  expertId: string | null;
+}
+
+interface CatalogExpert {
+  id: string;
+  name: string;
+  bio: string | null;
 }
 
 interface TrainingSession {
@@ -40,7 +54,6 @@ interface TrainingSession {
   recordingUrl: string | null;
   transcriptUrl: string | null;
   zoomHostEmail: string | null;
-  startupIds: string[];
 }
 
 interface ZoomHost { id: string; email: string; name: string; }
@@ -51,17 +64,9 @@ interface TrainingModule {
   title: string;
   description: string | null;
   durationLabel: string | null;
+  track: ModuleTrack;
   unlocked: boolean;
   sessions: TrainingSession[];
-}
-
-interface StartupOption {
-  id: string;
-  companyName: string;
-  ownerName: string | null;
-  ownerEmail: string | null;
-  kysTrack: "pre_seed" | "seed" | null;
-  trainerName: string | null;
 }
 
 /** datetime-local expects local time, no timezone suffix. */
@@ -72,7 +77,6 @@ function toDatetimeLocal(d: Date) {
 
 export default function AdminTraining() {
   const qc = useQueryClient();
-  const [, navigate] = useLocation();
   const [expanded, setExpanded] = useState<string | null>(null);
   const [editingModule, setEditingModule] = useState<TrainingModule | "new" | null>(null);
   const [editingSession, setEditingSession] = useState<{ moduleId: string; session: TrainingSession | null } | null>(null);
@@ -89,12 +93,6 @@ export default function AdminTraining() {
     queryFn: () => api("/api/admin/trainers"),
   });
   const trainers = trainersData?.trainers ?? [];
-
-  const { data: startupsData, isLoading: startupsLoading } = useQuery<{ startups: StartupOption[] }>({
-    queryKey: ["admin-startups"],
-    queryFn: () => api("/api/admin/startups"),
-  });
-  const startups = startupsData?.startups ?? [];
 
   function invalidate() {
     qc.invalidateQueries({ queryKey: ["admin-training"] });
@@ -150,7 +148,7 @@ export default function AdminTraining() {
         <PageHeader
           eyebrow="Administration"
           title="Training"
-          subtitle="Manage program modules, sessions, and unlocking."
+          subtitle="One trainer per track. Modules are scoped to Seed, Pre-Seed, or every startup."
         />
 
         <div className="mt-8 flex items-center justify-between">
@@ -196,51 +194,6 @@ export default function AdminTraining() {
         )}
 
         <div className="mt-10 flex items-center justify-between">
-          <h2 className="text-sm font-bold uppercase tracking-wide text-slate-400">Startups</h2>
-        </div>
-
-        <div className="ost-card mt-3 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-100 text-left text-xs uppercase tracking-wide text-slate-400">
-                  <th className="px-5 py-3 font-semibold">Startup</th>
-                  <th className="px-5 py-3 font-semibold">Owner</th>
-                  <th className="px-5 py-3 font-semibold">Trainer</th>
-                </tr>
-              </thead>
-              <tbody>
-                {startupsLoading ? (
-                  <SkeletonRows rows={4} cols={3} />
-                ) : startups.length === 0 ? (
-                  <tr><td colSpan={3} className="px-5 py-6 text-slate-400">No startups yet.</td></tr>
-                ) : (
-                  startups.map((s) => (
-                    <tr
-                      key={s.id}
-                      onClick={() => navigate(`/admin/training/${s.id}`)}
-                      className="cursor-pointer border-b border-slate-50 last:border-0 hover:bg-slate-50"
-                    >
-                      <td className="px-5 py-3">
-                        <div className="flex items-center gap-2">
-                          <Building2 className="h-4 w-4 text-secondary" />
-                          <span className="font-semibold text-primary">{s.companyName}</span>
-                        </div>
-                      </td>
-                      <td className="px-5 py-3 text-slate-500">
-                        <div>{s.ownerName}</div>
-                        <div className="text-xs text-slate-400">{s.ownerEmail}</div>
-                      </td>
-                      <td className="px-5 py-3 text-slate-500">{s.trainerName || "—"}</td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div className="mt-10 flex items-center justify-between">
           <h2 className="text-sm font-bold uppercase tracking-wide text-slate-400">Modules</h2>
           <button onClick={() => setEditingModule("new")} className="ost-btn-primary !px-3 !py-1.5 text-xs"><Plus className="h-3.5 w-3.5" /> Add module</button>
         </div>
@@ -262,8 +215,9 @@ export default function AdminTraining() {
                         <Layers className="h-5 w-5" />
                       </div>
                       <div className="min-w-0">
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           <p className="font-bold text-primary">Module {m.number} · {m.title}</p>
+                          <StatusBadge tone="primary">{TRACK_LABELS[m.track]}</StatusBadge>
                           {isOpen ? <ChevronUp className="h-4 w-4 text-slate-400" /> : <ChevronDown className="h-4 w-4 text-slate-400" />}
                         </div>
                         {m.description && <p className="mt-1 text-sm text-slate-500">{m.description}</p>}
@@ -313,7 +267,6 @@ export default function AdminTraining() {
                                 <span>{new Date(s.scheduledAt).toLocaleString()}</span>
                                 <span>{s.durationMinutes} min</span>
                                 {s.experts && <span>{s.experts}</span>}
-                                <span>{s.startupIds.length === 0 ? "No startups targeted" : `${s.startupIds.length} startup${s.startupIds.length === 1 ? "" : "s"}`}</span>
                               </div>
                             </div>
                             <div className="flex shrink-0 items-center gap-1">
@@ -350,7 +303,7 @@ export default function AdminTraining() {
           moduleId={editingSession.moduleId}
           session={editingSession.session}
           nextNumber={(modules.find((m) => m.id === editingSession.moduleId)?.sessions.length ?? 0) + 1}
-          startups={startups}
+          trainers={trainers}
           onClose={() => setEditingSession(null)}
           onSaved={() => { invalidate(); setEditingSession(null); }}
         />
@@ -382,6 +335,7 @@ function ModuleFormModal({
   const [title, setTitle] = useState(module?.title ?? "");
   const [description, setDescription] = useState(module?.description ?? "");
   const [durationLabel, setDurationLabel] = useState(module?.durationLabel ?? "");
+  const [track, setTrack] = useState<ModuleTrack>(module?.track ?? "all");
   const [unlocked, setUnlocked] = useState(module?.unlocked ?? false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -390,7 +344,7 @@ function ModuleFormModal({
     setSaving(true);
     setError(null);
     try {
-      const body = JSON.stringify({ number: Number(number) || 1, title, description, durationLabel, unlocked });
+      const body = JSON.stringify({ number: Number(number) || 1, title, description, durationLabel, track, unlocked });
       if (module) {
         await api(`/api/admin/training/modules/${module.id}`, { method: "PATCH", body });
       } else {
@@ -420,9 +374,25 @@ function ModuleFormModal({
       <label className="ost-label">Duration label (optional)</label>
       <input className="ost-input mb-3" value={durationLabel} onChange={(e) => setDurationLabel(e.target.value)} placeholder="e.g. 4 weeks" />
 
+      <label className="ost-label">Which startups is this module for?</label>
+      <div className="mb-3 flex items-center gap-1 rounded-lg border border-slate-200 p-1">
+        {(["all", "seed", "pre_seed"] as const).map((t) => (
+          <button
+            key={t}
+            type="button"
+            onClick={() => setTrack(t)}
+            className={`flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition ${
+              track === t ? "bg-secondary text-white" : "text-slate-500 hover:text-primary"
+            }`}
+          >
+            {TRACK_LABELS[t]}
+          </button>
+        ))}
+      </div>
+
       <label className="flex items-center gap-2 text-sm font-medium text-primary">
         <input type="checkbox" checked={unlocked} onChange={(e) => setUnlocked(e.target.checked)} />
-        Unlocked for every startup
+        Unlocked for every startup on that track
       </label>
 
       {error && <p className="mb-3 mt-3 text-sm font-medium text-red-600">{error}</p>}
@@ -442,17 +412,18 @@ function SessionFormModal({
   moduleId,
   session,
   nextNumber,
-  startups,
+  trainers,
   onClose,
   onSaved,
 }: {
   moduleId: string;
   session: TrainingSession | null;
   nextNumber: number;
-  startups: StartupOption[];
+  trainers: Trainer[];
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const qc = useQueryClient();
   const [number, setNumber] = useState(String(session?.number ?? nextNumber));
   const [title, setTitle] = useState(session?.title ?? "");
   const [description, setDescription] = useState(session?.description ?? "");
@@ -466,7 +437,6 @@ function SessionFormModal({
   const [presentationUrl, setPresentationUrl] = useState(session?.presentationUrl ?? "");
   const [recordingUrl, setRecordingUrl] = useState(session?.recordingUrl ?? "");
   const [transcriptUrl, setTranscriptUrl] = useState(session?.transcriptUrl ?? "");
-  const [startupIds, setStartupIds] = useState<string[]>(session?.startupIds ?? []);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { data: zoomData, isLoading: zoomHostsLoading } = useQuery<{ hosts: ZoomHost[] }>({
@@ -474,15 +444,45 @@ function SessionFormModal({
     queryFn: () => api("/api/admin/zoom/hosts"),
     retry: false,
   });
+  const { data: catalogExpertsData } = useQuery<{ experts: CatalogExpert[] }>({
+    queryKey: ["admin-experts"],
+    queryFn: () => api("/api/admin/experts"),
+  });
+  const catalogExperts = catalogExpertsData?.experts ?? [];
+  const initialTrainerMatch = trainers.find((t) => t.name === session?.experts);
+  const [selectedValue, setSelectedValue] = useState(initialTrainerMatch ? `trainer:${initialTrainerMatch.id}` : "");
 
-  function toggleStartup(id: string) {
-    setStartupIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  function onSelectChange(value: string) {
+    setSelectedValue(value);
+    // Catalog bios can run longer than the session's 500-char trainer bio limit.
+    const clamp = (bio: string) => (bio.length > 500 ? bio.slice(0, 497) + "..." : bio);
+    if (value.startsWith("trainer:")) {
+      const t = trainers.find((tr) => tr.id === value.slice("trainer:".length));
+      if (t) { setExperts(t.name); setTrainerBio(clamp(t.introduction ?? "")); }
+    } else if (value.startsWith("expert:")) {
+      const e = catalogExperts.find((ex) => ex.id === value.slice("expert:".length));
+      if (e) { setExperts(e.name); setTrainerBio(clamp(e.bio ?? "")); }
+    }
   }
 
   async function save() {
     setSaving(true);
     setError(null);
     try {
+      // Picking a catalog expert grows the Trainers directory automatically,
+      // reusing the same trainer record if this expert was already picked before.
+      if (selectedValue.startsWith("expert:")) {
+        const expertId = selectedValue.slice("expert:".length);
+        const alreadyATrainer = trainers.some((t) => t.expertId === expertId);
+        if (!alreadyATrainer) {
+          const expert = catalogExperts.find((e) => e.id === expertId);
+          await api("/api/admin/trainers", {
+            method: "POST",
+            body: JSON.stringify({ name: expert?.name ?? experts, introduction: expert?.bio ?? null, expertId }),
+          });
+          qc.invalidateQueries({ queryKey: ["admin-trainers"] });
+        }
+      }
       const body = JSON.stringify({
         moduleId,
         number: Number(number) || 1,
@@ -498,7 +498,6 @@ function SessionFormModal({
         presentationUrl,
         recordingUrl,
         transcriptUrl,
-        startupIds,
       });
       if (session) {
         await api(`/api/admin/training/sessions/${session.id}`, { method: "PATCH", body });
@@ -548,7 +547,23 @@ function SessionFormModal({
         </div>
       </div>
 
-      <label className="ost-label mt-3">Expert(s)</label>
+      <label className="ost-label mt-3">Trainer</label>
+      <select className="ost-input mb-1" value={selectedValue} onChange={(e) => onSelectChange(e.target.value)}>
+        <option value="">Enter manually below</option>
+        {trainers.length > 0 && (
+          <optgroup label="Trainers">
+            {trainers.map((t) => <option key={t.id} value={`trainer:${t.id}`}>{t.name}</option>)}
+          </optgroup>
+        )}
+        {catalogExperts.length > 0 && (
+          <optgroup label="From mentorship catalog">
+            {catalogExperts.map((e) => <option key={e.id} value={`expert:${e.id}`}>{e.name}</option>)}
+          </optgroup>
+        )}
+      </select>
+      <p className="mb-3 text-xs text-slate-400">Picking a catalog expert adds them to the Trainers directory automatically.</p>
+
+      <label className="ost-label">Expert(s)</label>
       <input className="ost-input mb-3" value={experts} onChange={(e) => setExperts(e.target.value)} placeholder="e.g. Ivy Shultz & Farzin Samadani" />
 
       <label className="ost-label">Trainer bio (optional, shown to founders)</label>
@@ -585,24 +600,6 @@ function SessionFormModal({
           <input className="ost-input mb-3" value={meetingLink} onChange={(e) => setMeetingLink(e.target.value)} placeholder="https://…" />
         </>
       )}
-
-      <div className="mb-1 flex items-center justify-between">
-        <label className="ost-label !mb-0">Which startups does this apply to?</label>
-        <div className="flex gap-1.5">
-          <button type="button" onClick={() => setStartupIds(startups.filter((s) => s.kysTrack === "seed").map((s) => s.id))} className="ost-btn-ghost !px-2 !py-1 text-[11px]">All Seed</button>
-          <button type="button" onClick={() => setStartupIds(startups.filter((s) => s.kysTrack === "pre_seed").map((s) => s.id))} className="ost-btn-ghost !px-2 !py-1 text-[11px]">All Pre-Seed</button>
-          <button type="button" onClick={() => setStartupIds([])} className="ost-btn-ghost !px-2 !py-1 text-[11px]">Clear</button>
-        </div>
-      </div>
-      <div className="mb-3 max-h-40 space-y-1 overflow-y-auto rounded-lg border border-slate-200 p-2">
-        {startups.length === 0 && <p className="px-2 py-1 text-sm text-slate-400">No startups yet.</p>}
-        {startups.map((s) => (
-          <label key={s.id} className="flex items-center gap-2 rounded px-2 py-1 text-sm hover:bg-slate-50">
-            <input type="checkbox" checked={startupIds.includes(s.id)} onChange={() => toggleStartup(s.id)} />
-            {s.companyName}
-          </label>
-        ))}
-      </div>
 
       <label className="ost-label">Presentation link</label>
       <input className="ost-input mb-3" value={presentationUrl} onChange={(e) => setPresentationUrl(e.target.value)} placeholder="https://…" />

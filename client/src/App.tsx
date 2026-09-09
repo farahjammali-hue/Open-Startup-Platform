@@ -24,6 +24,8 @@ import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminAskAI from "./pages/admin/AdminAskAI";
 import AdminStartups from "./pages/admin/AdminStartups";
 import AdminStartupDetail from "./pages/admin/AdminStartupDetail";
+import AdminStartupDashboard from "./pages/admin/AdminStartupDashboard";
+import AdminStartupDataRoom from "./pages/admin/AdminStartupDataRoom";
 import AdminDeletionRequests from "./pages/admin/AdminDeletionRequests";
 import AdminUsers from "./pages/admin/AdminUsers";
 import AdminContractsKys from "./pages/admin/AdminContractsKys";
@@ -80,6 +82,8 @@ export default function App() {
         <Route path="/admin/ask-ai" component={AdminAskAI} />
         <Route path="/admin/startups" component={AdminStartups} />
         <Route path="/admin/startups/:id" component={AdminStartupDetail} />
+        <Route path="/admin/startups/:id/dashboard" component={AdminStartupDashboard} />
+        <Route path="/admin/startups/:id/data-room" component={AdminStartupDataRoom} />
         <Route path="/admin/deletion-requests" component={AdminDeletionRequests} />
         <Route path="/admin/users" component={AdminUsers} />
         <Route path="/admin/contracts-kys" component={AdminContractsKys} />

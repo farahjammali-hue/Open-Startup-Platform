@@ -224,6 +224,10 @@ export const trainers = pgTable("trainers", {
   email: text("email"),
   whatsapp: text("whatsapp"),
   linkedinUrl: text("linkedin_url"),
+  // Set when this trainer was created from picking a mentorship-catalog
+  // expert for a session, so that expert's profile can be reused/detected
+  // instead of re-adding them as a duplicate trainer.
+  expertId: uuid("expert_id").references(() => experts.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
@@ -256,6 +260,16 @@ export const expertPriorities = pgTable("expert_priorities", {
     .notNull(),
   priority: integer("priority").notNull(),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+// Singleton row (there's only ever one) controlling which startups can see
+// the "Other experts" catalog at all. visibleStartupIds is only consulted
+// when visibleToAll is false.
+export const expertCatalogSettings = pgTable("expert_catalog_settings", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  visibleToAll: boolean("visible_to_all").notNull().default(true),
+  visibleStartupIds: uuid("visible_startup_ids").array().notNull().default(sql`'{}'::uuid[]`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
 
@@ -651,12 +665,18 @@ export const mentorshipSessionNotes = pgTable("mentorship_session_notes", {
  * =======================================================*/
 export const trainingModuleSessionStatusEnum = pgEnum("training_module_session_status", ["upcoming", "completed"]);
 
+// Which startups a module's sessions apply to — one trainer runs each real
+// track (seed/pre_seed), so a module is scoped to a track wholesale rather
+// than each session picking individual startups.
+export const trainingModuleTrackEnum = pgEnum("training_module_track", ["seed", "pre_seed", "all"]);
+
 export const trainingModules = pgTable("training_modules", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   number: integer("number").notNull(),
   title: text("title").notNull(),
   description: text("description"),
   durationLabel: text("duration_label"), // e.g. "4 weeks"
+  track: trainingModuleTrackEnum("track").notNull().default("all"),
   unlocked: boolean("unlocked").notNull().default(false), // admin toggle, program-wide
   unlockedAt: timestamp("unlocked_at"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
@@ -1215,6 +1235,7 @@ export const trainingModuleSchema = z.object({
   title: z.string().min(1, "Title is required").max(200),
   description: z.string().max(2000).optional().or(z.literal("")),
   durationLabel: z.string().max(50).optional().or(z.literal("")),
+  track: z.enum(["seed", "pre_seed", "all"]).optional(),
   unlocked: z.boolean().optional(),
 });
 
@@ -1224,6 +1245,7 @@ export const trainerSchema = z.object({
   email: z.string().email("Enter a valid email").max(320).optional().or(z.literal("")),
   whatsapp: z.string().max(30).optional().or(z.literal("")),
   linkedinUrl: z.string().url("Enter a valid link").max(500).optional().or(z.literal("")),
+  expertId: z.string().uuid().optional(),
 });
 
 export const expertSchema = z.object({
@@ -1235,6 +1257,11 @@ export const expertSchema = z.object({
 
 export const expertPrioritySchema = z.object({
   priority: z.number().int().min(1).max(5),
+});
+
+export const expertCatalogVisibilitySchema = z.object({
+  visibleToAll: z.boolean(),
+  visibleStartupIds: z.array(z.string().uuid()).max(1000).optional(),
 });
 
 export const assignTrainerSchema = z.object({
@@ -1256,8 +1283,6 @@ export const trainingModuleSessionSchema = z.object({
   presentationUrl: z.string().max(500).optional().or(z.literal("")),
   recordingUrl: z.string().max(500).optional().or(z.literal("")),
   transcriptUrl: z.string().max(500).optional().or(z.literal("")),
-  // Which startups this session applies to — can span several (e.g. a whole track).
-  startupIds: z.array(z.string().uuid()).optional(),
 });
 
 // Filled in by the startup itself, briefly, after a session is held.
@@ -1370,6 +1395,7 @@ export type Startup = typeof startups.$inferSelect;
 export type Trainer = typeof trainers.$inferSelect;
 export type Expert = typeof experts.$inferSelect;
 export type ExpertPriority = typeof expertPriorities.$inferSelect;
+export type ExpertCatalogSettings = typeof expertCatalogSettings.$inferSelect;
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type StartupBasicsInput = z.infer<typeof startupBasicsSchema>;
@@ -1426,6 +1452,7 @@ export type TrainingModuleInput = z.infer<typeof trainingModuleSchema>;
 export type TrainerInput = z.infer<typeof trainerSchema>;
 export type ExpertInput = z.infer<typeof expertSchema>;
 export type ExpertPriorityInput = z.infer<typeof expertPrioritySchema>;
+export type ExpertCatalogVisibilityInput = z.infer<typeof expertCatalogVisibilitySchema>;
 export type AssignTrainerInput = z.infer<typeof assignTrainerSchema>;
 export type TrainingModuleSessionInput = z.infer<typeof trainingModuleSessionSchema>;
 export type TrainingSessionRecapInput = z.infer<typeof trainingSessionRecapSchema>;

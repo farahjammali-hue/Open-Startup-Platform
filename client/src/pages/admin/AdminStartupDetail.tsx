@@ -1,127 +1,39 @@
-import { useState } from "react";
-import { useRoute, Link } from "wouter";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useRoute, useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import { api } from "../../lib/utils";
 import { AppShell } from "../../components/AppShell";
 import { BackLink, PageHeader } from "../../components/PageHeader";
 import { StatusBadge } from "../../components/StatusBadge";
-import { EmptyState } from "../../components/EmptyState";
 import { Skeleton, SkeletonText } from "../../components/Skeleton";
-import { ModalShell } from "../../components/ModalShell";
-import { MentorAssignment, type MentorOption } from "../../components/admin/MentorAssignment";
-import { TrainerAssignment, type TrainerOption } from "../../components/admin/TrainerAssignment";
-import { TrainingModuleHomeworkModal, type TrainingModuleHomeworkRow } from "../../components/admin/TrainingModuleHomeworkModal";
-import { showToast } from "../../lib/toast";
-import {
-  GOAL_STATUS_LABELS, GOAL_STATUS_TONES,
-  type Goal, type TeamMemberRow,
-} from "../dashboard/types";
-import { MetricsKpiPanel } from "../../components/metrics/MetricsKpiPanel";
-import { QuarterlySummaryPanel } from "../../components/metrics/QuarterlySummaryPanel";
 import { STAGE_LABELS, type StartupStage } from "../../lib/stageLabels";
 import { REVIEW_STATUS_TONES, REVIEW_STATUS_ICONS } from "../../lib/statusTones";
 import {
-  Building2, Globe, MapPin, Users, Target, LineChart, CalendarClock, FolderLock,
-  FileSignature, ShieldCheck, ExternalLink, Inbox, Layers, Pencil, Loader2, Paperclip, User, Presentation,
+  Building2, Globe, MapPin, LineChart, FolderLock,
+  FileSignature, ShieldCheck, Layers, Presentation, Handshake, ArrowRight,
 } from "lucide-react";
 
 interface ReviewEntity { status: "pending" | "approved" | "rejected"; reviewNote: string | null }
 
-interface MentorshipSessionNoteRow {
-  sessionId: string;
-  teamMembersPresence: string | null;
-  pointsDiscussed: string | null;
-  whatIsGoingWell: string | null;
-  whatIsNotGoingWell: string | null;
-  actionItems: string | null;
-  mentorRating: number | null;
-  mentorFeedback: string | null;
-}
-
-interface TrainingSessionNoteRow {
-  sessionId: string;
-  teamMembersPresence: string | null;
-  pointsDiscussed: string | null;
-  whatIsGoingWell: string | null;
-  whatIsNotGoingWell: string | null;
-  actionItems: string | null;
-  trainerRating: number | null;
-  trainerFeedback: string | null;
-}
-
 interface Detail {
   startup: {
     id: string; companyName: string; website: string | null; location: string | null;
-    stage: string | null; logoUrl: string | null; isIncorporated: boolean | null; graduatedAt: string | null;
-    dataRoomLink: string | null; dataRoomUpdatedAt: string | null; mentorId: string | null; trainerId: string | null;
+    stage: string | null; logoUrl: string | null;
+    dataRoomLink: string | null; mentorId: string | null;
   };
   owner: { name: string; email: string } | null;
-  goals: Goal[];
-  teamMembers: TeamMemberRow[];
   contract: (ReviewEntity & { signerName: string; signedAt: string }) | null;
   kysProfile: (ReviewEntity & { track: string; submittedAt: string }) | null;
-  mentorshipNotes: MentorshipSessionNoteRow[];
-  trainingNotes: TrainingSessionNoteRow[];
-  trainingHomework: TrainingModuleHomeworkRow[];
-}
-
-interface MentorshipSessionRow {
-  id: string;
-  number: number;
-  title: string;
-  scheduledAt: string;
-  status: "upcoming" | "completed";
-}
-
-interface TrainingModuleWithSessions {
-  id: string;
-  number: number;
-  title: string;
-  sessions: { id: string; number: number; title: string; scheduledAt: string; status: "upcoming" | "completed"; startupIds: string[] }[];
 }
 
 export default function AdminStartupDetail() {
   const [, params] = useRoute("/admin/startups/:id");
   const id = params?.id ?? "";
-  const qc = useQueryClient();
+  const [, navigate] = useLocation();
   const { data, isLoading } = useQuery<Detail>({
     queryKey: ["admin-startup-detail", id],
     queryFn: () => api(`/api/admin/startups/${id}`),
     enabled: !!id,
   });
-  const { data: mentorshipData } = useQuery<{ sessions: MentorshipSessionRow[] }>({
-    queryKey: ["admin-mentorship-sessions", id],
-    queryFn: () => api(`/api/admin/startups/${id}/mentorship-sessions`),
-    enabled: !!id,
-  });
-  const { data: expertsData } = useQuery<{ experts: MentorOption[] }>({
-    queryKey: ["admin-experts"],
-    queryFn: () => api("/api/admin/experts"),
-    enabled: !!id,
-  });
-  const { data: trainingData } = useQuery<{ modules: TrainingModuleWithSessions[] }>({
-    queryKey: ["admin-training-modules"],
-    queryFn: () => api("/api/admin/training/modules"),
-    enabled: !!id,
-  });
-  const { data: trainersData } = useQuery<{ trainers: TrainerOption[] }>({
-    queryKey: ["admin-trainers"],
-    queryFn: () => api("/api/admin/trainers"),
-    enabled: !!id,
-  });
-  const [notesModalSession, setNotesModalSession] = useState<{
-    sessionId: string;
-    sessionNumber: number;
-    sessionTitle: string;
-  } | null>(null);
-  const [trainingNotesModalSession, setTrainingNotesModalSession] = useState<{
-    sessionId: string;
-    moduleNumber: number;
-    moduleTitle: string;
-    sessionNumber: number;
-    sessionTitle: string;
-  } | null>(null);
-  const [trainingHomeworkModalModule, setTrainingHomeworkModalModule] = useState<{ moduleId: string; moduleNumber: number; moduleTitle: string } | null>(null);
 
   if (isLoading || !data) {
     return (
@@ -133,43 +45,60 @@ export default function AdminStartupDetail() {
             <SkeletonText tone="dark" lines={2} className="max-w-xs" />
           </div>
           <div className="mt-8 grid gap-4 sm:grid-cols-2">
-            <Skeleton tone="dark" className="h-32 rounded-2xl" />
-            <Skeleton tone="dark" className="h-32 rounded-2xl" />
+            <Skeleton tone="dark" className="h-28 rounded-2xl" />
+            <Skeleton tone="dark" className="h-28 rounded-2xl" />
           </div>
         </main>
       </AppShell>
     );
   }
 
-  const { startup, owner, goals, teamMembers, contract, kysProfile, mentorshipNotes, trainingNotes, trainingHomework } = data;
+  const { startup, owner, contract, kysProfile } = data;
 
-  const notesBySessionId = new Map(mentorshipNotes.map((n) => [n.sessionId, n]));
-  const mentorshipSessions = (mentorshipData?.sessions ?? [])
-    .map((s) => ({
-      sessionId: s.id,
-      sessionNumber: s.number,
-      sessionTitle: s.title,
-      scheduledAt: s.scheduledAt,
-      status: s.status,
-      notes: notesBySessionId.get(s.id) ?? null,
-    }))
-    .sort((a, b) => +new Date(a.scheduledAt) - +new Date(b.scheduledAt));
-
-  const trainingNotesBySessionId = new Map(trainingNotes.map((n) => [n.sessionId, n]));
-  const trainingHomeworkByModuleId = new Map(trainingHomework.map((h) => [h.moduleId, h]));
-  const trainingModulesList = trainingData?.modules ?? [];
-  const trainingSessions = trainingModulesList
-    .flatMap((m) => m.sessions.filter((s) => s.startupIds.includes(id)).map((s) => ({
-      sessionId: s.id,
-      moduleNumber: m.number,
-      moduleTitle: m.title,
-      sessionNumber: s.number,
-      sessionTitle: s.title,
-      scheduledAt: s.scheduledAt,
-      status: s.status,
-      notes: trainingNotesBySessionId.get(s.id) ?? null,
-    })))
-    .sort((a, b) => +new Date(a.scheduledAt) - +new Date(b.scheduledAt));
+  const modules = [
+    {
+      key: "contracts-kys",
+      title: "Contract & KYS",
+      icon: FileSignature,
+      to: `/admin/contracts-kys/${id}`,
+      subtitle: `Contract ${contract?.status ?? "not started"} · KYS ${kysProfile?.status ?? "not started"}`,
+    },
+    {
+      key: "data-room",
+      title: "Data Room",
+      icon: FolderLock,
+      to: `/admin/startups/${id}/data-room`,
+      subtitle: startup.dataRoomLink ? "Link on file" : "Not submitted yet",
+    },
+    {
+      key: "dashboard",
+      title: "Dashboard",
+      icon: LineChart,
+      to: `/admin/startups/${id}/dashboard`,
+      subtitle: "Initial data, metrics & quarterly updates",
+    },
+    {
+      key: "mentorship",
+      title: "Mentorship",
+      icon: Layers,
+      to: `/admin/mentorship/${id}`,
+      subtitle: startup.mentorId ? "Mentor assigned" : "No mentor assigned",
+    },
+    {
+      key: "training",
+      title: "Training",
+      icon: Presentation,
+      to: `/admin/training/${id}`,
+      subtitle: "Modules, sessions & homework",
+    },
+    {
+      key: "crm",
+      title: "CRM",
+      icon: Handshake,
+      to: `/admin/crm/${id}`,
+      subtitle: "Investors, clients & partners",
+    },
+  ];
 
   return (
     <AppShell>
@@ -201,471 +130,37 @@ export default function AdminStartupDetail() {
           }
         />
 
-        {/* Contract & KYS */}
-        <Section
-          title="Contract & KYS"
-          icon={FileSignature}
-          action={<Link href={`/admin/contracts-kys/${startup.id}`} className="text-xs font-semibold text-secondary hover:underline">Review in Contracts & KYS →</Link>}
-        >
-          <div className="grid gap-4 sm:grid-cols-2">
-            <ReviewCard icon={FileSignature} label="Contract" entity={contract} detail={contract ? `Signed by ${contract.signerName}` : "Not signed yet"} />
-            <ReviewCard icon={ShieldCheck} label="KYS profile" entity={kysProfile} detail={kysProfile ? `Track: ${kysProfile.track}` : "Not submitted yet"} />
-          </div>
-        </Section>
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <StatusBadge tone={contract ? REVIEW_STATUS_TONES[contract.status] : "gray"} icon={contract ? REVIEW_STATUS_ICONS[contract.status] : FileSignature}>
+            Contract {contract ? contract.status : "not started"}
+          </StatusBadge>
+          <StatusBadge tone={kysProfile ? REVIEW_STATUS_TONES[kysProfile.status] : "gray"} icon={kysProfile ? REVIEW_STATUS_ICONS[kysProfile.status] : ShieldCheck}>
+            KYS {kysProfile ? kysProfile.status : "not started"}
+          </StatusBadge>
+        </div>
 
-        {/* Objectives */}
-        <Section title="Objectives" icon={Target}>
-          {goals.length === 0 ? <EmptyRow text="No objectives set yet." /> : (
-            <div className="space-y-2">
-              {goals.map((g) => (
-                <div key={g.id} className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 px-4 py-3">
-                  <div>
-                    <div className="text-sm font-semibold text-primary">{g.title}</div>
-                    {g.targetDate && <div className="text-xs text-slate-400">Target: {new Date(g.targetDate).toLocaleDateString()}</div>}
+        <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {modules.map((m) => {
+            const Icon = m.icon;
+            return (
+              <button
+                key={m.key}
+                onClick={() => navigate(m.to)}
+                className="ost-card group p-6 text-left transition hover:-translate-y-0.5 hover:shadow-card-hover"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-secondary/10 text-secondary">
+                    <Icon className="h-5 w-5" />
                   </div>
-                  <StatusBadge tone={GOAL_STATUS_TONES[g.status]}>{GOAL_STATUS_LABELS[g.status]}</StatusBadge>
+                  <ArrowRight className="h-4 w-4 text-slate-300 group-hover:text-secondary" />
                 </div>
-              ))}
-            </div>
-          )}
-        </Section>
-
-        {/* Metrics & KPIs */}
-        <Section title="Metrics & KPIs" icon={LineChart}>
-          <MetricsKpiPanel apiBase={`/api/admin/startups/${id}/metrics`} />
-        </Section>
-
-        {/* Quarterly updates — mirrors the founder Dashboard's Quarterly Updates tab exactly */}
-        <Section title="Quarterly updates" icon={CalendarClock}>
-          <QuarterlySummaryPanel apiBase={`/api/admin/startups/${id}/metrics`} />
-        </Section>
-
-        {/* Team */}
-        <Section title="Team" icon={Users}>
-          {teamMembers.length === 0 ? <EmptyRow text="No team members added yet." /> : (
-            <div className="grid gap-2 sm:grid-cols-2">
-              {teamMembers.map((m) => (
-                <div key={m.id} className="rounded-lg border border-slate-100 px-4 py-3">
-                  <div className="text-sm font-semibold text-primary">{m.name}</div>
-                  <div className="text-xs text-slate-400">{m.role || "—"} · {m.type.replace("_", " ")}</div>
-                </div>
-              ))}
-            </div>
-          )}
-        </Section>
-
-        {/* Data Room */}
-        <Section title="Data room" icon={FolderLock}>
-          {startup.dataRoomLink ? (
-            <>
-              <a href={startup.dataRoomLink} target="_blank" rel="noreferrer" className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 px-4 py-3 hover:border-secondary">
-                <span className="truncate text-sm font-semibold text-primary">{startup.dataRoomLink}</span>
-                <ExternalLink className="h-3.5 w-3.5 shrink-0 text-slate-400" />
-              </a>
-              <p className="mt-2 text-xs text-slate-400">
-                {startup.dataRoomUpdatedAt
-                  ? `Startup marked this updated on ${new Date(startup.dataRoomUpdatedAt).toLocaleString()}`
-                  : "The startup hasn't marked this as updated since submitting the link."}
-              </p>
-            </>
-          ) : (
-            <EmptyRow text="No data room link submitted yet." />
-          )}
-        </Section>
-
-        {/* Mentor */}
-        <Section
-          title="Mentor"
-          icon={User}
-          action={<Link href={`/admin/mentorship/${startup.id}`} className="text-xs font-semibold text-secondary hover:underline">Manage in Mentorship →</Link>}
-        >
-          <MentorAssignment
-            startupId={startup.id}
-            currentMentorId={startup.mentorId}
-            mentors={expertsData?.experts ?? []}
-            onSaved={() => qc.invalidateQueries({ queryKey: ["admin-startup-detail", id] })}
-          />
-        </Section>
-
-        {/* Mentorship */}
-        <Section title="Mentorship" icon={Layers}>
-          {mentorshipSessions.length === 0 ? <EmptyRow text="No mentorship sessions yet." /> : (
-            <div className="space-y-2">
-              {mentorshipSessions.map((s) => {
-                const hasRecap = Boolean(
-                  s.notes && (s.notes.pointsDiscussed || s.notes.whatIsGoingWell || s.notes.whatIsNotGoingWell || s.notes.actionItems || s.notes.teamMembersPresence),
-                );
-                const hasFeedback = Boolean(s.notes && (s.notes.mentorRating || s.notes.mentorFeedback));
-                return (
-                  <div key={s.sessionId} className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 px-4 py-3">
-                    <div className="min-w-0">
-                      <div className="text-sm font-semibold text-primary">Session {s.sessionNumber} — {s.sessionTitle}</div>
-                      <div className="text-xs text-slate-400">{new Date(s.scheduledAt).toLocaleString()}</div>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      <StatusBadge tone={hasRecap ? "teal" : "gray"}>{hasRecap ? "Recap submitted" : "No recap yet"}</StatusBadge>
-                      <StatusBadge tone={hasFeedback ? "teal" : "gray"}>{hasFeedback ? "Feedback added" : "No feedback yet"}</StatusBadge>
-                      <button
-                        onClick={() => setNotesModalSession({ sessionId: s.sessionId, sessionNumber: s.sessionNumber, sessionTitle: s.sessionTitle })}
-                        className="ost-btn-ghost !px-3 !py-1.5 text-xs"
-                      >
-                        <Pencil className="h-3.5 w-3.5" /> Edit feedback
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </Section>
-
-        {/* Trainer */}
-        <Section
-          title="Trainer"
-          icon={User}
-          action={<Link href={`/admin/training/${startup.id}`} className="text-xs font-semibold text-secondary hover:underline">Manage in Training →</Link>}
-        >
-          <TrainerAssignment
-            startupId={startup.id}
-            currentTrainerId={startup.trainerId}
-            trainers={trainersData?.trainers ?? []}
-            onSaved={() => qc.invalidateQueries({ queryKey: ["admin-startup-detail", id] })}
-          />
-        </Section>
-
-        {/* Training */}
-        <Section title="Training" icon={Presentation}>
-          {trainingSessions.length === 0 ? <EmptyRow text="No training sessions yet." /> : (
-            <div className="space-y-2">
-              {trainingSessions.map((s) => {
-                const hasRecap = Boolean(
-                  s.notes && (s.notes.pointsDiscussed || s.notes.whatIsGoingWell || s.notes.whatIsNotGoingWell || s.notes.actionItems || s.notes.teamMembersPresence),
-                );
-                const hasFeedback = Boolean(s.notes && (s.notes.trainerRating || s.notes.trainerFeedback));
-                return (
-                  <div key={s.sessionId} className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 px-4 py-3">
-                    <div className="min-w-0">
-                      <div className="text-sm font-semibold text-primary">Module {s.moduleNumber} · Session {s.sessionNumber} — {s.sessionTitle}</div>
-                      <div className="text-xs text-slate-400">{new Date(s.scheduledAt).toLocaleString()}</div>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      <StatusBadge tone={hasRecap ? "teal" : "gray"}>{hasRecap ? "Recap submitted" : "No recap yet"}</StatusBadge>
-                      <StatusBadge tone={hasFeedback ? "teal" : "gray"}>{hasFeedback ? "Feedback added" : "No feedback yet"}</StatusBadge>
-                      <button
-                        onClick={() => setTrainingNotesModalSession({ sessionId: s.sessionId, moduleNumber: s.moduleNumber, moduleTitle: s.moduleTitle, sessionNumber: s.sessionNumber, sessionTitle: s.sessionTitle })}
-                        className="ost-btn-ghost !px-3 !py-1.5 text-xs"
-                      >
-                        <Pencil className="h-3.5 w-3.5" /> Edit feedback
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </Section>
-
-        {/* Training homework — per module, not per session */}
-        <Section title="Training homework" icon={Paperclip}>
-          {trainingModulesList.length === 0 ? <EmptyRow text="No training modules yet." /> : (
-            <div className="space-y-2">
-              {trainingModulesList.map((m) => {
-                const h = trainingHomeworkByModuleId.get(m.id) ?? null;
-                return (
-                  <div key={m.id} className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 px-4 py-3">
-                    <div className="min-w-0">
-                      <div className="text-sm font-semibold text-primary">Module {m.number} · {m.title}</div>
-                      {h?.submissionFileUrl && (
-                        <div className="mt-1 flex items-center gap-1 text-xs text-slate-400">
-                          <Paperclip className="h-3 w-3" /> Submitted: {h.submissionFileName ?? "file"}
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      <StatusBadge tone={h?.homeworkUrl ? "teal" : "gray"}>{h?.homeworkUrl ? "Assigned" : "Not assigned"}</StatusBadge>
-                      <button
-                        onClick={() => setTrainingHomeworkModalModule({ moduleId: m.id, moduleNumber: m.number, moduleTitle: m.title })}
-                        className="ost-btn-ghost !px-3 !py-1.5 text-xs"
-                      >
-                        <Pencil className="h-3.5 w-3.5" /> Edit homework
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </Section>
+                <div className="mt-4 text-base font-bold text-primary">{m.title}</div>
+                <div className="text-sm text-slate-500">{m.subtitle}</div>
+              </button>
+            );
+          })}
+        </div>
       </main>
-
-      {notesModalSession && (
-        <SessionNotesModal
-          startupId={startup.id}
-          sessionId={notesModalSession.sessionId}
-          title={`Session ${notesModalSession.sessionNumber} — ${notesModalSession.sessionTitle}`}
-          notes={notesBySessionId.get(notesModalSession.sessionId) ?? null}
-          onClose={() => setNotesModalSession(null)}
-        />
-      )}
-
-      {trainingNotesModalSession && (
-        <TrainingSessionNotesModal
-          startupId={startup.id}
-          sessionId={trainingNotesModalSession.sessionId}
-          title={`Module ${trainingNotesModalSession.moduleNumber} · Session ${trainingNotesModalSession.sessionNumber} — ${trainingNotesModalSession.sessionTitle}`}
-          notes={trainingNotesBySessionId.get(trainingNotesModalSession.sessionId) ?? null}
-          onClose={() => setTrainingNotesModalSession(null)}
-        />
-      )}
-
-      {trainingHomeworkModalModule && (
-        <TrainingModuleHomeworkModal
-          startupId={startup.id}
-          moduleId={trainingHomeworkModalModule.moduleId}
-          title={`Module ${trainingHomeworkModalModule.moduleNumber} · ${trainingHomeworkModalModule.moduleTitle}`}
-          homework={trainingHomeworkByModuleId.get(trainingHomeworkModalModule.moduleId) ?? null}
-          onClose={() => setTrainingHomeworkModalModule(null)}
-          onSaved={() => qc.invalidateQueries({ queryKey: ["admin-startup-detail", id] })}
-        />
-      )}
     </AppShell>
   );
 }
-
-function Section({ title, icon: Icon, action, children }: { title: string; icon: any; action?: React.ReactNode; children: React.ReactNode }) {
-  return (
-    <div className="ost-card mt-8 p-6">
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="ost-card-title flex items-center gap-2 text-base">
-          <Icon className="h-4 w-4 text-secondary" /> {title}
-        </h2>
-        {action}
-      </div>
-      {children}
-    </div>
-  );
-}
-
-function EmptyRow({ text }: { text: string }) {
-  return (
-    <div className="flex items-center gap-2 py-4 text-sm text-slate-400">
-      <Inbox className="h-4 w-4" /> {text}
-    </div>
-  );
-}
-
-function ReviewCard({
-  icon: Icon,
-  label,
-  entity,
-  detail,
-}: {
-  icon: any;
-  label: string;
-  entity: ReviewEntity | null;
-  detail: string;
-}) {
-  return (
-    <div className="rounded-lg border border-slate-100 p-4">
-      <div className="mb-1 flex items-center justify-between">
-        <span className="flex items-center gap-1.5 text-sm font-semibold text-primary"><Icon className="h-3.5 w-3.5" /> {label}</span>
-        {entity ? (
-          <StatusBadge tone={REVIEW_STATUS_TONES[entity.status]} icon={REVIEW_STATUS_ICONS[entity.status]}>{entity.status}</StatusBadge>
-        ) : (
-          <StatusBadge tone="gray">Not started</StatusBadge>
-        )}
-      </div>
-      <p className="text-xs text-slate-500">{detail}</p>
-      {entity?.reviewNote && <p className="mt-2 rounded bg-slate-50 px-2 py-1.5 text-xs text-slate-600">“{entity.reviewNote}”</p>}
-    </div>
-  );
-}
-
-function SessionNotesModal({
-  startupId,
-  sessionId,
-  title,
-  notes,
-  onClose,
-}: {
-  startupId: string;
-  sessionId: string;
-  title: string;
-  notes: MentorshipSessionNoteRow | null;
-  onClose: () => void;
-}) {
-  const queryClient = useQueryClient();
-  const [mentorRating, setMentorRating] = useState(notes?.mentorRating ? String(notes.mentorRating) : "");
-  const [mentorFeedback, setMentorFeedback] = useState(notes?.mentorFeedback ?? "");
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const recapRows: [string, string | null][] = [
-    ["Team members presence", notes?.teamMembersPresence ?? null],
-    ["Points discussed", notes?.pointsDiscussed ?? null],
-    ["What's going well", notes?.whatIsGoingWell ?? null],
-    ["What's not going well", notes?.whatIsNotGoingWell ?? null],
-    ["Action items", notes?.actionItems ?? null],
-  ];
-  const hasRecap = recapRows.some(([, v]) => v);
-
-  async function save() {
-    setSaving(true);
-    setError(null);
-    try {
-      await api(`/api/admin/startups/${startupId}/mentorship-notes/${sessionId}`, {
-        method: "PATCH",
-        body: JSON.stringify({
-          mentorRating: mentorRating ? Number(mentorRating) : undefined,
-          mentorFeedback,
-        }),
-      });
-      queryClient.invalidateQueries({ queryKey: ["admin-startup-detail", startupId] });
-      showToast("Feedback saved");
-      onClose();
-    } catch (e: any) {
-      setError(e.message || "Couldn't save");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <ModalShell maxWidth="max-w-lg">
-      <h3 className="mb-4 text-lg font-bold text-primary">{title}</h3>
-
-      <p className="ost-label mb-2">Startup's session recap</p>
-      {hasRecap ? (
-        <div className="mb-4 overflow-x-auto rounded-lg border border-slate-100">
-          <table className="w-full text-sm">
-            <tbody>
-              {recapRows.map(([label, value]) => (
-                <tr key={label} className="border-b border-slate-50 last:border-0">
-                  <th scope="row" className="w-40 py-2 pl-3 pr-3 text-left align-top text-xs font-semibold uppercase tracking-wide text-slate-400">{label}</th>
-                  <td className="py-2 pr-3 align-top text-slate-600">{value || <span className="text-slate-300">—</span>}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : (
-        <p className="mb-4 text-sm text-slate-400">The startup hasn't submitted a recap for this session yet.</p>
-      )}
-
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div>
-          <label className="ost-label">Mentor rating (1-5)</label>
-          <input type="number" min={1} max={5} className="ost-input" value={mentorRating} onChange={(e) => setMentorRating(e.target.value)} />
-        </div>
-      </div>
-
-      <label className="ost-label mt-3">Mentor feedback</label>
-      <textarea className="ost-input mb-3 min-h-[60px]" value={mentorFeedback} onChange={(e) => setMentorFeedback(e.target.value)} />
-
-      {error && <p className="mb-3 text-sm font-medium text-red-600">{error}</p>}
-
-      <div className="mt-2 flex justify-end gap-2">
-        <button onClick={onClose} className="ost-btn-ghost">Cancel</button>
-        <button disabled={saving} onClick={save} className="ost-btn-primary disabled:cursor-not-allowed disabled:opacity-50">
-          {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-          Save feedback
-        </button>
-      </div>
-    </ModalShell>
-  );
-}
-
-function TrainingSessionNotesModal({
-  startupId,
-  sessionId,
-  title,
-  notes,
-  onClose,
-}: {
-  startupId: string;
-  sessionId: string;
-  title: string;
-  notes: TrainingSessionNoteRow | null;
-  onClose: () => void;
-}) {
-  const queryClient = useQueryClient();
-  const [trainerRating, setTrainerRating] = useState(notes?.trainerRating ? String(notes.trainerRating) : "");
-  const [trainerFeedback, setTrainerFeedback] = useState(notes?.trainerFeedback ?? "");
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const recapRows: [string, string | null][] = [
-    ["Team members presence", notes?.teamMembersPresence ?? null],
-    ["Points discussed", notes?.pointsDiscussed ?? null],
-    ["What's going well", notes?.whatIsGoingWell ?? null],
-    ["What's not going well", notes?.whatIsNotGoingWell ?? null],
-    ["Action items", notes?.actionItems ?? null],
-  ];
-  const hasRecap = recapRows.some(([, v]) => v);
-
-  async function save() {
-    setSaving(true);
-    setError(null);
-    try {
-      await api(`/api/admin/startups/${startupId}/training-notes/${sessionId}`, {
-        method: "PATCH",
-        body: JSON.stringify({
-          trainerRating: trainerRating ? Number(trainerRating) : undefined,
-          trainerFeedback,
-        }),
-      });
-      queryClient.invalidateQueries({ queryKey: ["admin-startup-detail", startupId] });
-      showToast("Feedback saved");
-      onClose();
-    } catch (e: any) {
-      setError(e.message || "Couldn't save");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <ModalShell maxWidth="max-w-lg">
-      <h3 className="mb-4 text-lg font-bold text-primary">{title}</h3>
-
-      <p className="ost-label mb-2">Startup's session recap</p>
-      {hasRecap ? (
-        <div className="mb-4 overflow-x-auto rounded-lg border border-slate-100">
-          <table className="w-full text-sm">
-            <tbody>
-              {recapRows.map(([label, value]) => (
-                <tr key={label} className="border-b border-slate-50 last:border-0">
-                  <th scope="row" className="w-40 py-2 pl-3 pr-3 text-left align-top text-xs font-semibold uppercase tracking-wide text-slate-400">{label}</th>
-                  <td className="py-2 pr-3 align-top text-slate-600">{value || <span className="text-slate-300">—</span>}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : (
-        <p className="mb-4 text-sm text-slate-400">The startup hasn't submitted a recap for this session yet.</p>
-      )}
-
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div>
-          <label className="ost-label">Trainer rating (1-5)</label>
-          <input type="number" min={1} max={5} className="ost-input" value={trainerRating} onChange={(e) => setTrainerRating(e.target.value)} />
-        </div>
-      </div>
-
-      <label className="ost-label mt-3">Trainer feedback</label>
-      <textarea className="ost-input mb-3 min-h-[60px]" value={trainerFeedback} onChange={(e) => setTrainerFeedback(e.target.value)} />
-
-      {error && <p className="mb-3 text-sm font-medium text-red-600">{error}</p>}
-
-      <div className="mt-2 flex justify-end gap-2">
-        <button onClick={onClose} className="ost-btn-ghost">Cancel</button>
-        <button disabled={saving} onClick={save} className="ost-btn-primary disabled:cursor-not-allowed disabled:opacity-50">
-          {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-          Save feedback
-        </button>
-      </div>
-    </ModalShell>
-  );
-}
-

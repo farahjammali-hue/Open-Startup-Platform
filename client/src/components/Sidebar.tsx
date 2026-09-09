@@ -9,7 +9,7 @@ import { showToast } from "../lib/toast";
 import {
   LayoutDashboard, Rocket, Trash2, Users, Lock,
   GraduationCap, Wrench, Wallet, Store, BookOpen, MessagesSquare,
-  FolderLock, Home as HomeIcon, FileText, Layers, Presentation, Sparkles, Handshake,
+  FolderLock, Home as HomeIcon, FileText, Layers, Presentation, Handshake,
 } from "lucide-react";
 
 interface Item {
@@ -25,24 +25,28 @@ const ADMIN_GROUPS: { label: string; items: Item[] }[] = [
     label: "Overview",
     items: [
       { label: "Dashboard", to: "/admin", icon: LayoutDashboard },
-      { label: "Ask AI", to: "/admin/ask-ai", icon: Sparkles },
+      // Ask AI is hidden from the nav for the moment; route/page stay intact.
+    ],
+  },
+  {
+    label: "Startups",
+    items: [
+      { label: "Startups", to: "/admin/startups", icon: Rocket },
       { label: "Users", to: "/admin/users", icon: Users },
       { label: "Deletion Requests", to: "/admin/deletion-requests", icon: Trash2 },
     ],
   },
   {
-    label: "Startups",
-    items: [{ label: "Startups", to: "/admin/startups", icon: Rocket }],
-  },
-  {
     label: "Program",
     items: [
-      { label: "Data Room", to: "/admin/data-room", icon: FolderLock },
-      { label: "Contracts & KYS", to: "/admin/contracts-kys", icon: FileText },
-      { label: "CRM", to: "/admin/crm", icon: Handshake },
-      { label: "Mentorship", to: "/admin/mentorship", icon: Layers },
+      // Training is shared across every startup on the same track (sessions
+      // are authored once and targeted to many), so it lives here rather
+      // than as a per-startup-only module.
       { label: "Training", to: "/admin/training", icon: Presentation },
       { label: "Open Startup School", to: "/admin/school", icon: GraduationCap },
+      // Contracts & KYS, Data Room, Mentorship, and CRM are hidden from the
+      // nav — each is reachable per-startup from its module card on
+      // /admin/startups/:id; routes/pages stay intact.
     ],
   },
   {

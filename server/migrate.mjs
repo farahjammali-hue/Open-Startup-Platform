@@ -806,6 +806,28 @@ CREATE TABLE IF NOT EXISTS startup_crm_entries (
   created_at timestamp NOT NULL DEFAULT now(),
   updated_at timestamp NOT NULL DEFAULT now()
 );
+
+-- Singleton row controlling which startups can see the "Other experts"
+-- catalog at all (visible_startup_ids is only consulted when visible_to_all
+-- is false). Defaults to visible to everyone, matching prior behavior.
+CREATE TABLE IF NOT EXISTS expert_catalog_settings (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  visible_to_all boolean NOT NULL DEFAULT true,
+  visible_startup_ids uuid[] NOT NULL DEFAULT '{}',
+  updated_at timestamp NOT NULL DEFAULT now()
+);
+
+-- Training modules are now scoped to a whole track (one trainer runs each
+-- real track) instead of each session picking individual startups via
+-- training_session_startups, which is left in place non-destructively.
+DO $$ BEGIN
+  CREATE TYPE training_module_track AS ENUM ('seed','pre_seed','all');
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+ALTER TABLE training_modules ADD COLUMN IF NOT EXISTS track training_module_track NOT NULL DEFAULT 'all';
+
+-- Lets a trainer be picked from the shared mentorship experts catalog when
+-- creating a session, instead of only the manually-added trainer directory.
+ALTER TABLE trainers ADD COLUMN IF NOT EXISTS expert_id uuid REFERENCES experts(id) ON DELETE SET NULL;
 `;
 
 try {

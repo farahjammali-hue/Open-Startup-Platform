@@ -17,12 +17,12 @@ import {
   mentorshipSessionNotes,
   trainingModules,
   trainingModuleSessions,
-  trainingSessionStartups,
   trainingSessionNotes,
   trainingModuleHomework,
   trainers,
   experts,
   expertPriorities,
+  expertCatalogSettings,
   contracts,
   contractEvents,
   kysProfiles,
@@ -56,6 +56,7 @@ import {
   type Trainer,
   type Expert,
   type ExpertPriority,
+  type ExpertCatalogSettings,
   type Contract,
   type ContractEvent,
   type KysProfile,
@@ -450,34 +451,34 @@ export const storage = {
       .select({ c: sql<number>`count(*)::int` })
       .from(kysProfiles)
       .where(eq(kysProfiles.status, "pending"));
-    const [ks] = await db
-      .select({ c: sql<number>`count(*)::int` })
+    const now = new Date();
+    const currentPeriod = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    const [reported] = await db
+      .select({ c: sql<number>`count(distinct ${startupMetricEntries.startupId})::int` })
       .from(startupMetricEntries)
-      .innerJoin(startups, eq(startupMetricEntries.startupId, startups.id));
-    const [pd] = await db
-      .select({ c: sql<number>`count(*)::int` })
-      .from(documents)
-      .where(eq(documents.status, "pending"));
+      .where(and(eq(startupMetricEntries.period, currentPeriod), sql`${startupMetricEntries.values} != '{}'::jsonb`));
     const [ms] = await db
       .select({ c: sql<number>`count(*)::int` })
       .from(mentorshipModuleSessions)
       .where(and(eq(mentorshipModuleSessions.status, "upcoming"), sql`${mentorshipModuleSessions.scheduledAt} > now()`));
-    const [tm] = await db
+    const [ts] = await db
       .select({ c: sql<number>`count(*)::int` })
-      .from(teamMembers)
-      .innerJoin(startups, eq(teamMembers.startupId, startups.id));
-    const [tr] = await db.select({ c: sql<number>`count(*)::int` }).from(trainings);
+      .from(trainingModuleSessions)
+      .where(and(eq(trainingModuleSessions.status, "upcoming"), sql`${trainingModuleSessions.scheduledAt} > now()`));
+    const [tr] = await db
+      .select({ c: sql<number>`count(*)::int` })
+      .from(trainings)
+      .where(isNotNull(trainings.resourceUrl));
     return {
       users: u?.c ?? 0,
       startups: s?.c ?? 0,
       pendingDeletions: d?.c ?? 0,
       pendingContracts: pc?.c ?? 0,
       pendingKys: pk?.c ?? 0,
-      metricEntries: ks?.c ?? 0,
-      pendingDocuments: pd?.c ?? 0,
+      startupsMissingMetrics: Math.max((s?.c ?? 0) - (reported?.c ?? 0), 0),
       upcomingMentorshipSessions: ms?.c ?? 0,
-      teamMembers: tm?.c ?? 0,
-      trainings: tr?.c ?? 0,
+      upcomingTrainingSessions: ts?.c ?? 0,
+      schoolDocs: tr?.c ?? 0,
     };
   },
 
@@ -1575,18 +1576,21 @@ export const storage = {
     return this.getExpertById(startup.mentorId);
   },
 
-  /* ---------------- Training (Modules + Sessions) ---------------- */
+  /* ---------------- Training (Modules + Sessions) ----------------
+   * One trainer runs each real track (seed/pre_seed), so a module is scoped
+   * to a whole track (or "all") rather than each session picking individual
+   * startups — see trainingModules.track. */
   async listTrainingModulesForFounder(startupId: string) {
-    const [modules, sessions, notes, homework, targets] = await Promise.all([
+    const kysProfile = await this.getKysProfile(startupId);
+    const track = kysProfile?.track ?? null;
+    const [modules, sessions, notes, homework] = await Promise.all([
       db.select().from(trainingModules).orderBy(asc(trainingModules.number)),
       db.select().from(trainingModuleSessions).orderBy(asc(trainingModuleSessions.number)),
       db.select().from(trainingSessionNotes).where(eq(trainingSessionNotes.startupId, startupId)),
       db.select().from(trainingModuleHomework).where(eq(trainingModuleHomework.startupId, startupId)),
-      db.select().from(trainingSessionStartups).where(eq(trainingSessionStartups.startupId, startupId)),
     ]);
     const notesBySessionId = new Map(notes.map((n) => [n.sessionId, n]));
     const homeworkByModuleId = new Map(homework.map((h) => [h.moduleId, h]));
-    const targetedSessionIds = new Set(targets.map((t) => t.sessionId));
     const emptyNotes = {
       teamMembersPresence: null,
       pointsDiscussed: null,
@@ -1597,69 +1601,53 @@ export const storage = {
       trainerFeedback: null,
     };
     const emptyHomework = { homeworkUrl: null, submissionFileUrl: null, submissionFileName: null };
-    return modules.map((m) => {
-      // Locked modules never leak their session content to the founder side,
-      // and a session only shows if this startup is one of its targets.
-      const moduleSessions = m.unlocked
-        ? sessions
-            .filter((s) => s.moduleId === m.id && targetedSessionIds.has(s.id))
-            .map((s) => ({ ...s, notes: notesBySessionId.get(s.id) ?? emptyNotes }))
-        : [];
-      return {
-        ...m,
-        sessions: moduleSessions,
-        status: computeModuleStatus(m.unlocked, moduleSessions),
-        completedSessionsCount: moduleSessions.filter((s) => s.status === "completed").length,
-        totalSessionsCount: moduleSessions.length,
-        homework: m.unlocked ? homeworkByModuleId.get(m.id) ?? emptyHomework : emptyHomework,
-      };
-    });
+    return modules
+      .filter((m) => m.track === "all" || m.track === track)
+      .map((m) => {
+        // Locked modules never leak their session content to the founder side.
+        const moduleSessions = m.unlocked
+          ? sessions
+              .filter((s) => s.moduleId === m.id)
+              .map((s) => ({ ...s, notes: notesBySessionId.get(s.id) ?? emptyNotes }))
+          : [];
+        return {
+          ...m,
+          sessions: moduleSessions,
+          status: computeModuleStatus(m.unlocked, moduleSessions),
+          completedSessionsCount: moduleSessions.filter((s) => s.status === "completed").length,
+          totalSessionsCount: moduleSessions.length,
+          homework: m.unlocked ? homeworkByModuleId.get(m.id) ?? emptyHomework : emptyHomework,
+        };
+      });
   },
 
   async listTrainingModulesWithSessions() {
-    const [modules, sessions, targets] = await Promise.all([
+    const [modules, sessions] = await Promise.all([
       db.select().from(trainingModules).orderBy(asc(trainingModules.number)),
       db.select().from(trainingModuleSessions).orderBy(asc(trainingModuleSessions.number)),
-      db.select().from(trainingSessionStartups),
     ]);
-    const startupIdsBySessionId = new Map<string, string[]>();
-    for (const t of targets) {
-      const list = startupIdsBySessionId.get(t.sessionId) ?? [];
-      list.push(t.startupId);
-      startupIdsBySessionId.set(t.sessionId, list);
-    }
     return modules.map((m) => ({
       ...m,
-      sessions: sessions
-        .filter((s) => s.moduleId === m.id)
-        .map((s) => ({ ...s, startupIds: startupIdsBySessionId.get(s.id) ?? [] })),
+      sessions: sessions.filter((s) => s.moduleId === m.id),
     }));
   },
 
   async listTrainingSessionsForStartup(startupId: string) {
-    const targets = await db.select().from(trainingSessionStartups).where(eq(trainingSessionStartups.startupId, startupId));
-    if (targets.length === 0) return [];
-    const sessionIds = targets.map((t) => t.sessionId);
-    const [sessions, modules] = await Promise.all([
-      db.select().from(trainingModuleSessions).where(inArray(trainingModuleSessions.id, sessionIds)),
-      db.select().from(trainingModules),
-    ]);
+    const kysProfile = await this.getKysProfile(startupId);
+    const track = kysProfile?.track ?? null;
+    const modules = await db
+      .select()
+      .from(trainingModules)
+      .where(track ? sql`${trainingModules.track} = 'all' or ${trainingModules.track} = ${track}` : eq(trainingModules.track, "all"));
+    if (modules.length === 0) return [];
     const moduleById = new Map(modules.map((m) => [m.id, m]));
+    const sessions = await db
+      .select()
+      .from(trainingModuleSessions)
+      .where(inArray(trainingModuleSessions.moduleId, modules.map((m) => m.id)));
     return sessions
       .map((s) => ({ ...s, moduleTitle: moduleById.get(s.moduleId)?.title ?? null }))
       .sort((a, b) => a.scheduledAt.getTime() - b.scheduledAt.getTime());
-  },
-
-  async getTrainingSessionStartupIds(sessionId: string): Promise<string[]> {
-    const rows = await db.select().from(trainingSessionStartups).where(eq(trainingSessionStartups.sessionId, sessionId));
-    return rows.map((r) => r.startupId);
-  },
-
-  async setTrainingSessionStartups(sessionId: string, startupIds: string[]): Promise<void> {
-    await db.delete(trainingSessionStartups).where(eq(trainingSessionStartups.sessionId, sessionId));
-    if (startupIds.length > 0) {
-      await db.insert(trainingSessionStartups).values(startupIds.map((startupId) => ({ sessionId, startupId })));
-    }
   },
 
   async getTrainingModuleById(id: string): Promise<TrainingModule | undefined> {
@@ -1672,6 +1660,7 @@ export const storage = {
     title: string;
     description?: string | null;
     durationLabel?: string | null;
+    track?: "seed" | "pre_seed" | "all";
     unlocked?: boolean;
   }): Promise<TrainingModule> {
     const [row] = await db
@@ -1874,8 +1863,14 @@ export const storage = {
     email?: string | null;
     whatsapp?: string | null;
     linkedinUrl?: string | null;
+    expertId?: string | null;
   }): Promise<Trainer> {
     const [row] = await db.insert(trainers).values(data).returning();
+    return row;
+  },
+
+  async getTrainerByExpertId(expertId: string): Promise<Trainer | undefined> {
+    const [row] = await db.select().from(trainers).where(eq(trainers.expertId, expertId));
     return row;
   },
 
@@ -1893,9 +1888,18 @@ export const storage = {
   },
 
   async getTrainerForStartup(startupId: string): Promise<Trainer | undefined> {
-    const startup = await this.getStartupById(startupId);
-    if (!startup?.trainerId) return undefined;
-    return this.getTrainerById(startup.trainerId);
+    // No manual per-startup assignment: whichever trainer was picked for this
+    // startup's track sessions IS their trainer. Most recently scheduled
+    // session with a recognized trainer wins.
+    const sessions = await this.listTrainingSessionsForStartup(startupId);
+    if (sessions.length === 0) return undefined;
+    const allTrainers = await this.listTrainers();
+    const trainerByName = new Map(allTrainers.map((t) => [t.name, t]));
+    const sorted = [...sessions].sort((a, b) => b.scheduledAt.getTime() - a.scheduledAt.getTime());
+    for (const s of sorted) {
+      if (s.experts && trainerByName.has(s.experts)) return trainerByName.get(s.experts);
+    }
+    return undefined;
   },
 
   /* ---------------- Experts ("Other experts" catalog, browse-only) ---------------- */
@@ -1967,6 +1971,28 @@ export const storage = {
     const [row] = await db
       .insert(expertPriorities)
       .values({ expertId, startupId, priority })
+      .returning();
+    return row;
+  },
+
+  /* ---------------- Expert catalog visibility (singleton) ---------------- */
+  async getExpertCatalogSettings(): Promise<ExpertCatalogSettings> {
+    const [existing] = await db.select().from(expertCatalogSettings).limit(1);
+    if (existing) return existing;
+    const [row] = await db.insert(expertCatalogSettings).values({}).returning();
+    return row;
+  },
+
+  async updateExpertCatalogSettings(data: { visibleToAll: boolean; visibleStartupIds?: string[] }): Promise<ExpertCatalogSettings> {
+    const existing = await this.getExpertCatalogSettings();
+    const [row] = await db
+      .update(expertCatalogSettings)
+      .set({
+        visibleToAll: data.visibleToAll,
+        visibleStartupIds: data.visibleToAll ? [] : (data.visibleStartupIds ?? []),
+        updatedAt: new Date(),
+      })
+      .where(eq(expertCatalogSettings.id, existing.id))
       .returning();
     return row;
   },

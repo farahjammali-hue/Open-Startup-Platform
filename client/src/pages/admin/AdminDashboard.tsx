@@ -3,13 +3,20 @@ import { useLocation } from "wouter";
 import { api } from "../../lib/utils";
 import { AppShell } from "../../components/AppShell";
 import { PageHeader } from "../../components/PageHeader";
-import { Users, Rocket, Trash2, ArrowRight, FileSignature, LineChart, FolderLock, UsersRound, Contact, GraduationCap } from "lucide-react";
+import { Users, Rocket, Trash2, ArrowRight, FileSignature, LineChart, UsersRound, Presentation, FileText } from "lucide-react";
 
 interface Stats {
   users: number; startups: number; pendingDeletions: number;
-  pendingContracts: number; pendingKys: number; metricEntries: number;
-  pendingDocuments: number; upcomingMentorshipSessions: number;
-  teamMembers: number; trainings: number;
+  pendingContracts: number; pendingKys: number; startupsMissingMetrics: number;
+  upcomingMentorshipSessions: number;
+  upcomingTrainingSessions: number; schoolDocs: number;
+}
+
+interface CardDef {
+  label: string;
+  value: number | undefined;
+  icon: any;
+  to: string;
 }
 
 export default function AdminDashboard() {
@@ -21,16 +28,21 @@ export default function AdminDashboard() {
 
   const pendingReviews = (data?.pendingContracts ?? 0) + (data?.pendingKys ?? 0);
 
-  const cards = [
-    { label: "Users", value: data?.users, icon: Users, to: "/admin/users" },
-    { label: "Startups", value: data?.startups, icon: Rocket, to: "/admin/startups" },
+  const needsAttention: CardDef[] = [
     { label: "Pending deletions", value: data?.pendingDeletions, icon: Trash2, to: "/admin/deletion-requests" },
     { label: "Contracts & KYS to review", value: pendingReviews, icon: FileSignature, to: "/admin/contracts-kys" },
-    { label: "Metrics & KPIs entries recorded", value: data?.metricEntries, icon: LineChart, to: "/admin/startups" },
-    { label: "Data Room documents pending", value: data?.pendingDocuments, icon: FolderLock, to: "/admin/data-room" },
+    { label: "Startups missing this month's update", value: data?.startupsMissingMetrics, icon: LineChart, to: "/admin/startups" },
+  ];
+
+  const platform: CardDef[] = [
+    { label: "Users", value: data?.users, icon: Users, to: "/admin/users" },
+    { label: "Startups", value: data?.startups, icon: Rocket, to: "/admin/startups" },
+  ];
+
+  const program: CardDef[] = [
     { label: "Upcoming mentorship sessions", value: data?.upcomingMentorshipSessions, icon: UsersRound, to: "/admin/mentorship" },
-    { label: "Team members", value: data?.teamMembers, icon: Contact, to: "/admin/startups" },
-    { label: "Open Startup School trainings", value: data?.trainings, icon: GraduationCap, to: "/admin/school" },
+    { label: "Upcoming training sessions", value: data?.upcomingTrainingSessions, icon: Presentation, to: "/admin/training" },
+    { label: "Open Startup School Docs", value: data?.schoolDocs, icon: FileText, to: "/admin/school" },
   ];
 
   return (
@@ -38,64 +50,60 @@ export default function AdminDashboard() {
       <main className="ost-page">
         <PageHeader eyebrow="Administration" title="Admin dashboard" subtitle="Overview of the whole platform." />
 
-        <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {cards.map((c) => {
-            const Icon = c.icon;
-            return (
-              <button
-                key={c.label}
-                onClick={() => navigate(c.to)}
-                className="ost-card group p-6 text-left transition hover:-translate-y-0.5 hover:shadow-card-hover"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-secondary/10 text-secondary">
-                    <Icon className="h-5 w-5" />
-                  </div>
-                  <ArrowRight className="h-4 w-4 text-slate-300 group-hover:text-secondary" />
-                </div>
-                <div className="mt-4 text-3xl font-extrabold text-primary">
-                  {isLoading ? "—" : c.value ?? 0}
-                </div>
-                <div className="text-sm text-slate-500">{c.label}</div>
-              </button>
-            );
-          })}
-        </div>
-
-        {!isLoading && (data?.pendingDeletions ?? 0) > 0 && (
-          <div className="mt-6 flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50 px-5 py-4">
-            <span className="text-sm font-medium text-amber-700">
-              {data!.pendingDeletions} startup deletion request
-              {data!.pendingDeletions > 1 ? "s" : ""} awaiting your review.
-            </span>
-            <button onClick={() => navigate("/admin/deletion-requests")} className="ost-btn-primary">
-              Review now
-            </button>
-          </div>
-        )}
-
-        {!isLoading && pendingReviews > 0 && (
-          <div className="mt-6 flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50 px-5 py-4">
-            <span className="text-sm font-medium text-amber-700">
-              {pendingReviews} contract/KYS submission{pendingReviews > 1 ? "s" : ""} awaiting your review.
-            </span>
-            <button onClick={() => navigate("/admin/contracts-kys")} className="ost-btn-primary">
-              Review now
-            </button>
-          </div>
-        )}
-
-        {!isLoading && (data?.pendingDocuments ?? 0) > 0 && (
-          <div className="mt-6 flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50 px-5 py-4">
-            <span className="text-sm font-medium text-amber-700">
-              {data!.pendingDocuments} Data Room document{data!.pendingDocuments > 1 ? "s" : ""} awaiting your review.
-            </span>
-            <button onClick={() => navigate("/admin/data-room")} className="ost-btn-primary">
-              Review now
-            </button>
-          </div>
-        )}
+        <CardSection label="Needs your attention" cards={needsAttention} isLoading={isLoading} onNavigate={navigate} tone="warning" />
+        <CardSection label="Platform" cards={platform} isLoading={isLoading} onNavigate={navigate} tone="neutral" />
+        <CardSection label="Program" cards={program} isLoading={isLoading} onNavigate={navigate} tone="neutral" />
       </main>
     </AppShell>
+  );
+}
+
+function CardSection({
+  label,
+  cards,
+  isLoading,
+  onNavigate,
+  tone,
+}: {
+  label: string;
+  cards: CardDef[];
+  isLoading: boolean;
+  onNavigate: (to: string) => void;
+  tone: "warning" | "neutral";
+}) {
+  return (
+    <div className="mt-8 first:mt-8">
+      <h2 className="mb-3 text-xs font-bold uppercase tracking-wide text-slate-400">{label}</h2>
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        {cards.map((c) => {
+          const Icon = c.icon;
+          const isWarning = tone === "warning";
+          return (
+            <button
+              key={c.label}
+              onClick={() => onNavigate(c.to)}
+              className={`group p-6 text-left transition hover:-translate-y-0.5 hover:shadow-card-hover ${
+                isWarning ? "rounded-2xl border border-amber-200 bg-amber-50" : "ost-card"
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <div
+                  className={`flex h-11 w-11 items-center justify-center rounded-xl ${
+                    isWarning ? "bg-white text-amber-600" : "bg-secondary/10 text-secondary"
+                  }`}
+                >
+                  <Icon className="h-5 w-5" />
+                </div>
+                <ArrowRight className={`h-4 w-4 ${isWarning ? "text-amber-300 group-hover:text-amber-600" : "text-slate-300 group-hover:text-secondary"}`} />
+              </div>
+              <div className={`mt-4 text-3xl font-extrabold ${isWarning ? "text-amber-700" : "text-primary"}`}>
+                {isLoading ? "—" : c.value ?? 0}
+              </div>
+              <div className={`text-sm ${isWarning ? "text-amber-700" : "text-slate-500"}`}>{c.label}</div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 }

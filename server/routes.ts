@@ -43,6 +43,7 @@ import {
   assignTrainerSchema,
   expertSchema,
   expertPrioritySchema,
+  expertCatalogVisibilitySchema,
   kysSubmitSchema,
   kysDocumentUploadSchema,
   monthlyUpdateSchema,
@@ -1425,6 +1426,10 @@ export function registerRoutes(app: Express) {
   app.get("/api/other-experts", requireAuth, ah(async (req, res) => {
     const startup = await requireActiveStartup(req, res);
     if (!startup) return;
+    const visibility = await storage.getExpertCatalogSettings();
+    if (!visibility.visibleToAll && !visibility.visibleStartupIds.includes(startup.id)) {
+      return res.json({ experts: [] });
+    }
     const [expertsList, priorities] = await Promise.all([
       storage.listExperts(),
       storage.listExpertPrioritiesForStartup(startup.id),
@@ -1872,6 +1877,7 @@ export function registerRoutes(app: Express) {
       title: parsed.data.title,
       description: parsed.data.description || null,
       durationLabel: parsed.data.durationLabel || null,
+      track: parsed.data.track ?? "all",
       unlocked: parsed.data.unlocked ?? false,
     });
     res.status(201).json(module);
@@ -1936,10 +1942,7 @@ export function registerRoutes(app: Express) {
         zoomMeetingId,
         zoomHostEmail: hostEmail,
       });
-      if (parsed.data.startupIds) {
-        await storage.setTrainingSessionStartups(session.id, parsed.data.startupIds);
-      }
-      res.status(201).json({ ...session, startupIds: parsed.data.startupIds ?? [] });
+      res.status(201).json(session);
     } catch (error) {
       if (createdMeetingId) await deleteZoomMeeting(createdMeetingId).catch(() => undefined);
       throw error;
@@ -1993,16 +1996,11 @@ export function registerRoutes(app: Express) {
     if (parsed.data.recordingUrl !== undefined) patch.recordingUrl = parsed.data.recordingUrl || null;
     if (parsed.data.transcriptUrl !== undefined) patch.transcriptUrl = parsed.data.transcriptUrl || null;
     if (parsed.data.trainerBio !== undefined) patch.trainerBio = parsed.data.trainerBio || null;
-    delete patch.startupIds;
     const session = await storage.updateTrainingModuleSession(existing.id, patch as any);
-    if (parsed.data.startupIds !== undefined) {
-      await storage.setTrainingSessionStartups(session.id, parsed.data.startupIds);
-    }
     if (requestedHost && requestedHost !== existing.zoomHostEmail && existing.zoomMeetingId && existing.zoomHostEmail) {
       await deleteZoomMeeting(existing.zoomMeetingId).catch((error) => console.error("[zoom] old meeting cleanup failed:", error));
     }
-    const startupIds = await storage.getTrainingSessionStartupIds(session.id);
-    res.json({ ...session, startupIds });
+    res.json(session);
   }));
 
   app.delete("/api/admin/training/sessions/:id", requireAdmin, ah(async (req, res) => {
@@ -2026,12 +2024,19 @@ export function registerRoutes(app: Express) {
       return res.status(400).json({ message: parsed.error.errors[0].message });
     }
     const d = parsed.data;
+    // Picking the same catalog expert again reuses their trainer record
+    // instead of creating a duplicate.
+    if (d.expertId) {
+      const existing = await storage.getTrainerByExpertId(d.expertId);
+      if (existing) return res.json(existing);
+    }
     const trainer = await storage.createTrainer({
       name: d.name,
       introduction: d.introduction || null,
       email: d.email || null,
       whatsapp: d.whatsapp || null,
       linkedinUrl: d.linkedinUrl || null,
+      expertId: d.expertId || null,
     });
     res.status(201).json(trainer);
   }));
@@ -2094,12 +2099,28 @@ export function registerRoutes(app: Express) {
   app.get("/api/admin/startups/:id/training-sessions", requireAdmin, ah(async (req, res) => {
     const startup = await storage.getStartupById(req.params.id);
     if (!startup) return res.status(404).json({ message: "Not found" });
-    res.json({ sessions: await storage.listTrainingSessionsForStartup(startup.id) });
+    const [sessions, trainer] = await Promise.all([
+      storage.listTrainingSessionsForStartup(startup.id),
+      storage.getTrainerForStartup(startup.id),
+    ]);
+    res.json({ sessions, trainer: trainer ?? null });
   }));
 
   /* ---------------- Admin: Experts ("Other experts" catalog) ---------------- */
   app.get("/api/admin/experts", requireAdmin, ah(async (_req, res) => {
     res.json({ experts: await storage.listExperts() });
+  }));
+
+  app.get("/api/admin/experts/visibility", requireAdmin, ah(async (_req, res) => {
+    res.json(await storage.getExpertCatalogSettings());
+  }));
+
+  app.patch("/api/admin/experts/visibility", requireAdmin, ah(async (req, res) => {
+    const parsed = expertCatalogVisibilitySchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: parsed.error.errors[0].message });
+    }
+    res.json(await storage.updateExpertCatalogSettings(parsed.data));
   }));
 
   app.post("/api/admin/experts", requireAdmin, ah(async (req, res) => {
@@ -2403,7 +2424,7 @@ export function registerRoutes(app: Express) {
     const startup = await storage.getStartupById(req.params.id);
     if (!startup) return res.status(404).json({ message: "Not found" });
     const owner = await storage.getUserById(startup.userId);
-    const [goals, monthlyUpdates, teamMembers, contract, kysProfile, documents, mentorshipNotes, trainingNotes, trainingHomework] =
+    const [goals, monthlyUpdates, teamMembers, contract, kysProfile, documents, mentorshipNotes, trainingNotes, trainingHomework, capTableEntries] =
       await Promise.all([
         storage.listGoals(startup.id),
         storage.listMonthlyUpdates(startup.id),
@@ -2414,6 +2435,7 @@ export function registerRoutes(app: Express) {
         storage.listMentorshipSessionNotesForStartup(startup.id),
         storage.listTrainingSessionNotesForStartup(startup.id),
         storage.listTrainingModuleHomeworkForStartup(startup.id),
+        storage.listCapTableEntries(startup.id),
       ]);
     res.json({
       startup,
@@ -2427,6 +2449,7 @@ export function registerRoutes(app: Express) {
       mentorshipNotes,
       trainingNotes,
       trainingHomework,
+      capTableEntries,
     });
   }));
 

@@ -5,29 +5,10 @@ import { Counter, Money, MultiPills } from "../../components/StartupFormFields";
 import { api } from "../../lib/utils";
 import { showToast } from "../../lib/toast";
 import { formatMoney } from "../../lib/format";
+import { LEGAL_ENTITY_LABELS, BUSINESS_MODEL_LABELS, CUSTOMER_BASE_LABELS } from "../../lib/startupProfileLabels";
 import { Building2, Briefcase, Cpu, Pencil, ExternalLink, Loader2, TrendingUp, Handshake, Users, Globe2, PieChart, Plus, Trash2 } from "lucide-react";
 import type { TeamMemberRow, CapTableEntryRow } from "./types";
 import type { StartupProfile } from "../StartupDashboard";
-
-const LEGAL_ENTITY_LABELS: Record<string, string> = {
-  yes: "Yes",
-  in_process: "In the process",
-  no: "No",
-};
-
-const BUSINESS_MODEL_LABELS: Record<string, string> = {
-  b2b: "B2B",
-  b2c: "B2C",
-  b2b2c: "B2B2C",
-};
-
-const CUSTOMER_BASE_LABELS: Record<string, string> = {
-  low: "Low",
-  moderate: "Moderate",
-  high: "High",
-  emerging_market: "Emerging Market",
-  saturated_market: "Saturated Market",
-};
 
 const SDG_OPTIONS = [
   "1. No Poverty",
