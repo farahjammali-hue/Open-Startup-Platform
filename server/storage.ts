@@ -1465,6 +1465,66 @@ export const storage = {
     return sessions.map((s) => ({ ...s, notes: notesBySessionId.get(s.id) ?? emptyNotes }));
   },
 
+  /**
+   * Recipients for a programme-wide session (Training has no startup_id):
+   * every active, verified founder, plus the admins.
+   *
+   * Admins are included on purpose. They run the programme, so excluding them
+   * meant the person scheduling a session never saw it in their own calendar.
+   *
+   * Unverified addresses are excluded: there is no evidence they are
+   * reachable, and inviting them would send the session to a wrong inbox.
+   */
+  async listSessionInviteRecipients(): Promise<{ email: string; name: string | null }[]> {
+    return db
+      .select({ email: users.email, name: users.name })
+      .from(users)
+      .where(
+        and(
+          inArray(users.role, ["startup", "admin"]),
+          eq(users.isActive, true),
+          eq(users.emailVerified, true),
+        ),
+      );
+  },
+
+  /**
+   * Recipients for a session belonging to a single startup. Mentorship is now
+   * 1:1, and inviting the whole cohort to one startup's mentoring session
+   * would disclose who is being mentored and when, so this is that startup's
+   * own user plus the admins.
+   */
+  async listStartupSessionInviteRecipients(
+    startupId: string,
+  ): Promise<{ email: string; name: string | null }[]> {
+    const [founders, admins] = await Promise.all([
+      db
+        .select({ email: users.email, name: users.name })
+        .from(startups)
+        .innerJoin(users, eq(users.id, startups.userId))
+        .where(
+          and(
+            eq(startups.id, startupId),
+            eq(users.isActive, true),
+            eq(users.emailVerified, true),
+          ),
+        ),
+      db
+        .select({ email: users.email, name: users.name })
+        .from(users)
+        .where(
+          and(eq(users.role, "admin"), eq(users.isActive, true), eq(users.emailVerified, true)),
+        ),
+    ]);
+    const seen = new Set<string>();
+    return [...founders, ...admins].filter((r) => {
+      const key = r.email.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  },
+
   async listMentorshipSessionsForStartup(startupId: string): Promise<MentorshipModuleSession[]> {
     return db
       .select()

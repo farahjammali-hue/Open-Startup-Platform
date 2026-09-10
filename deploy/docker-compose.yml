@@ -1,13 +1,16 @@
-# Test deployment for platform-test.open-startup.org
+# Internal test deployment for platform-test.open-startup.org.
 #
-# Run all commands from the REPO ROOT (one level up from this file), e.g.:
-#   docker compose -f deploy/docker-compose.yml up -d --build
+# Run from the REPO ROOT. The --env-file flag is REQUIRED, not optional:
+# compose needs it to substitute POSTGRES_DOCKER_NETWORK below. Without it,
+# compose fails before it starts anything.
 #
-# This starts ONE service: the app itself. It deliberately does NOT start a
-# Postgres container — it connects to the Postgres that's already running on
-# this VPS, using a separate database created just for this test environment
-# (see deploy/README.md, step 2). Nothing here touches n8n, CloudPanel's own
-# containers, or any other existing service.
+#   docker compose --env-file .env.test -f deploy/docker-compose.yml up -d --build
+#
+# This runs one isolated application container. It does not create or change
+# PostgreSQL: it joins the existing Docker network only to reach the Postgres
+# container already running on this VPS, using the dedicated
+# ost_platform_test database and ost_test_user role. Nothing here touches n8n,
+# CloudPanel's own containers, or any other existing service.
 
 services:
   app:
@@ -19,22 +22,23 @@ services:
     env_file:
       - ../.env.test           # you create this from deploy/.env.test.example — never commit it
     environment:
-      - NODE_ENV=production
-    # Lets the container reach Postgres running directly on the VPS host
-    # (outside Docker) via the special hostname "host.docker.internal".
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      NODE_ENV: production
     ports:
-      # Bound to 127.0.0.1 only — NOT reachable from the public internet directly.
-      # CloudPanel's Nginx (running on the host) reverse-proxies to this address.
-      # If you change the port here, also update it in .env.test (PORT=...) and
-      # in the CloudPanel reverse-proxy target.
+      # Bound to 127.0.0.1 only, so the app is NOT reachable from the public
+      # internet directly. CloudPanel's Nginx (on the host) reverse-proxies to
+      # it. If you change this port, also update PORT in .env.test and the
+      # CloudPanel reverse-proxy target.
       - "127.0.0.1:5100:5000"
     volumes:
       # Named volume so uploaded files (logos, decks, documents, signatures)
-      # survive `docker compose down` / image rebuilds. This is separate from
-      # any volume used by your other Docker services.
+      # survive `docker compose down` and image rebuilds. Separate from any
+      # volume used by other Docker services on this VPS.
       - ost_platform_test_uploads:/app/uploads
+    networks:
+      # Postgres runs as a Docker container here, NOT on the host, so the app
+      # reaches it by container hostname over a shared Docker network. There is
+      # deliberately no host.docker.internal extra_host: it does not apply.
+      - existing_postgres_network
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:5000/api/auth/me', r => process.exit(r.statusCode < 500 ? 0 : 1)).on('error', () => process.exit(1))"]
       interval: 30s
@@ -45,3 +49,12 @@ services:
 volumes:
   ost_platform_test_uploads:
     name: ost_platform_test_uploads
+
+networks:
+  # Pre-existing network owned by whoever runs the Postgres container. Compose
+  # attaches to it and never creates or deletes it. Set the name in .env.test;
+  # find it with:
+  #   docker inspect -f '{{range $$k,$$v := .NetworkSettings.Networks}}{{$$k}}{{"\n"}}{{end}}' <postgres-container>
+  existing_postgres_network:
+    external: true
+    name: ${POSTGRES_DOCKER_NETWORK:?Set POSTGRES_DOCKER_NETWORK in .env.test}

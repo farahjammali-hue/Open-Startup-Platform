@@ -154,3 +154,117 @@ export async function sendPasswordChangedNotice(
   });
   return true;
 }
+
+
+/* ---------------- Session calendar invites ---------------- */
+
+export type SessionInviteRecipient = { email: string; name?: string | null };
+
+function sessionInviteHtml(opts: {
+  name?: string | null;
+  kind: string;
+  title: string;
+  whenUtc: string;
+  durationMinutes: number;
+  joinUrl?: string | null;
+  cancelled?: boolean;
+}): string {
+  const heading = opts.cancelled ? "Session cancelled" : `${opts.kind} session scheduled`;
+  const lead = opts.cancelled
+    ? `This ${opts.kind.toLowerCase()} session has been cancelled. Your calendar should update automatically.`
+    : `You're invited to a ${opts.kind.toLowerCase()} session. Accept the attached invite to add it to your calendar.`;
+  const joinBlock = opts.cancelled || !opts.joinUrl
+    ? ""
+    : `<p style="margin:24px 0">
+         <a href="${opts.joinUrl}" style="background:${BRAND};color:#fff;text-decoration:none;padding:12px 22px;border-radius:10px;font-weight:700;font-size:14px;display:inline-block">
+           Join the meeting
+         </a>
+       </p>`;
+  return `
+  <div style="font-family:Montserrat,Arial,sans-serif;max-width:520px;margin:0 auto;color:${BRAND}">
+    <div style="background:${BRAND};border-radius:14px 14px 0 0;padding:28px 32px;color:#fff">
+      <div style="font-size:20px;font-weight:800">Open Startup</div>
+      <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:${ACCENT}">Platform</div>
+    </div>
+    <div style="border:1px solid #eef0f6;border-top:0;border-radius:0 0 14px 14px;padding:32px">
+      <h1 style="font-size:20px;margin:0 0 12px">${heading}</h1>
+      <p style="font-size:14px;line-height:1.6;color:#475569">
+        Hi ${opts.name || "there"}, ${lead}
+      </p>
+      <table style="font-size:14px;color:#475569;line-height:1.8;margin:16px 0">
+        <tr><td style="padding-right:12px;color:#94a3b8">Session</td><td><strong>${opts.title}</strong></td></tr>
+        <tr><td style="padding-right:12px;color:#94a3b8">When</td><td>${opts.whenUtc}</td></tr>
+        <tr><td style="padding-right:12px;color:#94a3b8">Duration</td><td>${opts.durationMinutes} minutes</td></tr>
+      </table>
+      ${joinBlock}
+      <p style="font-size:12px;color:#94a3b8;margin-top:20px">
+        The time above is shown in UTC. Your calendar will display it in your own timezone.
+      </p>
+    </div>
+  </div>`;
+}
+
+/**
+ * Email a calendar invite (or cancellation) for a session.
+ *
+ * Sent one message per recipient rather than one message with everyone in To,
+ * so founders' addresses are never disclosed to each other. Returns the number
+ * of messages actually dispatched.
+ *
+ * A failure for one recipient is logged and skipped: a bounced address must not
+ * stop the rest of the cohort being told about the session.
+ */
+export async function sendSessionInvite(opts: {
+  recipients: SessionInviteRecipient[];
+  kind: string;
+  title: string;
+  startsAt: Date;
+  durationMinutes: number;
+  joinUrl?: string | null;
+  ics: string;
+  cancelled?: boolean;
+}): Promise<number> {
+  if (!opts.recipients.length) return 0;
+
+  const whenUtc = opts.startsAt.toUTCString();
+  const verb = opts.cancelled ? "Cancelled" : "Invitation";
+  const subject = `${verb}: ${opts.title} — ${whenUtc}`;
+
+  if (!transporter) {
+    console.log("\n==================== SESSION INVITE ====================");
+    console.log(`  ${subject}`);
+    console.log(`  Recipients: ${opts.recipients.map((r) => r.email).join(", ")}`);
+    console.log("  (SMTP not configured — no invite was emailed.)");
+    console.log("=======================================================\n");
+    return 0;
+  }
+
+  let sent = 0;
+  for (const recipient of opts.recipients) {
+    try {
+      await transporter.sendMail({
+        from: `"Open Startup" <${FROM}>`,
+        to: recipient.email,
+        subject,
+        html: sessionInviteHtml({ ...opts, name: recipient.name, whenUtc }),
+        text: [
+          opts.cancelled ? `Cancelled: ${opts.title}` : `You're invited: ${opts.title}`,
+          `When: ${whenUtc} (${opts.durationMinutes} minutes)`,
+          opts.joinUrl && !opts.cancelled ? `Join: ${opts.joinUrl}` : "",
+        ].filter(Boolean).join("\n"),
+        // nodemailer emits this as text/calendar in a multipart/alternative,
+        // which is what makes Gmail and Outlook render it as an invite with
+        // Accept/Decline rather than as a file attachment.
+        icalEvent: {
+          method: opts.cancelled ? "CANCEL" : "REQUEST",
+          filename: "invite.ics",
+          content: opts.ics,
+        },
+      });
+      sent += 1;
+    } catch (error) {
+      console.error(`[mailer] session invite to ${recipient.email} failed:`, error);
+    }
+  }
+  return sent;
+}
