@@ -9,7 +9,7 @@ import { STAGE_LABELS, type StartupStage } from "../../lib/stageLabels";
 import { REVIEW_STATUS_TONES, REVIEW_STATUS_ICONS } from "../../lib/statusTones";
 import {
   Building2, Globe, MapPin, LineChart, FolderLock,
-  FileSignature, ShieldCheck, Layers, Presentation, Handshake, ArrowRight,
+  FileSignature, ShieldCheck, Layers, Handshake, ArrowRight,
 } from "lucide-react";
 
 interface ReviewEntity { status: "pending" | "approved" | "rejected"; reviewNote: string | null }
@@ -83,13 +83,6 @@ export default function AdminStartupDetail() {
       icon: Layers,
       to: `/admin/mentorship/${id}`,
       subtitle: startup.mentorId ? "Mentor assigned" : "No mentor assigned",
-    },
-    {
-      key: "training",
-      title: "Training",
-      icon: Presentation,
-      to: `/admin/training/${id}`,
-      subtitle: "Modules, sessions & homework",
     },
     {
       key: "crm",
