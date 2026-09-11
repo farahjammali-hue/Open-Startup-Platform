@@ -35,7 +35,7 @@ export function QuarterlySummaryPanel({ apiBase, startupName }: { apiBase: strin
     return values[period]?.[metricKey] ?? "";
   }
 
-  function exportSheet() {
+  async function exportSheet() {
     const header = ["Section", "Metric", ...QUARTERS];
     const rows: (string | number)[][] = [header];
     for (const section of METRIC_SECTIONS) {
@@ -44,7 +44,7 @@ export function QuarterlySummaryPanel({ apiBase, startupName }: { apiBase: strin
       }
     }
     const namePart = startupName ? `${startupName.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}-` : "";
-    downloadXlsx(`${namePart}quarterly-updates-${year}.xlsx`, "Quarterly Updates", rows, { mergeColumns: [0] });
+    await downloadXlsx(`${namePart}quarterly-updates-${year}.xlsx`, "Quarterly Updates", rows, { mergeColumns: [0] });
   }
 
   if (isLoading || !data) {

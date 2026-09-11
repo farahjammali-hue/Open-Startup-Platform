@@ -177,7 +177,7 @@ export function MetricsKpiPanel({ apiBase, startupName }: { apiBase: string; sta
 
   const hasUnsaved = dirtyPeriods.size > 0 || profileDirty;
 
-  function exportSheet() {
+  async function exportSheet() {
     const monthPeriods = periods.slice(1); // drop "initial"
     const header = ["Section", "Metric", "Initial Data", ...MONTHS, "Q1", "Q2", "Q3", "Q4"];
     const rows: (string | number)[][] = [header];
@@ -190,7 +190,7 @@ export function MetricsKpiPanel({ apiBase, startupName }: { apiBase: string; sta
       }
     }
     const namePart = startupName ? `${startupName.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}-` : "";
-    downloadXlsx(`${namePart}metrics-and-kpis-${year}.xlsx`, "Metrics & KPIs", rows, { mergeColumns: [0] });
+    await downloadXlsx(`${namePart}metrics-and-kpis-${year}.xlsx`, "Metrics & KPIs", rows, { mergeColumns: [0] });
   }
 
   if (isLoading || !data) {

@@ -126,7 +126,7 @@ export default function AdminStartupDashboard() {
           <>
             <div className="flex justify-end">
               <button
-                onClick={() => downloadXlsx(`${startup.companyName.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}-initial-data.xlsx`, "Initial Data", buildInitialDataRows(data), { mergeColumns: [0] })}
+                onClick={async () => downloadXlsx(`${startup.companyName.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}-initial-data.xlsx`, "Initial Data", buildInitialDataRows(data), { mergeColumns: [0] })}
                 className="ost-btn-ghost !px-3 !py-1.5 text-xs"
               >
                 <Download className="h-3.5 w-3.5" /> Export Excel
