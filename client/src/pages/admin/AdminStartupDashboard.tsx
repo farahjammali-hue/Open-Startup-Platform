@@ -6,68 +6,15 @@ import { AppShell } from "../../components/AppShell";
 import { BackLink, PageHeader, TabBar } from "../../components/PageHeader";
 import { StatusBadge } from "../../components/StatusBadge";
 import { Skeleton, SkeletonText } from "../../components/Skeleton";
-import {
-  GOAL_STATUS_LABELS, GOAL_STATUS_TONES,
-  type Goal, type TeamMemberRow, type CapTableEntryRow,
-} from "../dashboard/types";
+import { GOAL_STATUS_LABELS, GOAL_STATUS_TONES, type Goal } from "../dashboard/types";
 import { MetricsKpiPanel } from "../../components/metrics/MetricsKpiPanel";
 import { QuarterlySummaryPanel } from "../../components/metrics/QuarterlySummaryPanel";
-import { LEGAL_ENTITY_LABELS, BUSINESS_MODEL_LABELS, CUSTOMER_BASE_LABELS } from "../../lib/startupProfileLabels";
-import { formatMoney } from "../../lib/format";
-import { downloadXlsx } from "../../lib/xlsx";
-import {
-  Building2, Users, Target, Inbox, ExternalLink,
-  Briefcase, Cpu, TrendingUp, Handshake, Globe2, PieChart, Download,
-} from "lucide-react";
-
-interface StartupProfileBasic {
-  id: string; companyName: string;
-  legalEntityStatus: string | null; startedYear: number | null; country: string | null;
-  businessModelType: string | null; deckUrl: string | null;
-  coreBusinessOverview: string | null; coreIpTechnology: string | null;
-  totalRevenueSinceFounding: number | null; amountRaised: number | null; totalGrants: number | null;
-  totalRoundSize: number | null; roundTerms: string | null; lastValuation: number | null;
-  sdgsAddressed: string[] | null; femaleTeamMembers: number | null; youthEmployees: number | null;
-  countryOfIncorporation: string | null; customerBase: string | null; countriesOfOperation: string | null;
-}
+import { InitialDataPanel, type InitialDataApiConfig } from "../../components/dashboard/InitialDataPanel";
+import { Building2, Target, Inbox, TrendingUp, PieChart } from "lucide-react";
 
 interface Detail {
-  startup: StartupProfileBasic;
+  startup: { id: string; companyName: string };
   goals: Goal[];
-  teamMembers: TeamMemberRow[];
-  capTableEntries: CapTableEntryRow[];
-}
-
-function buildInitialDataRows(data: Detail): (string | number)[][] {
-  const { startup, goals, teamMembers, capTableEntries } = data;
-  const capTableTotal = capTableEntries.reduce((sum, e) => sum + e.percentage, 0);
-  const rows: (string | number)[][] = [["Section", "Field", "Value"]];
-  const add = (section: string, field: string, value: string | number | null | undefined) => rows.push([section, field, value ?? ""]);
-
-  add("Startup Profile", "Legal Entity", startup.legalEntityStatus ? LEGAL_ENTITY_LABELS[startup.legalEntityStatus] : "");
-  add("Startup Profile", "Year of constitution", startup.startedYear);
-  add("Startup Profile", "Country", startup.country);
-  add("Startup Profile", "Business Model Type", startup.businessModelType ? BUSINESS_MODEL_LABELS[startup.businessModelType] : "");
-  add("Startup Profile", "Deck link", startup.deckUrl);
-  add("Core Business", "Overview", startup.coreBusinessOverview);
-  add("Core IP / Technology", "Overview", startup.coreIpTechnology);
-  add("Traction & previous funding", "Total revenues since founding year", startup.totalRevenueSinceFounding);
-  add("Traction & previous funding", "Total investments raised", startup.amountRaised);
-  add("Traction & previous funding", "Total Grants", startup.totalGrants);
-  add("Round Details", "Total Round Size", startup.totalRoundSize);
-  add("Round Details", "Round terms", startup.roundTerms);
-  add("Round Details", "Last Valuation", startup.lastValuation);
-  add("Impact Metrics", "SDGs Addressed", startup.sdgsAddressed?.join(", ") ?? "");
-  add("Impact Metrics", "Female team members", startup.femaleTeamMembers);
-  add("Impact Metrics", "Youth employees", startup.youthEmployees);
-  add("Markets", "Country of Incorporation", startup.countryOfIncorporation);
-  add("Markets", "Customer Base", startup.customerBase ? CUSTOMER_BASE_LABELS[startup.customerBase] : "");
-  add("Markets", "Countries of Operation", startup.countriesOfOperation);
-  for (const entry of capTableEntries) add("Cap Table", entry.name, `${entry.percentage}%`);
-  if (capTableEntries.length > 0) add("Cap Table", "Total", `${capTableTotal}%`);
-  for (const m of teamMembers) add("Team", m.name, `${m.role || "—"} · ${m.type.replace("_", " ")}`);
-  for (const g of goals) add("Objectives", g.title, `${GOAL_STATUS_LABELS[g.status]}${g.targetDate ? ` (target: ${new Date(g.targetDate).toLocaleDateString()})` : ""}`);
-  return rows;
 }
 
 export default function AdminStartupDashboard() {
@@ -80,6 +27,15 @@ export default function AdminStartupDashboard() {
     queryFn: () => api(`/api/admin/startups/${id}`),
     enabled: !!id,
   });
+
+  const adminConfig: InitialDataApiConfig = {
+    getUrl: `/api/admin/startups/${id}/profile`,
+    overviewPatchUrl: `/api/admin/startups/${id}/profile-overview`,
+    teamUrl: `/api/admin/startups/${id}/team`,
+    capTableUrl: `/api/admin/startups/${id}/cap-table`,
+    subResourceBase: `/api/admin/startups/${id}`,
+    metricsApiBase: `/api/admin/startups/${id}/metrics`,
+  };
 
   if (isLoading || !data) {
     return (
@@ -95,8 +51,7 @@ export default function AdminStartupDashboard() {
     );
   }
 
-  const { startup, goals, teamMembers, capTableEntries } = data;
-  const capTableTotal = capTableEntries.reduce((sum, e) => sum + e.percentage, 0);
+  const { startup, goals } = data;
 
   return (
     <AppShell>
@@ -124,95 +79,7 @@ export default function AdminStartupDashboard() {
 
         {tab === "initial" && (
           <>
-            <div className="flex justify-end">
-              <button
-                onClick={async () => downloadXlsx(`${startup.companyName.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}-initial-data.xlsx`, "Initial Data", buildInitialDataRows(data), { mergeColumns: [0] })}
-                className="ost-btn-ghost !px-3 !py-1.5 text-xs"
-              >
-                <Download className="h-3.5 w-3.5" /> Export Excel
-              </button>
-            </div>
-
-            <Section title="Startup Profile" icon={Building2}>
-              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                <div>
-                  <h4 className="mb-1 text-xs font-bold uppercase tracking-wide text-slate-400">Profile</h4>
-                  <Field label="Legal Entity" value={startup.legalEntityStatus ? LEGAL_ENTITY_LABELS[startup.legalEntityStatus] : null} />
-                  <Field label="Year of constitution" value={startup.startedYear ? String(startup.startedYear) : null} />
-                  <Field label="Country" value={startup.country} />
-                  <Field label="Business Model Type" value={startup.businessModelType ? BUSINESS_MODEL_LABELS[startup.businessModelType] : null} />
-                  <LinkField label="Deck link" url={startup.deckUrl} />
-                </div>
-                <div>
-                  <h4 className="mb-1 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-slate-400"><Briefcase className="h-3.5 w-3.5" /> Core Business</h4>
-                  <p className="whitespace-pre-wrap text-sm text-slate-600">{startup.coreBusinessOverview || <span className="text-slate-300">Not added yet.</span>}</p>
-                </div>
-                <div>
-                  <h4 className="mb-1 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-slate-400"><Cpu className="h-3.5 w-3.5" /> Core IP / Technology</h4>
-                  <p className="whitespace-pre-wrap text-sm text-slate-600">{startup.coreIpTechnology || <span className="text-slate-300">Not added yet.</span>}</p>
-                </div>
-              </div>
-
-              <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                <div>
-                  <h4 className="mb-1 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-slate-400"><TrendingUp className="h-3.5 w-3.5" /> Traction &amp; previous funding</h4>
-                  <Field label="Total revenues since founding year" value={formatMoney(startup.totalRevenueSinceFounding)} />
-                  <Field label="Total investments raised" value={formatMoney(startup.amountRaised)} />
-                  <Field label="Total Grants" value={formatMoney(startup.totalGrants)} />
-                </div>
-                <div>
-                  <h4 className="mb-1 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-slate-400"><Handshake className="h-3.5 w-3.5" /> Round Details</h4>
-                  <Field label="Total Round Size" value={formatMoney(startup.totalRoundSize)} />
-                  <Field label="Round terms" value={startup.roundTerms} />
-                  <Field label="Last Valuation" value={formatMoney(startup.lastValuation)} />
-                </div>
-                <div>
-                  <h4 className="mb-1 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-slate-400"><Globe2 className="h-3.5 w-3.5" /> Impact Metrics</h4>
-                  <Field label="SDGs Addressed" value={startup.sdgsAddressed && startup.sdgsAddressed.length > 0 ? startup.sdgsAddressed.join(", ") : null} />
-                  <Field label="Female team members" value={startup.femaleTeamMembers != null ? String(startup.femaleTeamMembers) : null} />
-                  <Field label="Youth employees" value={startup.youthEmployees != null ? String(startup.youthEmployees) : null} />
-                </div>
-              </div>
-
-              <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                <div>
-                  <h4 className="mb-1 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-slate-400"><Globe2 className="h-3.5 w-3.5" /> Markets</h4>
-                  <Field label="Country of Incorporation" value={startup.countryOfIncorporation} />
-                  <Field label="Customer Base" value={startup.customerBase ? CUSTOMER_BASE_LABELS[startup.customerBase] : null} />
-                  <Field label="Countries of Operation" value={startup.countriesOfOperation} />
-                </div>
-              </div>
-            </Section>
-
-            <Section title="Cap Table" icon={PieChart}>
-              {capTableEntries.length === 0 ? <EmptyRow text="No cap table entries yet." /> : (
-                <div>
-                  {capTableEntries.map((entry) => (
-                    <div key={entry.id} className="flex items-center justify-between gap-3 border-b border-slate-100 py-2.5 last:border-0">
-                      <span className="truncate text-sm font-semibold text-primary">{entry.name}</span>
-                      <span className="text-sm font-semibold text-slate-600">{entry.percentage}%</span>
-                    </div>
-                  ))}
-                  <div className="flex items-center justify-between pt-2.5">
-                    <span className="text-xs font-bold uppercase tracking-wide text-slate-400">Total</span>
-                    <span className="text-sm font-extrabold text-primary">{capTableTotal}%</span>
-                  </div>
-                </div>
-              )}
-            </Section>
-
-            <Section title="Team" icon={Users}>
-              {teamMembers.length === 0 ? <EmptyRow text="No team members added yet." /> : (
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {teamMembers.map((m) => (
-                    <div key={m.id} className="rounded-lg border border-slate-100 px-4 py-3">
-                      <div className="text-sm font-semibold text-primary">{m.name}</div>
-                      <div className="text-xs text-slate-400">{m.role || "—"} · {m.type.replace("_", " ")}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </Section>
+            <InitialDataPanel apiConfig={adminConfig} />
 
             <Section title="Objectives" icon={Target}>
               {goals.length === 0 ? <EmptyRow text="No objectives set yet." /> : (
@@ -234,13 +101,13 @@ export default function AdminStartupDashboard() {
 
         {tab === "monthly" && (
           <Section title="Metrics & KPIs" icon={TrendingUp}>
-            <MetricsKpiPanel apiBase={`/api/admin/startups/${id}/metrics`} startupName={data.startup.companyName} />
+            <MetricsKpiPanel apiBase={`/api/admin/startups/${id}/metrics`} startupName={startup.companyName} />
           </Section>
         )}
 
         {tab === "quarterly" && (
           <Section title="Quarterly updates" icon={PieChart}>
-            <QuarterlySummaryPanel apiBase={`/api/admin/startups/${id}/metrics`} startupName={data.startup.companyName} />
+            <QuarterlySummaryPanel apiBase={`/api/admin/startups/${id}/metrics`} startupName={startup.companyName} />
           </Section>
         )}
       </main>
@@ -263,30 +130,6 @@ function EmptyRow({ text }: { text: string }) {
   return (
     <div className="flex items-center gap-2 py-4 text-sm text-slate-400">
       <Inbox className="h-4 w-4" /> {text}
-    </div>
-  );
-}
-
-function Field({ label, value }: { label: string; value: string | null }) {
-  return (
-    <div className="flex items-center justify-between gap-3 border-b border-slate-100 py-2.5 last:border-0">
-      <span className="ost-helper-text">{label}</span>
-      <span className="truncate text-sm font-semibold text-primary">{value || "—"}</span>
-    </div>
-  );
-}
-
-function LinkField({ label, url }: { label: string; url: string | null }) {
-  return (
-    <div className="flex items-center justify-between gap-3 border-b border-slate-100 py-2.5 last:border-0">
-      <span className="ost-helper-text">{label}</span>
-      {url ? (
-        <a href={url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm font-semibold text-secondary hover:underline">
-          View <ExternalLink className="h-3 w-3" />
-        </a>
-      ) : (
-        <span className="text-sm font-semibold text-slate-300">—</span>
-      )}
     </div>
   );
 }

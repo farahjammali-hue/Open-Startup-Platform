@@ -53,6 +53,14 @@ import {
   dataRoomSubmissionSchema,
   capTableEntrySchema,
   startupTechTrackSchema,
+  fundingRoundSchema,
+  patentSchema,
+  targetMarketSchema,
+  clientStatSchema,
+  clientDetailSchema,
+  partnerStatSchema,
+  partnerDetailSchema,
+  type StartupProfileOverviewInput,
 } from "@shared/schema";
 import { ALL_METRIC_KEYS } from "@shared/metricsCatalog";
 import {
@@ -843,7 +851,58 @@ export function registerRoutes(app: Express) {
     res.json(startup);
   }));
 
-  // Dashboard overview: Startup Profile / Core Business / Core IP blocks.
+  // Dashboard overview: the 15 Initial Data cards' scalar fields.
+  function profileOverviewToColumns(d: StartupProfileOverviewInput) {
+    return {
+      legalEntityStatus: d.legalEntityStatus || null,
+      startedYear: d.startedYear ?? null,
+      country: d.country || null,
+      businessModelType: d.businessModelType || null,
+      businessModelTypes: d.businessModelTypes ?? [],
+      dataRoomLink: d.dataRoomLink || null,
+      deckUrl: d.deckUrl || null,
+      coreBusinessOverview: d.coreBusinessOverview || null,
+      uniqueValueProposition: d.uniqueValueProposition || null,
+      teamSize: d.teamSize ?? null,
+      contractorsCount: d.contractorsCount ?? null,
+      paidEmployeesCount: d.paidEmployeesCount ?? null,
+      advisorsCount: d.advisorsCount ?? null,
+      totalFundingRaised: d.totalFundingRaised ?? null,
+      totalFundingDilutive: d.totalFundingDilutive ?? null,
+      totalFundingNonDilutive: d.totalFundingNonDilutive ?? null,
+      investmentStage: d.investmentStage || null,
+      roundSize: d.roundSize ?? null,
+      committedFunds: d.committedFunds ?? null,
+      fundingCrmLink: d.fundingCrmLink || null,
+      coreIpTechnology: d.coreIpTechnology || null,
+      mainTechnologies: d.mainTechnologies || null,
+      productType: d.productType || null,
+      productStage: d.productStage || null,
+      productRoadmapLink: d.productRoadmapLink || null,
+      trlLevel: d.trlLevel ?? null,
+      totalRevenueSinceFounding: d.totalRevenueSinceFounding ?? null,
+      amountRaised: d.amountRaised ?? null,
+      totalGrants: d.totalGrants ?? null,
+      totalRoundSize: d.totalRoundSize ?? null,
+      roundTerms: d.roundTerms || null,
+      lastValuation: d.lastValuation ?? null,
+      totalAddressableMarket: d.totalAddressableMarket ?? null,
+      serviceableAddressableMarket: d.serviceableAddressableMarket ?? null,
+      serviceableObtainableMarket: d.serviceableObtainableMarket ?? null,
+      goToMarketStrategyLink: d.goToMarketStrategyLink || null,
+      competitionOverview: d.competitionOverview || null,
+      idealCustomerPersona: d.idealCustomerPersona || null,
+      clientsCrmLink: d.clientsCrmLink || null,
+      partnersCrmLink: d.partnersCrmLink || null,
+      sdgsAddressed: d.sdgsAddressed ?? [],
+      femaleTeamMembers: d.femaleTeamMembers ?? null,
+      youthEmployees: d.youthEmployees ?? null,
+      countryOfIncorporation: d.countryOfIncorporation || null,
+      customerBase: d.customerBase || null,
+      countriesOfOperation: d.countriesOfOperation || null,
+    };
+  }
+
   app.patch("/api/startups/:id/profile-overview", requireAuth, ah(async (req, res) => {
     const owned = await storage.getOwnedStartup(req.params.id as string, req.session.userId!);
     if (!owned) return res.status(404).json({ message: "Not found" });
@@ -851,28 +910,32 @@ export function registerRoutes(app: Express) {
     if (!parsed.success) {
       return res.status(400).json({ message: parsed.error.errors[0].message });
     }
-    const d = parsed.data;
-    const startup = await storage.updateStartup(owned.id, {
-      legalEntityStatus: d.legalEntityStatus || null,
-      startedYear: d.startedYear ?? null,
-      country: d.country || null,
-      businessModelType: d.businessModelType || null,
-      dataRoomLink: d.dataRoomLink || null,
-      coreBusinessOverview: d.coreBusinessOverview || null,
-      coreIpTechnology: d.coreIpTechnology || null,
-      totalRevenueSinceFounding: d.totalRevenueSinceFounding ?? null,
-      amountRaised: d.amountRaised ?? null,
-      totalGrants: d.totalGrants ?? null,
-      totalRoundSize: d.totalRoundSize ?? null,
-      roundTerms: d.roundTerms || null,
-      lastValuation: d.lastValuation ?? null,
-      sdgsAddressed: d.sdgsAddressed ?? [],
-      femaleTeamMembers: d.femaleTeamMembers ?? null,
-      youthEmployees: d.youthEmployees ?? null,
-      countryOfIncorporation: d.countryOfIncorporation || null,
-      customerBase: d.customerBase || null,
-      countriesOfOperation: d.countriesOfOperation || null,
-    });
+    const startup = await storage.updateStartup(owned.id, profileOverviewToColumns(parsed.data));
+    res.json(startup);
+  }));
+
+  // Same as above, without needing the startup's own id in the URL — lets
+  // the Initial Data panel use one flat apiBase for the founder side.
+  app.patch("/api/startup-profile/overview", requireAuth, ah(async (req, res) => {
+    const startup = await requireActiveStartup(req, res);
+    if (!startup) return;
+    const parsed = startupProfileOverviewSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: parsed.error.errors[0].message });
+    }
+    const updated = await storage.updateStartup(startup.id, profileOverviewToColumns(parsed.data));
+    res.json(updated);
+  }));
+
+  // Same as above, admin-scoped — the Initial Data tab is editable by both sides.
+  app.patch("/api/admin/startups/:id/profile-overview", requireAdmin, ah(async (req, res) => {
+    const startup0 = await storage.getStartupById(req.params.id);
+    if (!startup0) return res.status(404).json({ message: "Not found" });
+    const parsed = startupProfileOverviewSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: parsed.error.errors[0].message });
+    }
+    const startup = await storage.updateStartup(startup0.id, profileOverviewToColumns(parsed.data));
     res.json(startup);
   }));
 
@@ -1486,6 +1549,126 @@ export function registerRoutes(app: Express) {
     await storage.deleteCapTableEntry(owned.id);
     res.json({ ok: true });
   }));
+
+  // Admin equivalents — the Initial Data tab is editable by both sides.
+  app.post("/api/admin/startups/:id/team", requireAdmin, ah(async (req, res) => {
+    const startup = await storage.getStartupById(req.params.id);
+    if (!startup) return res.status(404).json({ message: "Not found" });
+    const parsed = teamMemberSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
+    const d = parsed.data;
+    const member = await storage.createTeamMember(startup.id, {
+      name: d.name,
+      role: d.role || null,
+      type: d.type,
+      gender: d.gender || null,
+      educationalBackground: d.educationalBackground || null,
+      professionalBackground: d.professionalBackground || null,
+      yearsOfExperience: d.yearsOfExperience ?? null,
+    });
+    res.status(201).json(member);
+  }));
+
+  app.delete("/api/admin/startups/:id/team/:memberId", requireAdmin, ah(async (req, res) => {
+    const owned = await storage.getOwnedTeamMember(req.params.memberId, req.params.id);
+    if (!owned) return res.status(404).json({ message: "Not found" });
+    await storage.deleteTeamMember(owned.id);
+    res.json({ ok: true });
+  }));
+
+  app.post("/api/admin/startups/:id/cap-table", requireAdmin, ah(async (req, res) => {
+    const startup = await storage.getStartupById(req.params.id);
+    if (!startup) return res.status(404).json({ message: "Not found" });
+    const parsed = capTableEntrySchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
+    const entry = await storage.createCapTableEntry(startup.id, { ...parsed.data, currentInvolvement: parsed.data.currentInvolvement || null });
+    res.status(201).json(entry);
+  }));
+
+  app.delete("/api/admin/startups/:id/cap-table/:entryId", requireAdmin, ah(async (req, res) => {
+    const owned = await storage.getOwnedCapTableEntry(req.params.entryId, req.params.id);
+    if (!owned) return res.status(404).json({ message: "Not found" });
+    await storage.deleteCapTableEntry(owned.id);
+    res.json({ ok: true });
+  }));
+
+  /* ---------------- Initial Data: combined read (founder + admin) ---------------- */
+  async function loadProfileExtras(startupId: string) {
+    const [teamMembers, capTableEntries, fundingRounds, patents, targetMarkets, clientStats, clientDetails, partnerStats, partnerDetails, achievements] =
+      await Promise.all([
+        storage.listTeamMembers(startupId),
+        storage.listCapTableEntries(startupId),
+        storage.listFundingRounds(startupId),
+        storage.listPatents(startupId),
+        storage.listTargetMarkets(startupId),
+        storage.listClientStats(startupId),
+        storage.listClientDetails(startupId),
+        storage.listPartnerStats(startupId),
+        storage.listPartnerDetails(startupId),
+        storage.listAchievements(startupId),
+      ]);
+    return { teamMembers, capTableEntries, fundingRounds, patents, targetMarkets, clientStats, clientDetails, partnerStats, partnerDetails, achievements };
+  }
+
+  app.get("/api/startup-profile", requireAuth, ah(async (req, res) => {
+    const startup = await requireActiveStartup(req, res);
+    if (!startup) return;
+    res.json({ startup, ...(await loadProfileExtras(startup.id)) });
+  }));
+
+  app.get("/api/admin/startups/:id/profile", requireAdmin, ah(async (req, res) => {
+    const startup = await storage.getStartupById(req.params.id);
+    if (!startup) return res.status(404).json({ message: "Not found" });
+    res.json({ startup, ...(await loadProfileExtras(startup.id)) });
+  }));
+
+  /* ---------------- Initial Data: new repeatable tables (Cards 6, 9, 11, 13, 14) ----------------
+   * Each is add + delete only (no edit), mirrored founder / admin, same
+   * shape as Cap Table above. */
+  function initialDataSubResource<TSchema extends { safeParse: (v: unknown) => any }>(
+    path: string,
+    schema: TSchema,
+    create: (startupId: string, data: any) => Promise<any>,
+    getOwned: (id: string, startupId: string) => Promise<any>,
+    del: (id: string) => Promise<void>,
+  ) {
+    app.post(`/api/startup-profile/${path}`, requireAuth, ah(async (req, res) => {
+      const startup = await requireActiveStartup(req, res);
+      if (!startup) return;
+      const parsed = schema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
+      res.status(201).json(await create(startup.id, parsed.data));
+    }));
+    app.delete(`/api/startup-profile/${path}/:entryId`, requireAuth, ah(async (req, res) => {
+      const startup = await requireActiveStartup(req, res);
+      if (!startup) return;
+      const owned = await getOwned(req.params.entryId, startup.id);
+      if (!owned) return res.status(404).json({ message: "Not found" });
+      await del(owned.id);
+      res.json({ ok: true });
+    }));
+    app.post(`/api/admin/startups/:id/${path}`, requireAdmin, ah(async (req, res) => {
+      const startup = await storage.getStartupById(req.params.id);
+      if (!startup) return res.status(404).json({ message: "Not found" });
+      const parsed = schema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
+      res.status(201).json(await create(startup.id, parsed.data));
+    }));
+    app.delete(`/api/admin/startups/:id/${path}/:entryId`, requireAdmin, ah(async (req, res) => {
+      const owned = await getOwned(req.params.entryId, req.params.id);
+      if (!owned) return res.status(404).json({ message: "Not found" });
+      await del(owned.id);
+      res.json({ ok: true });
+    }));
+  }
+
+  initialDataSubResource("funding-rounds", fundingRoundSchema, storage.createFundingRound.bind(storage), storage.getOwnedFundingRound.bind(storage), storage.deleteFundingRound.bind(storage));
+  initialDataSubResource("patents", patentSchema, storage.createPatent.bind(storage), storage.getOwnedPatent.bind(storage), storage.deletePatent.bind(storage));
+  initialDataSubResource("target-markets", targetMarketSchema, storage.createTargetMarket.bind(storage), storage.getOwnedTargetMarket.bind(storage), storage.deleteTargetMarket.bind(storage));
+  initialDataSubResource("client-stats", clientStatSchema, storage.createClientStat.bind(storage), storage.getOwnedClientStat.bind(storage), storage.deleteClientStat.bind(storage));
+  initialDataSubResource("client-details", clientDetailSchema, storage.createClientDetail.bind(storage), storage.getOwnedClientDetail.bind(storage), storage.deleteClientDetail.bind(storage));
+  initialDataSubResource("partner-stats", partnerStatSchema, storage.createPartnerStat.bind(storage), storage.getOwnedPartnerStat.bind(storage), storage.deletePartnerStat.bind(storage));
+  initialDataSubResource("partner-details", partnerDetailSchema, storage.createPartnerDetail.bind(storage), storage.getOwnedPartnerDetail.bind(storage), storage.deletePartnerDetail.bind(storage));
 
   /* ---------------- Mentorship (flat list of sessions, no modules/locking) ---------------- */
   // Session content is program-wide, but each session embeds this startup's

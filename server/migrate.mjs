@@ -839,6 +839,115 @@ ALTER TABLE trainers ADD COLUMN IF NOT EXISTS expert_id uuid REFERENCES experts(
 -- the startup gets a separate always-editable comments field.
 ALTER TABLE mentorship_session_notes ADD COLUMN IF NOT EXISTS ai_generated_at timestamp;
 ALTER TABLE mentorship_session_notes ADD COLUMN IF NOT EXISTS founder_comments text;
+
+-- Initial Data tab redesign: 15 cards, several richer than the fields that
+-- previously backed the Overview tab. New scalar columns on startups.
+ALTER TABLE startups ADD COLUMN IF NOT EXISTS business_model_types text[];
+ALTER TABLE startups ADD COLUMN IF NOT EXISTS unique_value_proposition text;
+ALTER TABLE startups ADD COLUMN IF NOT EXISTS team_size integer;
+ALTER TABLE startups ADD COLUMN IF NOT EXISTS contractors_count integer;
+ALTER TABLE startups ADD COLUMN IF NOT EXISTS paid_employees_count integer;
+ALTER TABLE startups ADD COLUMN IF NOT EXISTS advisors_count integer;
+ALTER TABLE startups ADD COLUMN IF NOT EXISTS total_funding_raised bigint;
+ALTER TABLE startups ADD COLUMN IF NOT EXISTS total_funding_dilutive bigint;
+ALTER TABLE startups ADD COLUMN IF NOT EXISTS total_funding_non_dilutive bigint;
+ALTER TABLE startups ADD COLUMN IF NOT EXISTS investment_stage text;
+ALTER TABLE startups ADD COLUMN IF NOT EXISTS round_size bigint;
+ALTER TABLE startups ADD COLUMN IF NOT EXISTS committed_funds bigint;
+ALTER TABLE startups ADD COLUMN IF NOT EXISTS funding_crm_link text;
+ALTER TABLE startups ADD COLUMN IF NOT EXISTS main_technologies text;
+ALTER TABLE startups ADD COLUMN IF NOT EXISTS product_type text;
+ALTER TABLE startups ADD COLUMN IF NOT EXISTS product_stage text;
+ALTER TABLE startups ADD COLUMN IF NOT EXISTS product_roadmap_link text;
+ALTER TABLE startups ADD COLUMN IF NOT EXISTS trl_level integer;
+ALTER TABLE startups ADD COLUMN IF NOT EXISTS total_addressable_market bigint;
+ALTER TABLE startups ADD COLUMN IF NOT EXISTS serviceable_addressable_market bigint;
+ALTER TABLE startups ADD COLUMN IF NOT EXISTS serviceable_obtainable_market bigint;
+ALTER TABLE startups ADD COLUMN IF NOT EXISTS go_to_market_strategy_link text;
+ALTER TABLE startups ADD COLUMN IF NOT EXISTS competition_overview text;
+ALTER TABLE startups ADD COLUMN IF NOT EXISTS ideal_customer_persona text;
+ALTER TABLE startups ADD COLUMN IF NOT EXISTS clients_crm_link text;
+ALTER TABLE startups ADD COLUMN IF NOT EXISTS partners_crm_link text;
+
+ALTER TABLE team_members ADD COLUMN IF NOT EXISTS gender text;
+ALTER TABLE team_members ADD COLUMN IF NOT EXISTS educational_background text;
+ALTER TABLE team_members ADD COLUMN IF NOT EXISTS professional_background text;
+ALTER TABLE team_members ADD COLUMN IF NOT EXISTS years_of_experience integer;
+
+ALTER TABLE cap_table_entries ADD COLUMN IF NOT EXISTS current_involvement text;
+
+CREATE TABLE IF NOT EXISTS startup_funding_rounds (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  startup_id uuid NOT NULL REFERENCES startups(id) ON DELETE CASCADE,
+  amount bigint,
+  investor_name text,
+  funding_type text,
+  round text,
+  round_date text,
+  deal_terms text,
+  created_at timestamp NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS startup_patents (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  startup_id uuid NOT NULL REFERENCES startups(id) ON DELETE CASCADE,
+  applicant_name text,
+  country text,
+  application_type text,
+  priority_date text,
+  effective_filing_date text,
+  publication_date text,
+  publication_number text,
+  status text,
+  next_action text,
+  created_at timestamp NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS startup_target_markets (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  startup_id uuid NOT NULL REFERENCES startups(id) ON DELETE CASCADE,
+  market text NOT NULL,
+  status text NOT NULL,
+  created_at timestamp NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS startup_client_stats (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  startup_id uuid NOT NULL REFERENCES startups(id) ON DELETE CASCADE,
+  client_type text NOT NULL,
+  total_clients integer,
+  major_client_names text,
+  retention_rate real,
+  created_at timestamp NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS startup_client_details (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  startup_id uuid NOT NULL REFERENCES startups(id) ON DELETE CASCADE,
+  client_name text NOT NULL,
+  scope_of_work text,
+  deal_value bigint,
+  created_at timestamp NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS startup_partner_stats (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  startup_id uuid NOT NULL REFERENCES startups(id) ON DELETE CASCADE,
+  partner_type text NOT NULL,
+  total_partners integer,
+  major_partner_names text,
+  retention_rate real,
+  created_at timestamp NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS startup_partner_details (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  startup_id uuid NOT NULL REFERENCES startups(id) ON DELETE CASCADE,
+  partner_name text NOT NULL,
+  scope_of_partnership text,
+  next_steps text,
+  created_at timestamp NOT NULL DEFAULT now()
+);
 `;
 
 try {

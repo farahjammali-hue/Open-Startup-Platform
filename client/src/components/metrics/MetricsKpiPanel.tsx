@@ -21,7 +21,7 @@ interface MetricsProfile {
   dataRoom: Record<string, { inception?: boolean; graduation?: boolean }>;
   companyProfile: Record<string, { inception?: string; graduation?: string }>;
 }
-interface Achievement { id: string; achievedAt: string | null; details: string; createdAt: string }
+export interface Achievement { id: string; achievedAt: string | null; details: string; createdAt: string }
 
 const EMPTY_PROFILE: MetricsProfile = {
   salesNotes: null, revenueNotes: null, teamRecruitNotes: null, partnershipNotes: null, fundraisingNotes: null,
@@ -520,7 +520,7 @@ function SectionTable({
   );
 }
 
-function AchievementsLog({ apiBase, achievements }: { apiBase: string; achievements: Achievement[] }) {
+export function AchievementsLog({ apiBase, achievements, onSaved }: { apiBase: string; achievements: Achievement[]; onSaved?: () => void }) {
   const qc = useQueryClient();
   const [achievedAt, setAchievedAt] = useState("");
   const [details, setDetails] = useState("");
@@ -528,6 +528,7 @@ function AchievementsLog({ apiBase, achievements }: { apiBase: string; achieveme
 
   function invalidate() {
     qc.invalidateQueries({ queryKey: ["metrics-panel", apiBase] });
+    onSaved?.();
   }
 
   async function add() {

@@ -33,6 +33,13 @@ import {
   dataRoomShares,
   capTableEntries,
   startupCrmEntries,
+  startupFundingRounds,
+  startupPatents,
+  startupTargetMarkets,
+  startupClientStats,
+  startupClientDetails,
+  startupPartnerStats,
+  startupPartnerDetails,
   type User,
   type Startup,
   type PublicUser,
@@ -66,6 +73,13 @@ import {
   type TeamMember,
   type DataRoomShare,
   type CapTableEntry,
+  type StartupFundingRound,
+  type StartupPatent,
+  type StartupTargetMarket,
+  type StartupClientStat,
+  type StartupClientDetail,
+  type StartupPartnerStat,
+  type StartupPartnerDetail,
 } from "@shared/schema";
 
 /** Whole months elapsed between two dates (never negative). */
@@ -1208,7 +1222,15 @@ export const storage = {
 
   async createTeamMember(
     startupId: string,
-    data: { name: string; role?: string | null; type: "founder" | "full_time" | "part_time" | "advisor" },
+    data: {
+      name: string;
+      role?: string | null;
+      type: "founder" | "full_time" | "part_time" | "advisor";
+      gender?: string | null;
+      educationalBackground?: string | null;
+      professionalBackground?: string | null;
+      yearsOfExperience?: number | null;
+    },
   ): Promise<TeamMember> {
     const [row] = await db.insert(teamMembers).values({ startupId, ...data }).returning();
     return row;
@@ -1237,7 +1259,7 @@ export const storage = {
 
   async createCapTableEntry(
     startupId: string,
-    data: { name: string; percentage: number },
+    data: { name: string; percentage: number; currentInvolvement?: string | null },
   ): Promise<CapTableEntry> {
     const [row] = await db.insert(capTableEntries).values({ startupId, ...data }).returning();
     return row;
@@ -1253,6 +1275,112 @@ export const storage = {
 
   async deleteCapTableEntry(id: string): Promise<void> {
     await db.delete(capTableEntries).where(eq(capTableEntries.id, id));
+  },
+
+  /* ---------------- Initial Data: new repeatable tables (Cards 6, 9, 11, 13, 14) ---------------- */
+  async listFundingRounds(startupId: string): Promise<StartupFundingRound[]> {
+    return db.select().from(startupFundingRounds).where(eq(startupFundingRounds.startupId, startupId)).orderBy(asc(startupFundingRounds.createdAt));
+  },
+  async createFundingRound(startupId: string, data: Partial<typeof startupFundingRounds.$inferInsert>): Promise<StartupFundingRound> {
+    const [row] = await db.insert(startupFundingRounds).values({ ...data, startupId }).returning();
+    return row;
+  },
+  async getOwnedFundingRound(id: string, startupId: string): Promise<StartupFundingRound | undefined> {
+    const [row] = await db.select().from(startupFundingRounds).where(and(eq(startupFundingRounds.id, id), eq(startupFundingRounds.startupId, startupId)));
+    return row;
+  },
+  async deleteFundingRound(id: string): Promise<void> {
+    await db.delete(startupFundingRounds).where(eq(startupFundingRounds.id, id));
+  },
+
+  async listPatents(startupId: string): Promise<StartupPatent[]> {
+    return db.select().from(startupPatents).where(eq(startupPatents.startupId, startupId)).orderBy(asc(startupPatents.createdAt));
+  },
+  async createPatent(startupId: string, data: Partial<typeof startupPatents.$inferInsert>): Promise<StartupPatent> {
+    const [row] = await db.insert(startupPatents).values({ ...data, startupId }).returning();
+    return row;
+  },
+  async getOwnedPatent(id: string, startupId: string): Promise<StartupPatent | undefined> {
+    const [row] = await db.select().from(startupPatents).where(and(eq(startupPatents.id, id), eq(startupPatents.startupId, startupId)));
+    return row;
+  },
+  async deletePatent(id: string): Promise<void> {
+    await db.delete(startupPatents).where(eq(startupPatents.id, id));
+  },
+
+  async listTargetMarkets(startupId: string): Promise<StartupTargetMarket[]> {
+    return db.select().from(startupTargetMarkets).where(eq(startupTargetMarkets.startupId, startupId)).orderBy(asc(startupTargetMarkets.createdAt));
+  },
+  async createTargetMarket(startupId: string, data: { market: string; status: string }): Promise<StartupTargetMarket> {
+    const [row] = await db.insert(startupTargetMarkets).values({ ...data, startupId }).returning();
+    return row;
+  },
+  async getOwnedTargetMarket(id: string, startupId: string): Promise<StartupTargetMarket | undefined> {
+    const [row] = await db.select().from(startupTargetMarkets).where(and(eq(startupTargetMarkets.id, id), eq(startupTargetMarkets.startupId, startupId)));
+    return row;
+  },
+  async deleteTargetMarket(id: string): Promise<void> {
+    await db.delete(startupTargetMarkets).where(eq(startupTargetMarkets.id, id));
+  },
+
+  async listClientStats(startupId: string): Promise<StartupClientStat[]> {
+    return db.select().from(startupClientStats).where(eq(startupClientStats.startupId, startupId)).orderBy(asc(startupClientStats.createdAt));
+  },
+  async createClientStat(startupId: string, data: Partial<typeof startupClientStats.$inferInsert>): Promise<StartupClientStat> {
+    const [row] = await db.insert(startupClientStats).values({ ...data, startupId } as typeof startupClientStats.$inferInsert).returning();
+    return row;
+  },
+  async getOwnedClientStat(id: string, startupId: string): Promise<StartupClientStat | undefined> {
+    const [row] = await db.select().from(startupClientStats).where(and(eq(startupClientStats.id, id), eq(startupClientStats.startupId, startupId)));
+    return row;
+  },
+  async deleteClientStat(id: string): Promise<void> {
+    await db.delete(startupClientStats).where(eq(startupClientStats.id, id));
+  },
+
+  async listClientDetails(startupId: string): Promise<StartupClientDetail[]> {
+    return db.select().from(startupClientDetails).where(eq(startupClientDetails.startupId, startupId)).orderBy(asc(startupClientDetails.createdAt));
+  },
+  async createClientDetail(startupId: string, data: Partial<typeof startupClientDetails.$inferInsert>): Promise<StartupClientDetail> {
+    const [row] = await db.insert(startupClientDetails).values({ ...data, startupId } as typeof startupClientDetails.$inferInsert).returning();
+    return row;
+  },
+  async getOwnedClientDetail(id: string, startupId: string): Promise<StartupClientDetail | undefined> {
+    const [row] = await db.select().from(startupClientDetails).where(and(eq(startupClientDetails.id, id), eq(startupClientDetails.startupId, startupId)));
+    return row;
+  },
+  async deleteClientDetail(id: string): Promise<void> {
+    await db.delete(startupClientDetails).where(eq(startupClientDetails.id, id));
+  },
+
+  async listPartnerStats(startupId: string): Promise<StartupPartnerStat[]> {
+    return db.select().from(startupPartnerStats).where(eq(startupPartnerStats.startupId, startupId)).orderBy(asc(startupPartnerStats.createdAt));
+  },
+  async createPartnerStat(startupId: string, data: Partial<typeof startupPartnerStats.$inferInsert>): Promise<StartupPartnerStat> {
+    const [row] = await db.insert(startupPartnerStats).values({ ...data, startupId } as typeof startupPartnerStats.$inferInsert).returning();
+    return row;
+  },
+  async getOwnedPartnerStat(id: string, startupId: string): Promise<StartupPartnerStat | undefined> {
+    const [row] = await db.select().from(startupPartnerStats).where(and(eq(startupPartnerStats.id, id), eq(startupPartnerStats.startupId, startupId)));
+    return row;
+  },
+  async deletePartnerStat(id: string): Promise<void> {
+    await db.delete(startupPartnerStats).where(eq(startupPartnerStats.id, id));
+  },
+
+  async listPartnerDetails(startupId: string): Promise<StartupPartnerDetail[]> {
+    return db.select().from(startupPartnerDetails).where(eq(startupPartnerDetails.startupId, startupId)).orderBy(asc(startupPartnerDetails.createdAt));
+  },
+  async createPartnerDetail(startupId: string, data: Partial<typeof startupPartnerDetails.$inferInsert>): Promise<StartupPartnerDetail> {
+    const [row] = await db.insert(startupPartnerDetails).values({ ...data, startupId } as typeof startupPartnerDetails.$inferInsert).returning();
+    return row;
+  },
+  async getOwnedPartnerDetail(id: string, startupId: string): Promise<StartupPartnerDetail | undefined> {
+    const [row] = await db.select().from(startupPartnerDetails).where(and(eq(startupPartnerDetails.id, id), eq(startupPartnerDetails.startupId, startupId)));
+    return row;
+  },
+  async deletePartnerDetail(id: string): Promise<void> {
+    await db.delete(startupPartnerDetails).where(eq(startupPartnerDetails.id, id));
   },
 
   /* ---------------- Office Hours ---------------- */

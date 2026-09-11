@@ -13,6 +13,18 @@ import {
   real,
 } from "drizzle-orm/pg-core";
 import { z } from "zod";
+import {
+  BUSINESS_MODEL_VALUES,
+  PRODUCT_STAGE_VALUES,
+  INVESTMENT_STAGE_VALUES,
+  FUNDING_TYPE_VALUES,
+  PATENT_APPLICATION_TYPE_VALUES,
+  PATENT_STATUS_VALUES,
+  GTM_STATUS_VALUES,
+  CLIENT_TYPE_VALUES,
+  PARTNER_TYPE_VALUES,
+  INVOLVEMENT_VALUES,
+} from "./initialDataCatalog";
 
 /* =========================================================
  * Enums
@@ -339,13 +351,15 @@ export const startups = pgTable("startups", {
   // Dashboard overview — Startup Profile block (GROW tracking dashboard).
   legalEntityStatus: legalEntityStatusEnum("legal_entity_status"),
   country: text("country"),
-  businessModelType: businessModelTypeEnum("business_model_type"),
+  businessModelType: businessModelTypeEnum("business_model_type"), // superseded by businessModelTypes (multi-select) below
+  businessModelTypes: text("business_model_types").array(),
   dataRoomLink: text("data_room_link"),
   // Founder-controlled signal: "I changed something inside my data room."
   // We can't see inside an external link, so this is manual, not detected.
   dataRoomUpdatedAt: timestamp("data_room_updated_at"),
-  coreBusinessOverview: text("core_business_overview"),
-  coreIpTechnology: text("core_ip_technology"),
+  coreBusinessOverview: text("core_business_overview"), // Card 2, "Brief Description"
+  coreIpTechnology: text("core_ip_technology"), // Card 7, "Core technology"
+  uniqueValueProposition: text("unique_value_proposition"), // Card 3
 
   // Dashboard overview — Traction & previous funding / Round Details blocks.
   totalRevenueSinceFounding: bigint("total_revenue_since_founding", { mode: "number" }),
@@ -361,6 +375,52 @@ export const startups = pgTable("startups", {
   countryOfIncorporation: text("country_of_incorporation"),
   customerBase: customerBaseEnum("customer_base"),
   countriesOfOperation: text("countries_of_operation"),
+
+  // Card 4 (Team) — hidden stats.
+  teamSize: integer("team_size"),
+  contractorsCount: integer("contractors_count"),
+  paidEmployeesCount: integer("paid_employees_count"),
+  advisorsCount: integer("advisors_count"),
+
+  // Card 6 (Funding) — aggregate figures + the one link field. The
+  // funding-round-by-round detail lives in startupFundingRounds below.
+  totalFundingRaised: bigint("total_funding_raised", { mode: "number" }),
+  totalFundingDilutive: bigint("total_funding_dilutive", { mode: "number" }),
+  totalFundingNonDilutive: bigint("total_funding_non_dilutive", { mode: "number" }),
+  investmentStage: text("investment_stage"),
+  roundSize: bigint("round_size", { mode: "number" }),
+  committedFunds: bigint("committed_funds", { mode: "number" }),
+  fundingCrmLink: text("funding_crm_link"),
+
+  // Card 7 (Technology).
+  mainTechnologies: text("main_technologies"),
+  productType: text("product_type"),
+
+  // Card 8 (Product).
+  productStage: text("product_stage"),
+  productRoadmapLink: text("product_roadmap_link"),
+  trlLevel: integer("trl_level"),
+
+  // Card 10 (Market Size).
+  totalAddressableMarket: bigint("total_addressable_market", { mode: "number" }),
+  serviceableAddressableMarket: bigint("serviceable_addressable_market", { mode: "number" }),
+  serviceableObtainableMarket: bigint("serviceable_obtainable_market", { mode: "number" }),
+
+  // Card 11 (Go To Market) — the one link field; per-market status lives in
+  // startupTargetMarkets below.
+  goToMarketStrategyLink: text("go_to_market_strategy_link"),
+
+  // Card 12 (Competition).
+  competitionOverview: text("competition_overview"),
+
+  // Card 13 (Clients) — the two single fields; per-type stats and
+  // per-client detail live in startupClientStats / startupClientDetails.
+  idealCustomerPersona: text("ideal_customer_persona"),
+  clientsCrmLink: text("clients_crm_link"),
+
+  // Card 14 (Partner) — the one single field; per-type stats and
+  // per-partner detail live in startupPartnerStats / startupPartnerDetails.
+  partnersCrmLink: text("partners_crm_link"),
 
   // Set once the startup finishes the program. Unlocks the Alumni & Fellows
   // section of Open Startup School. Null = still active in the program.
@@ -914,6 +974,12 @@ export const teamMembers = pgTable("team_members", {
   type: teamMemberTypeEnum("type").notNull().default("full_time"),
   joinedAt: timestamp("joined_at").notNull().default(sql`now()`),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  // Initial Data Card 4 (Team) — only meaningful for type = "founder", shown
+  // in the founders table there instead of a separate person list.
+  gender: text("gender"),
+  educationalBackground: text("educational_background"),
+  professionalBackground: text("professional_background"),
+  yearsOfExperience: integer("years_of_experience"),
 });
 
 /* =========================================================
@@ -926,6 +992,99 @@ export const capTableEntries = pgTable("cap_table_entries", {
     .notNull(),
   name: text("name").notNull(),
   percentage: real("percentage").notNull(),
+  // Initial Data Card 5 (Shareholders).
+  currentInvolvement: text("current_involvement"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+/* =========================================================
+ * Initial Data — new repeatable tables (Cards 6, 9, 11, 13, 14)
+ * Each follows capTableEntries' shape: add + delete only, no edit.
+ * =======================================================*/
+export const startupFundingRounds = pgTable("startup_funding_rounds", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  startupId: uuid("startup_id")
+    .references(() => startups.id, { onDelete: "cascade" })
+    .notNull(),
+  amount: bigint("amount", { mode: "number" }),
+  investorName: text("investor_name"),
+  fundingType: text("funding_type"),
+  round: text("round"),
+  roundDate: text("round_date"),
+  dealTerms: text("deal_terms"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const startupPatents = pgTable("startup_patents", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  startupId: uuid("startup_id")
+    .references(() => startups.id, { onDelete: "cascade" })
+    .notNull(),
+  applicantName: text("applicant_name"),
+  country: text("country"),
+  applicationType: text("application_type"),
+  priorityDate: text("priority_date"),
+  effectiveFilingDate: text("effective_filing_date"),
+  publicationDate: text("publication_date"),
+  publicationNumber: text("publication_number"),
+  status: text("status"),
+  nextAction: text("next_action"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const startupTargetMarkets = pgTable("startup_target_markets", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  startupId: uuid("startup_id")
+    .references(() => startups.id, { onDelete: "cascade" })
+    .notNull(),
+  market: text("market").notNull(),
+  status: text("status").notNull(),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const startupClientStats = pgTable("startup_client_stats", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  startupId: uuid("startup_id")
+    .references(() => startups.id, { onDelete: "cascade" })
+    .notNull(),
+  clientType: text("client_type").notNull(),
+  totalClients: integer("total_clients"),
+  majorClientNames: text("major_client_names"),
+  retentionRate: real("retention_rate"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const startupClientDetails = pgTable("startup_client_details", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  startupId: uuid("startup_id")
+    .references(() => startups.id, { onDelete: "cascade" })
+    .notNull(),
+  clientName: text("client_name").notNull(),
+  scopeOfWork: text("scope_of_work"),
+  dealValue: bigint("deal_value", { mode: "number" }),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const startupPartnerStats = pgTable("startup_partner_stats", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  startupId: uuid("startup_id")
+    .references(() => startups.id, { onDelete: "cascade" })
+    .notNull(),
+  partnerType: text("partner_type").notNull(),
+  totalPartners: integer("total_partners"),
+  majorPartnerNames: text("major_partner_names"),
+  retentionRate: real("retention_rate"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const startupPartnerDetails = pgTable("startup_partner_details", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  startupId: uuid("startup_id")
+    .references(() => startups.id, { onDelete: "cascade" })
+    .notNull(),
+  partnerName: text("partner_name").notNull(),
+  scopeOfPartnership: text("scope_of_partnership"),
+  nextSteps: text("next_steps"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
@@ -1149,26 +1308,62 @@ export const dataRoomSubmissionSchema = z.object({
 
 // Dashboard overview — the whole GROW tracking dashboard "1. Startup Profile" sheet.
 export const startupProfileOverviewSchema = z.object({
-  // Startup Profile
+  // Card 1: Profile
   legalEntityStatus: z.enum(["yes", "in_process", "no"]).optional().or(z.literal("")),
   startedYear: z.number().int().min(1900).max(2100).optional(),
   country: z.string().max(100).optional().or(z.literal("")),
-  businessModelType: z.enum(["b2b", "b2c", "b2b2c"]).optional().or(z.literal("")),
+  businessModelType: z.enum(["b2b", "b2c", "b2b2c"]).optional().or(z.literal("")), // superseded by businessModelTypes
+  businessModelTypes: z.array(z.enum(BUSINESS_MODEL_VALUES)).optional(),
   dataRoomLink: z.string().url("Enter a valid URL").max(500).optional().or(z.literal("")),
-  // Core Business / Core IP
+  deckUrl: z.string().url("Enter a valid URL").max(500).optional().or(z.literal("")),
+  // Card 2 / 3: Brief Description / Unique Value Proposition
   coreBusinessOverview: z.string().max(1600).optional().or(z.literal("")),
+  uniqueValueProposition: z.string().max(1600).optional().or(z.literal("")),
+  // Card 4: Team (hidden stats — the founders table is teamMembers)
+  teamSize: z.number().int().nonnegative().optional(),
+  contractorsCount: z.number().int().nonnegative().optional(),
+  paidEmployeesCount: z.number().int().nonnegative().optional(),
+  advisorsCount: z.number().int().nonnegative().optional(),
+  femaleTeamMembers: z.number().int().nonnegative().optional(),
+  youthEmployees: z.number().int().nonnegative().optional(),
+  // Card 6: Funding (aggregate figures — rounds live in startupFundingRounds)
+  totalFundingRaised: z.number().nonnegative().optional(),
+  totalFundingDilutive: z.number().nonnegative().optional(),
+  totalFundingNonDilutive: z.number().nonnegative().optional(),
+  investmentStage: z.enum(INVESTMENT_STAGE_VALUES).optional().or(z.literal("")),
+  roundSize: z.number().nonnegative().optional(),
+  committedFunds: z.number().nonnegative().optional(),
+  fundingCrmLink: z.string().url("Enter a valid URL").max(500).optional().or(z.literal("")),
+  // Card 7: Technology
   coreIpTechnology: z.string().max(1600).optional().or(z.literal("")),
-  // Traction & previous funding / Round Details
+  mainTechnologies: z.string().max(500).optional().or(z.literal("")),
+  productType: z.string().max(200).optional().or(z.literal("")),
+  // Card 8: Product
+  productStage: z.enum(PRODUCT_STAGE_VALUES).optional().or(z.literal("")),
+  productRoadmapLink: z.string().url("Enter a valid URL").max(500).optional().or(z.literal("")),
+  trlLevel: z.number().int().min(1).max(9).optional(),
+  // Traction & previous funding / Round Details (legacy figures, still shown)
   totalRevenueSinceFounding: z.number().nonnegative().optional(),
   amountRaised: z.number().nonnegative().optional(),
   totalGrants: z.number().nonnegative().optional(),
   totalRoundSize: z.number().nonnegative().optional(),
   roundTerms: z.string().max(300).optional().or(z.literal("")),
   lastValuation: z.number().nonnegative().optional(),
+  // Card 10: Market Size
+  totalAddressableMarket: z.number().nonnegative().optional(),
+  serviceableAddressableMarket: z.number().nonnegative().optional(),
+  serviceableObtainableMarket: z.number().nonnegative().optional(),
+  // Card 11: Go To Market
+  goToMarketStrategyLink: z.string().url("Enter a valid URL").max(500).optional().or(z.literal("")),
+  // Card 12: Competition
+  competitionOverview: z.string().max(1600).optional().or(z.literal("")),
+  // Card 13: Clients
+  idealCustomerPersona: z.string().max(1600).optional().or(z.literal("")),
+  clientsCrmLink: z.string().url("Enter a valid URL").max(500).optional().or(z.literal("")),
+  // Card 14: Partner
+  partnersCrmLink: z.string().url("Enter a valid URL").max(500).optional().or(z.literal("")),
   // Impact Metrics / Markets
   sdgsAddressed: z.array(z.string()).optional(),
-  femaleTeamMembers: z.number().int().nonnegative().optional(),
-  youthEmployees: z.number().int().nonnegative().optional(),
   countryOfIncorporation: z.string().max(100).optional().or(z.literal("")),
   customerBase: z
     .enum(["low", "moderate", "high", "emerging_market", "saturated_market"])
@@ -1180,6 +1375,61 @@ export const startupProfileOverviewSchema = z.object({
 export const capTableEntrySchema = z.object({
   name: z.string().min(1, "Name is required").max(200),
   percentage: z.number().min(0).max(100),
+  currentInvolvement: z.enum(INVOLVEMENT_VALUES).optional().or(z.literal("")),
+});
+
+// Initial Data — new repeatable tables (Cards 6, 9, 11, 13, 14). Add-only,
+// same shape as capTableEntrySchema: no partial/update variant.
+export const fundingRoundSchema = z.object({
+  amount: z.number().nonnegative().optional(),
+  investorName: z.string().max(200).optional().or(z.literal("")),
+  fundingType: z.enum(FUNDING_TYPE_VALUES).optional().or(z.literal("")),
+  round: z.string().max(100).optional().or(z.literal("")),
+  roundDate: z.string().max(50).optional().or(z.literal("")),
+  dealTerms: z.string().max(1000).optional().or(z.literal("")),
+});
+
+export const patentSchema = z.object({
+  applicantName: z.string().max(200).optional().or(z.literal("")),
+  country: z.string().max(100).optional().or(z.literal("")),
+  applicationType: z.enum(PATENT_APPLICATION_TYPE_VALUES).optional().or(z.literal("")),
+  priorityDate: z.string().max(50).optional().or(z.literal("")),
+  effectiveFilingDate: z.string().max(50).optional().or(z.literal("")),
+  publicationDate: z.string().max(50).optional().or(z.literal("")),
+  publicationNumber: z.string().max(100).optional().or(z.literal("")),
+  status: z.enum(PATENT_STATUS_VALUES).optional().or(z.literal("")),
+  nextAction: z.string().max(500).optional().or(z.literal("")),
+});
+
+export const targetMarketSchema = z.object({
+  market: z.string().min(1, "Market is required").max(200),
+  status: z.enum(GTM_STATUS_VALUES),
+});
+
+export const clientStatSchema = z.object({
+  clientType: z.enum(CLIENT_TYPE_VALUES),
+  totalClients: z.number().int().nonnegative().optional(),
+  majorClientNames: z.string().max(500).optional().or(z.literal("")),
+  retentionRate: z.number().min(0).max(100).optional(),
+});
+
+export const clientDetailSchema = z.object({
+  clientName: z.string().min(1, "Client name is required").max(200),
+  scopeOfWork: z.string().max(500).optional().or(z.literal("")),
+  dealValue: z.number().nonnegative().optional(),
+});
+
+export const partnerStatSchema = z.object({
+  partnerType: z.enum(PARTNER_TYPE_VALUES),
+  totalPartners: z.number().int().nonnegative().optional(),
+  majorPartnerNames: z.string().max(500).optional().or(z.literal("")),
+  retentionRate: z.number().min(0).max(100).optional(),
+});
+
+export const partnerDetailSchema = z.object({
+  partnerName: z.string().min(1, "Partner name is required").max(200),
+  scopeOfPartnership: z.string().max(500).optional().or(z.literal("")),
+  nextSteps: z.string().max(500).optional().or(z.literal("")),
 });
 
 export const startupTechTrackSchema = z.object({
@@ -1392,6 +1642,11 @@ export const teamMemberSchema = z.object({
   name: z.string().min(1, "Name is required").max(200),
   role: z.string().max(200).optional().or(z.literal("")),
   type: z.enum(["founder", "full_time", "part_time", "advisor"]),
+  // Initial Data Card 4 (Team) — only meaningful for type "founder".
+  gender: z.string().max(50).optional().or(z.literal("")),
+  educationalBackground: z.string().max(300).optional().or(z.literal("")),
+  professionalBackground: z.string().max(300).optional().or(z.literal("")),
+  yearsOfExperience: z.number().int().nonnegative().optional(),
 });
 
 /* =========================================================
@@ -1439,6 +1694,13 @@ export type MonthlyUpdate = typeof monthlyUpdates.$inferSelect;
 export type TeamMember = typeof teamMembers.$inferSelect;
 export type CapTableEntry = typeof capTableEntries.$inferSelect;
 export type StartupCrmEntry = typeof startupCrmEntries.$inferSelect;
+export type StartupFundingRound = typeof startupFundingRounds.$inferSelect;
+export type StartupPatent = typeof startupPatents.$inferSelect;
+export type StartupTargetMarket = typeof startupTargetMarkets.$inferSelect;
+export type StartupClientStat = typeof startupClientStats.$inferSelect;
+export type StartupClientDetail = typeof startupClientDetails.$inferSelect;
+export type StartupPartnerStat = typeof startupPartnerStats.$inferSelect;
+export type StartupPartnerDetail = typeof startupPartnerDetails.$inferSelect;
 
 export type GoalInput = z.infer<typeof goalSchema>;
 export type MetricEntryInput = z.infer<typeof metricEntrySchema>;
@@ -1471,3 +1733,10 @@ export type MonthlyUpdateInput = z.infer<typeof monthlyUpdateSchema>;
 export type TeamMemberInput = z.infer<typeof teamMemberSchema>;
 export type CapTableEntryInput = z.infer<typeof capTableEntrySchema>;
 export type StartupTechTrackInput = z.infer<typeof startupTechTrackSchema>;
+export type FundingRoundInput = z.infer<typeof fundingRoundSchema>;
+export type PatentInput = z.infer<typeof patentSchema>;
+export type TargetMarketInput = z.infer<typeof targetMarketSchema>;
+export type ClientStatInput = z.infer<typeof clientStatSchema>;
+export type ClientDetailInput = z.infer<typeof clientDetailSchema>;
+export type PartnerStatInput = z.infer<typeof partnerStatSchema>;
+export type PartnerDetailInput = z.infer<typeof partnerDetailSchema>;

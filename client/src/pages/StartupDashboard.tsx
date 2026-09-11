@@ -1,44 +1,9 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { api } from "../lib/utils";
 import { AppShell } from "../components/AppShell";
 import { BackLink, PageHeader, TabBar } from "../components/PageHeader";
 import { OverviewTab } from "./dashboard/OverviewTab";
 import { MetricsKpiTab } from "./dashboard/MetricsKpiTab";
 import { QuarterlyUpdatesTab } from "./dashboard/QuarterlyUpdatesTab";
-import type { TeamMemberRow, CapTableEntryRow } from "./dashboard/types";
-
-export interface StartupProfile {
-  id: string;
-  companyName: string;
-  website: string | null;
-  shortDescription: string | null;
-  location: string | null;
-  stage: string | null;
-  isIncorporated: boolean | null;
-  startedMonth: number | null;
-  startedYear: number | null;
-  amountRaised: number | null;
-  deckUrl: string | null;
-  legalEntityStatus: "yes" | "in_process" | "no" | null;
-  country: string | null;
-  businessModelType: "b2b" | "b2c" | "b2b2c" | null;
-  dataRoomLink: string | null;
-  coreBusinessOverview: string | null;
-  coreIpTechnology: string | null;
-  totalRevenueSinceFounding: number | null;
-  totalGrants: number | null;
-  totalRoundSize: number | null;
-  roundTerms: string | null;
-  lastValuation: number | null;
-  sdgsAddressed: string[] | null;
-  femaleTeamMembers: number | null;
-  youthEmployees: number | null;
-  countryOfIncorporation: string | null;
-  customerBase: "low" | "moderate" | "high" | "emerging_market" | "saturated_market" | null;
-  countriesOfOperation: string | null;
-  techTrack: "deep_tech" | "soft_tech" | null;
-}
 
 const TABS = [
   { key: "overview", label: "Initial Data" },
@@ -50,12 +15,6 @@ type TabKey = (typeof TABS)[number]["key"];
 export default function StartupDashboard() {
   const [tab, setTab] = useState<TabKey>("overview");
 
-  const { data: startup } = useQuery<StartupProfile>({ queryKey: ["startup-me"], queryFn: () => api("/api/startup/me") });
-  const { data: teamData } = useQuery<{ members: TeamMemberRow[] }>({ queryKey: ["team"], queryFn: () => api("/api/team") });
-  const { data: capTableData } = useQuery<{ entries: CapTableEntryRow[] }>({ queryKey: ["cap-table"], queryFn: () => api("/api/cap-table") });
-  const team = teamData?.members ?? [];
-  const capTable = capTableData?.entries ?? [];
-
   return (
     <AppShell>
       <main className="ost-page">
@@ -64,7 +23,7 @@ export default function StartupDashboard() {
 
         <TabBar tabs={TABS} active={tab} onChange={setTab} />
 
-        {tab === "overview" && <OverviewTab startup={startup ?? null} team={team} capTable={capTable} />}
+        {tab === "overview" && <OverviewTab />}
         {tab === "metrics" && <MetricsKpiTab />}
         {tab === "monthly" && <QuarterlyUpdatesTab />}
       </main>
