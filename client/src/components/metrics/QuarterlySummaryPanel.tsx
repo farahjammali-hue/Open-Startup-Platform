@@ -1,15 +1,17 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../lib/utils";
+import { downloadXlsx } from "../../lib/xlsx";
 import { Skeleton } from "../Skeleton";
 import { METRIC_SECTIONS, monthPeriodsForYear, QUARTER_END_MONTH_INDEX } from "@shared/metricsCatalog";
+import { Download } from "lucide-react";
 
 interface MetricEntry { id: string; period: string; values: Record<string, number | string> }
 
 const QUARTERS = ["Q1", "Q2", "Q3", "Q4"] as const;
 
 /** Read-only quarter-end snapshot (Q1–Q4) of the Monthly Updates tab's metrics — one table per section. */
-export function QuarterlySummaryPanel({ apiBase }: { apiBase: string }) {
+export function QuarterlySummaryPanel({ apiBase, startupName }: { apiBase: string; startupName?: string }) {
   const year = new Date().getFullYear();
   const periods = useMemo(() => monthPeriodsForYear(year), [year]);
 
@@ -33,6 +35,18 @@ export function QuarterlySummaryPanel({ apiBase }: { apiBase: string }) {
     return values[period]?.[metricKey] ?? "";
   }
 
+  function exportSheet() {
+    const header = ["Section", "Metric", ...QUARTERS];
+    const rows: (string | number)[][] = [header];
+    for (const section of METRIC_SECTIONS) {
+      for (const metric of section.metrics) {
+        rows.push([section.title, metric.label, ...QUARTERS.map((_, i) => quarterValue(metric.key, i))]);
+      }
+    }
+    const namePart = startupName ? `${startupName.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}-` : "";
+    downloadXlsx(`${namePart}quarterly-updates-${year}.xlsx`, "Quarterly Updates", rows);
+  }
+
   if (isLoading || !data) {
     return (
       <div className="space-y-3">
@@ -44,7 +58,12 @@ export function QuarterlySummaryPanel({ apiBase }: { apiBase: string }) {
 
   return (
     <div className="space-y-6">
-      <p className="text-sm text-slate-400">Quarter-end snapshot of the Monthly Updates tab (March, June, September, December).</p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-slate-400">Quarter-end snapshot of the Monthly Updates tab (March, June, September, December).</p>
+        <button onClick={exportSheet} className="ost-btn-ghost !px-3 !py-2 text-sm">
+          <Download className="h-4 w-4" /> Export Excel
+        </button>
+      </div>
 
       {METRIC_SECTIONS.map((section) => (
         <div key={section.key} className="ost-card overflow-hidden">

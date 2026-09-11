@@ -192,13 +192,13 @@ export default function AdminStartupDashboard() {
 
         {tab === "monthly" && (
           <Section title="Metrics & KPIs" icon={TrendingUp}>
-            <MetricsKpiPanel apiBase={`/api/admin/startups/${id}/metrics`} />
+            <MetricsKpiPanel apiBase={`/api/admin/startups/${id}/metrics`} startupName={data.startup.companyName} />
           </Section>
         )}
 
         {tab === "quarterly" && (
           <Section title="Quarterly updates" icon={PieChart}>
-            <QuarterlySummaryPanel apiBase={`/api/admin/startups/${id}/metrics`} />
+            <QuarterlySummaryPanel apiBase={`/api/admin/startups/${id}/metrics`} startupName={data.startup.companyName} />
           </Section>
         )}
       </main>

@@ -2,13 +2,14 @@ import { useEffect, useMemo, useState, type InputHTMLAttributes } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../lib/utils";
 import { showToast } from "../../lib/toast";
+import { downloadXlsx } from "../../lib/xlsx";
 import { Skeleton } from "../Skeleton";
 import {
-  METRIC_SECTIONS, MONTHS, monthPeriodsForYear,
+  METRIC_SECTIONS, MONTHS, monthPeriodsForYear, QUARTER_END_MONTH_INDEX,
   DATA_ROOM_ITEMS, COMPANY_PROFILE_GROUPS,
   type MetricSection, type MetricDef,
 } from "@shared/metricsCatalog";
-import { Loader2, Plus, Trash2, ChevronDown, Table2, ListChecks } from "lucide-react";
+import { Loader2, Plus, Trash2, ChevronDown, Table2, ListChecks, Download } from "lucide-react";
 
 interface MetricEntry { id: string; period: string; values: Record<string, number | string> }
 interface MetricsProfile {
@@ -70,7 +71,7 @@ function MetricInput({
   );
 }
 
-export function MetricsKpiPanel({ apiBase }: { apiBase: string }) {
+export function MetricsKpiPanel({ apiBase, startupName }: { apiBase: string; startupName?: string }) {
   const qc = useQueryClient();
   const year = new Date().getFullYear();
   const periods = useMemo(() => ["initial", ...monthPeriodsForYear(year)], [year]);
@@ -176,6 +177,22 @@ export function MetricsKpiPanel({ apiBase }: { apiBase: string }) {
 
   const hasUnsaved = dirtyPeriods.size > 0 || profileDirty;
 
+  function exportSheet() {
+    const monthPeriods = periods.slice(1); // drop "initial"
+    const header = ["Section", "Metric", "Initial Data", ...MONTHS, "Q1", "Q2", "Q3", "Q4"];
+    const rows: (string | number)[][] = [header];
+    for (const section of METRIC_SECTIONS) {
+      for (const metric of section.metrics) {
+        const initial = values.initial?.[metric.key] ?? "";
+        const monthly = monthPeriods.map((p) => values[p]?.[metric.key] ?? "");
+        const quarters = QUARTER_END_MONTH_INDEX.map((idx) => monthly[idx] ?? "");
+        rows.push([section.title, metric.label, initial, ...monthly, ...quarters]);
+      }
+    }
+    const namePart = startupName ? `${startupName.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}-` : "";
+    downloadXlsx(`${namePart}metrics-and-kpis-${year}.xlsx`, "Metrics & KPIs", rows);
+  }
+
   if (isLoading || !data) {
     return (
       <div className="space-y-3">
@@ -208,6 +225,9 @@ export function MetricsKpiPanel({ apiBase }: { apiBase: string }) {
               <Table2 className="h-3.5 w-3.5" /> Full table
             </button>
           </div>
+          <button onClick={exportSheet} className="ost-btn-ghost !px-3 !py-2 text-sm">
+            <Download className="h-4 w-4" /> Export Excel
+          </button>
           <button
             onClick={saveAll}
             disabled={!hasUnsaved || saving}
