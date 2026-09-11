@@ -8,7 +8,7 @@ import { Skeleton } from "../Skeleton";
 import { Pills, MultiPills, Money, LinkInput } from "../StartupFormFields";
 import { AchievementsLog, type Achievement } from "../metrics/MetricsKpiPanel";
 import { InitialDataCard } from "./InitialDataCard";
-import { LEGAL_ENTITY_LABELS, CUSTOMER_BASE_LABELS } from "../../lib/startupProfileLabels";
+import { LEGAL_ENTITY_LABELS } from "../../lib/startupProfileLabels";
 import {
   BUSINESS_MODEL_OPTIONS, PRODUCT_STAGE_OPTIONS, INVESTMENT_STAGE_OPTIONS, FUNDING_TYPE_OPTIONS,
   PATENT_APPLICATION_TYPE_OPTIONS, PATENT_STATUS_OPTIONS, GTM_STATUS_OPTIONS, CLIENT_TYPE_OPTIONS,
@@ -304,73 +304,54 @@ export function InitialDataPanel({ apiConfig }: { apiConfig: InitialDataApiConfi
         </button>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-3">
         {/* 1. Profile */}
-        <InitialDataCard
-          title="1. Profile"
-          isOpen={expanded.has("profile")}
-          onToggle={() => toggle("profile")}
-          hidden={
-            <>
-              <div>
-                <label className="ost-label">SDGs Addressed</label>
-                <input className="ost-input" value={(s.sdgsAddressed ?? []).join(", ")} onChange={(e) => set("sdgsAddressed", e.target.value.split(",").map((v) => v.trim()).filter(Boolean))} placeholder="Comma-separated" />
-              </div>
-              <div>
-                <label className="ost-label">Country of Incorporation</label>
-                <input className="ost-input" value={s.countryOfIncorporation ?? ""} onChange={(e) => set("countryOfIncorporation", e.target.value)} />
-              </div>
-              <div>
-                <label className="ost-label">Customer Base</label>
-                <select className="ost-input" value={s.customerBase ?? ""} onChange={(e) => set("customerBase", e.target.value)}>
-                  <option value="">Not set</option>
-                  {Object.entries(CUSTOMER_BASE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                </select>
-              </div>
-            </>
-          }
-        >
-          <div>
-            <label className="ost-label">Legal Entity</label>
-            <select className="ost-input" value={s.legalEntityStatus ?? ""} onChange={(e) => set("legalEntityStatus", e.target.value)}>
-              <option value="">Not set</option>
-              {Object.entries(LEGAL_ENTITY_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="ost-label">Year of constitution</label>
-            <input type="number" className="ost-input" value={s.startedYear ?? ""} onChange={(e) => set("startedYear", e.target.value ? Number(e.target.value) : null)} />
-          </div>
-          <div>
-            <label className="ost-label">Headquarters</label>
-            <input className="ost-input" value={s.country ?? ""} onChange={(e) => set("country", e.target.value)} />
-          </div>
-          <div>
-            <label className="ost-label">Other countries of operation</label>
-            <input className="ost-input" value={s.countriesOfOperation ?? ""} onChange={(e) => set("countriesOfOperation", e.target.value)} placeholder="e.g. Uganda, Kenya, Tanzania" />
+        <InitialDataCard title="1. Profile" isOpen={false} onToggle={() => {}}>
+          <div className="grid grid-cols-2 gap-2.5">
+            <div>
+              <label className="ost-label">Legal Entity</label>
+              <select className="ost-input" value={s.legalEntityStatus ?? ""} onChange={(e) => set("legalEntityStatus", e.target.value)}>
+                <option value="">Not set</option>
+                {Object.entries(LEGAL_ENTITY_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="ost-label">Year of constitution</label>
+              <input type="number" className="ost-input" value={s.startedYear ?? ""} onChange={(e) => set("startedYear", e.target.value ? Number(e.target.value) : null)} />
+            </div>
+            <div>
+              <label className="ost-label">Headquarters</label>
+              <input className="ost-input" value={s.country ?? ""} onChange={(e) => set("country", e.target.value)} />
+            </div>
+            <div>
+              <label className="ost-label">Other countries</label>
+              <input className="ost-input" value={s.countriesOfOperation ?? ""} onChange={(e) => set("countriesOfOperation", e.target.value)} placeholder="e.g. Kenya, Tanzania" />
+            </div>
           </div>
           <div>
             <label className="ost-label">Business model</label>
             <MultiPills options={BUSINESS_MODEL_OPTIONS} value={s.businessModelTypes ?? []} onChange={(v) => set("businessModelTypes", v)} />
           </div>
-          <div>
-            <label className="ost-label">Pitch deck link</label>
-            <LinkInput value={s.deckUrl ?? ""} onChange={(v) => set("deckUrl", v)} />
-          </div>
-          <div>
-            <label className="ost-label">Data Room link</label>
-            <LinkInput value={s.dataRoomLink ?? ""} onChange={(v) => set("dataRoomLink", v)} />
+          <div className="grid grid-cols-2 gap-2.5">
+            <div>
+              <label className="ost-label">Pitch deck link</label>
+              <LinkInput value={s.deckUrl ?? ""} onChange={(v) => set("deckUrl", v)} />
+            </div>
+            <div>
+              <label className="ost-label">Data Room link</label>
+              <LinkInput value={s.dataRoomLink ?? ""} onChange={(v) => set("dataRoomLink", v)} />
+            </div>
           </div>
         </InitialDataCard>
 
         {/* 2. Brief Description */}
         <InitialDataCard title="2. Brief Description" isOpen={false} onToggle={() => {}}>
-          <textarea className="ost-input min-h-[140px] w-full" value={s.coreBusinessOverview ?? ""} onChange={(e) => set("coreBusinessOverview", e.target.value)} placeholder="Mission, target market, and unique value proposition in 200 words or less." />
+          <textarea className="ost-input min-h-[90px] w-full" value={s.coreBusinessOverview ?? ""} onChange={(e) => set("coreBusinessOverview", e.target.value)} placeholder="Mission, target market, and unique value proposition in 200 words or less." />
         </InitialDataCard>
 
         {/* 3. Unique Value Proposition */}
         <InitialDataCard title="3. Unique Value Proposition" isOpen={false} onToggle={() => {}}>
-          <textarea className="ost-input min-h-[140px] w-full" value={s.uniqueValueProposition ?? ""} onChange={(e) => set("uniqueValueProposition", e.target.value)} />
+          <textarea className="ost-input min-h-[90px] w-full" value={s.uniqueValueProposition ?? ""} onChange={(e) => set("uniqueValueProposition", e.target.value)} />
         </InitialDataCard>
 
         {/* 4. Team */}
@@ -450,15 +431,17 @@ export function InitialDataPanel({ apiConfig }: { apiConfig: InitialDataApiConfi
             </>
           }
         >
-          <div><label className="ost-label">Total Funding raised</label><Money value={s.totalFundingRaised != null ? String(s.totalFundingRaised) : ""} onChange={(v) => set("totalFundingRaised", v ? Number(v) : null)} /></div>
-          <div><label className="ost-label">Total funding (Dilutive)</label><Money value={s.totalFundingDilutive != null ? String(s.totalFundingDilutive) : ""} onChange={(v) => set("totalFundingDilutive", v ? Number(v) : null)} /></div>
-          <div><label className="ost-label">Total funding (Non-Dilutive)</label><Money value={s.totalFundingNonDilutive != null ? String(s.totalFundingNonDilutive) : ""} onChange={(v) => set("totalFundingNonDilutive", v ? Number(v) : null)} /></div>
+          <div className="grid grid-cols-2 gap-2.5">
+            <div><label className="ost-label">Total raised</label><Money value={s.totalFundingRaised != null ? String(s.totalFundingRaised) : ""} onChange={(v) => set("totalFundingRaised", v ? Number(v) : null)} /></div>
+            <div><label className="ost-label">Dilutive</label><Money value={s.totalFundingDilutive != null ? String(s.totalFundingDilutive) : ""} onChange={(v) => set("totalFundingDilutive", v ? Number(v) : null)} /></div>
+            <div><label className="ost-label">Non-Dilutive</label><Money value={s.totalFundingNonDilutive != null ? String(s.totalFundingNonDilutive) : ""} onChange={(v) => set("totalFundingNonDilutive", v ? Number(v) : null)} /></div>
+            <div><label className="ost-label">Round Size</label><Money value={s.roundSize != null ? String(s.roundSize) : ""} onChange={(v) => set("roundSize", v ? Number(v) : null)} /></div>
+            <div><label className="ost-label">Committed Funds</label><Money value={s.committedFunds != null ? String(s.committedFunds) : ""} onChange={(v) => set("committedFunds", v ? Number(v) : null)} /></div>
+          </div>
           <div>
             <label className="ost-label">Investment Stage</label>
             <Pills options={INVESTMENT_STAGE_OPTIONS} value={s.investmentStage ?? ""} onChange={(v) => set("investmentStage", v)} />
           </div>
-          <div><label className="ost-label">Round Size</label><Money value={s.roundSize != null ? String(s.roundSize) : ""} onChange={(v) => set("roundSize", v ? Number(v) : null)} /></div>
-          <div><label className="ost-label">Committed Funds</label><Money value={s.committedFunds != null ? String(s.committedFunds) : ""} onChange={(v) => set("committedFunds", v ? Number(v) : null)} /></div>
         </InitialDataCard>
 
         {/* 7. Technology */}
@@ -482,8 +465,10 @@ export function InitialDataPanel({ apiConfig }: { apiConfig: InitialDataApiConfi
               {PRODUCT_STAGE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           </div>
-          <div><label className="ost-label">Product roadmap</label><LinkInput value={s.productRoadmapLink ?? ""} onChange={(v) => set("productRoadmapLink", v)} /></div>
-          <div><label className="ost-label">TRL level (1-9)</label><input type="number" min={1} max={9} className="ost-input" value={s.trlLevel ?? ""} onChange={(e) => set("trlLevel", e.target.value ? Number(e.target.value) : null)} /></div>
+          <div className="grid grid-cols-2 gap-2.5">
+            <div><label className="ost-label">Product roadmap</label><LinkInput value={s.productRoadmapLink ?? ""} onChange={(v) => set("productRoadmapLink", v)} /></div>
+            <div><label className="ost-label">TRL level (1-9)</label><input type="number" min={1} max={9} className="ost-input" value={s.trlLevel ?? ""} onChange={(e) => set("trlLevel", e.target.value ? Number(e.target.value) : null)} /></div>
+          </div>
         </InitialDataCard>
 
         {/* 9. Patenting */}
@@ -530,7 +515,7 @@ export function InitialDataPanel({ apiConfig }: { apiConfig: InitialDataApiConfi
 
         {/* 12. Competition */}
         <InitialDataCard title="12. Competition" isOpen={false} onToggle={() => {}}>
-          <textarea className="ost-input min-h-[140px] w-full" value={s.competitionOverview ?? ""} onChange={(e) => set("competitionOverview", e.target.value)} />
+          <textarea className="ost-input min-h-[90px] w-full" value={s.competitionOverview ?? ""} onChange={(e) => set("competitionOverview", e.target.value)} />
         </InitialDataCard>
 
         {/* 13. Clients */}
