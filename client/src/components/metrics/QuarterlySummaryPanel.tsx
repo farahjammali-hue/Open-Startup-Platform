@@ -44,7 +44,7 @@ export function QuarterlySummaryPanel({ apiBase, startupName }: { apiBase: strin
       }
     }
     const namePart = startupName ? `${startupName.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}-` : "";
-    downloadXlsx(`${namePart}quarterly-updates-${year}.xlsx`, "Quarterly Updates", rows);
+    downloadXlsx(`${namePart}quarterly-updates-${year}.xlsx`, "Quarterly Updates", rows, { mergeColumns: [0] });
   }
 
   if (isLoading || !data) {

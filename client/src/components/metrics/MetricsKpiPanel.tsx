@@ -190,7 +190,7 @@ export function MetricsKpiPanel({ apiBase, startupName }: { apiBase: string; sta
       }
     }
     const namePart = startupName ? `${startupName.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}-` : "";
-    downloadXlsx(`${namePart}metrics-and-kpis-${year}.xlsx`, "Metrics & KPIs", rows);
+    downloadXlsx(`${namePart}metrics-and-kpis-${year}.xlsx`, "Metrics & KPIs", rows, { mergeColumns: [0] });
   }
 
   if (isLoading || !data) {
