@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/utils";
 import { AppShell } from "../components/AppShell";
 import { BackLink, PageHeader, TabBar } from "../components/PageHeader";
@@ -9,11 +9,22 @@ import { ModalShell } from "../components/ModalShell";
 import { StatusBadge } from "../components/StatusBadge";
 import { Skeleton } from "../components/Skeleton";
 import { useKysStatus } from "../lib/kysStatus";
+import { showToast } from "../lib/toast";
 import { MENTORSHIP_SESSION_STATUS_TONES, MENTORSHIP_SESSION_STATUS_ICONS } from "../lib/statusTones";
 import {
-  Lock, ChevronRight, Video, FileText, Link2,
+  Lock, ChevronRight, Video, FileText, Link2, Loader2,
   CalendarClock, User, Users, Paperclip,
 } from "lucide-react";
+
+interface MentorshipSessionNotes {
+  teamMembersPresence: string | null;
+  pointsDiscussed: string | null;
+  whatIsGoingWell: string | null;
+  whatIsNotGoingWell: string | null;
+  actionItems: string | null;
+  mentorRating: number | null;
+  mentorFeedback: string | null;
+}
 
 interface MentorshipSession {
   id: string;
@@ -29,6 +40,7 @@ interface MentorshipSession {
   recordingUrl: string | null;
   transcriptUrl: string | null;
   materialsUrl: string | null;
+  notes: MentorshipSessionNotes;
 }
 
 interface ExpertProfile {
@@ -39,11 +51,12 @@ interface ExpertProfile {
   expertiseAreas: string[] | null;
 }
 
-const TABS = ["mentor", "sessions", "otherExperts"] as const;
+const TABS = ["mentor", "sessions", "sessionDetails", "otherExperts"] as const;
 type Tab = (typeof TABS)[number];
 const TAB_LABELS: Record<Tab, string> = {
   mentor: "Mentor",
   sessions: "Sessions",
+  sessionDetails: "Session details",
   otherExperts: "Other experts",
 };
 
@@ -127,6 +140,8 @@ export default function Mentorship() {
         )}
 
         {!isLoading && tab === "mentor" && <MentorTab mentor={mentor} />}
+
+        {!isLoading && tab === "sessionDetails" && <SessionDetailsTab sessions={sessions} />}
 
         {tab === "otherExperts" && (
           expertsLoading ? (
@@ -265,6 +280,92 @@ function ExpertDetailModal({ expert: e, onClose }: { expert: ExpertProfile; onCl
         </div>
       )}
     </ModalShell>
+  );
+}
+
+function SessionDetailsTab({ sessions }: { sessions: MentorshipSession[] }) {
+  const completed = sessions
+    .filter((s) => s.status === "completed")
+    .sort((a, b) => +new Date(a.scheduledAt) - +new Date(b.scheduledAt));
+
+  if (completed.length === 0) return <p className="ost-card-subtext">No completed sessions yet.</p>;
+
+  return (
+    <div className="space-y-3">
+      {completed.map((s) => (
+        <div key={s.id} className="ost-card p-5">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
+            <p className="font-semibold text-primary">Session {s.number} · {s.title}</p>
+            <span className="shrink-0 text-xs text-slate-400">{new Date(s.scheduledAt).toLocaleDateString()}</span>
+          </div>
+          <div className="mt-3"><SessionRecapForm session={s} /></div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function SessionRecapForm({ session: s }: { session: MentorshipSession }) {
+  const queryClient = useQueryClient();
+  const n = s.notes;
+  const [teamMembersPresence, setTeamMembersPresence] = useState(n.teamMembersPresence ?? "");
+  const [pointsDiscussed, setPointsDiscussed] = useState(n.pointsDiscussed ?? "");
+  const [whatIsGoingWell, setWhatIsGoingWell] = useState(n.whatIsGoingWell ?? "");
+  const [whatIsNotGoingWell, setWhatIsNotGoingWell] = useState(n.whatIsNotGoingWell ?? "");
+  const [actionItems, setActionItems] = useState(n.actionItems ?? "");
+  const [saving, setSaving] = useState(false);
+
+  async function save() {
+    setSaving(true);
+    try {
+      await api(`/api/mentorship/sessions/${s.id}/notes`, {
+        method: "PATCH",
+        body: JSON.stringify({ teamMembersPresence, pointsDiscussed, whatIsGoingWell, whatIsNotGoingWell, actionItems }),
+      });
+      queryClient.invalidateQueries({ queryKey: ["mentorship"] });
+      showToast("Recap saved");
+    } catch (e: any) {
+      showToast(e.message || "Couldn't save recap");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const rows: [string, string, (v: string) => void][] = [
+    ["Team members presence", teamMembersPresence, setTeamMembersPresence],
+    ["Points discussed", pointsDiscussed, setPointsDiscussed],
+    ["What's going well", whatIsGoingWell, setWhatIsGoingWell],
+    ["What's not going well", whatIsNotGoingWell, setWhatIsNotGoingWell],
+    ["Action items", actionItems, setActionItems],
+  ];
+
+  return (
+    <div className="space-y-3">
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <tbody>
+            {rows.map(([label, value, setValue]) => (
+              <tr key={label} className="border-b border-slate-50 last:border-0">
+                <th scope="row" className="w-44 py-2 pr-4 text-left align-top text-xs font-semibold uppercase tracking-wide text-slate-400">{label}</th>
+                <td className="py-2 align-top">
+                  <textarea
+                    className="ost-input min-h-[44px] w-full text-sm"
+                    value={value}
+                    onChange={(e) => setValue(e.target.value)}
+                    placeholder="—"
+                  />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="flex justify-end">
+        <button type="button" onClick={save} disabled={saving} className="ost-btn-primary !px-3 !py-1.5 text-xs disabled:opacity-50">
+          {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />} Save
+        </button>
+      </div>
+    </div>
   );
 }
 
