@@ -31,7 +31,7 @@ import {
   trainingProgressSchema,
   trainingSchema,
   mentorshipModuleSessionSchema,
-  mentorshipSessionRecapSchema,
+  mentorshipFounderCommentsSchema,
   mentorshipMentorFeedbackSchema,
   assignMentorSchema,
   trainingModuleSchema,
@@ -74,6 +74,7 @@ import {
   updateZoomMeeting,
   deleteZoomMeeting,
 } from "./zoom";
+import { aiConfigured, generateSessionRecap, vttToPlainText } from "./ai";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const LOGOS_DIR = path.resolve(__dirname, "..", "uploads", "logos");
@@ -1499,24 +1500,20 @@ export function registerRoutes(app: Express) {
     res.json({ sessions, mentor: mentor ?? null });
   }));
 
-  // Founder's own brief recap of a session they held. Never touches the
-  // mentor's rating/feedback, which stays admin-owned.
+  // The startup's own free-text comments on a session, editable any time
+  // from scheduling onward. Never touches the AI-generated recap fields or
+  // the mentor's rating/feedback, both of which stay out of founder control.
   app.patch("/api/mentorship/sessions/:sessionId/notes", requireAuth, ah(async (req, res) => {
     const startup = await requireActiveStartup(req, res);
     if (!startup) return;
     const session = await storage.getMentorshipModuleSessionById(req.params.sessionId);
     if (!session || session.startupId !== startup.id) return res.status(404).json({ message: "Not found" });
-    const parsed = mentorshipSessionRecapSchema.safeParse(req.body);
+    const parsed = mentorshipFounderCommentsSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ message: parsed.error.errors[0].message });
     }
-    const d = parsed.data;
     const notes = await storage.upsertMentorshipSessionNotes(req.params.sessionId, startup.id, {
-      teamMembersPresence: d.teamMembersPresence || null,
-      pointsDiscussed: d.pointsDiscussed || null,
-      whatIsGoingWell: d.whatIsGoingWell || null,
-      whatIsNotGoingWell: d.whatIsNotGoingWell || null,
-      actionItems: d.actionItems || null,
+      founderComments: parsed.data.founderComments || null,
     });
     res.json(notes);
   }));
@@ -1755,6 +1752,27 @@ export function registerRoutes(app: Express) {
   const TRANSCRIPTS_DIR = path.resolve(__dirname, "..", "uploads", "transcripts");
   fs.mkdirSync(TRANSCRIPTS_DIR, { recursive: true });
 
+  /** Reads a session's transcript file from disk, given its stored `/uploads/transcripts/...` URL. */
+  function readTranscriptFile(transcriptUrl: string): string | null {
+    const filename = path.basename(transcriptUrl);
+    const filePath = path.join(TRANSCRIPTS_DIR, filename);
+    if (!filePath.startsWith(TRANSCRIPTS_DIR) || !fs.existsSync(filePath)) return null;
+    return fs.readFileSync(filePath, "utf8");
+  }
+
+  /** Generates and stores the AI recap for a mentorship session, given its transcript. Throws on failure. */
+  async function generateAndSaveMentorshipRecap(sessionId: string, startupId: string, transcriptUrl: string) {
+    const vtt = readTranscriptFile(transcriptUrl);
+    if (!vtt) throw new Error("Transcript file not found");
+    const recap = await generateSessionRecap(vttToPlainText(vtt));
+    return storage.upsertMentorshipSessionNotes(sessionId, startupId, {
+      teamMembersPresence: recap.teamMembersPresence,
+      pointsDiscussed: recap.pointsDiscussed,
+      actionItems: recap.actionItems,
+      aiGeneratedAt: new Date(),
+    });
+  }
+
   app.post("/api/integrations/zoom/webhook", ah(async (req, res) => {
     const body = req.body as any;
 
@@ -1794,14 +1812,26 @@ export function registerRoutes(app: Express) {
       const transcript = files.find((f) => f.file_type === "TRANSCRIPT" && f.download_url);
       const downloadToken = body.download_token;
       if (transcript && downloadToken) {
+        const filename = `${session.id}-${Date.now()}.vtt`;
+        const transcriptUrl = `/uploads/transcripts/${filename}`;
         try {
           const buf = await downloadZoomRecordingFile(transcript.download_url, downloadToken);
-          const filename = `${session.id}-${Date.now()}.vtt`;
           fs.writeFileSync(path.join(TRANSCRIPTS_DIR, filename), buf);
-          if (mentorshipSession) await storage.updateMentorshipModuleSession(session.id, { transcriptUrl: `/uploads/transcripts/${filename}` });
-          else await storage.updateTrainingModuleSession(session.id, { transcriptUrl: `/uploads/transcripts/${filename}` });
+          if (mentorshipSession) await storage.updateMentorshipModuleSession(session.id, { transcriptUrl });
+          else await storage.updateTrainingModuleSession(session.id, { transcriptUrl });
         } catch (e) {
           console.error("[zoom webhook] transcript download failed:", e);
+        }
+
+        // Auto-generate the recap now that a real transcript exists.
+        // Training's session recap UI doesn't exist yet, so only mentorship
+        // sessions (one per startup) are handled here.
+        if (mentorshipSession && aiConfigured) {
+          try {
+            await generateAndSaveMentorshipRecap(session.id, mentorshipSession.startupId, transcriptUrl);
+          } catch (e) {
+            console.error("[zoom webhook] AI recap generation failed:", e);
+          }
         }
       }
     }
@@ -2693,6 +2723,25 @@ export function registerRoutes(app: Express) {
       mentorFeedback: d.mentorFeedback || null,
     });
     res.json(notes);
+  }));
+
+  // Manually (re)generate a session's AI recap from its transcript — used
+  // when a session has a transcript but hasn't had one generated yet (e.g.
+  // it wasn't hosted through the platform's Zoom integration and the admin
+  // attached a transcript by hand), or to regenerate after fixing one.
+  app.post("/api/admin/startups/:id/mentorship-sessions/:sessionId/generate-recap", requireAdmin, ah(async (req, res) => {
+    if (!aiConfigured) return res.status(503).json({ message: "AI is not configured — add ANTHROPIC_API_KEY to enable this" });
+    const startup = await storage.getStartupById(req.params.id);
+    if (!startup) return res.status(404).json({ message: "Not found" });
+    const session = await storage.getMentorshipModuleSessionById(req.params.sessionId);
+    if (!session || session.startupId !== startup.id) return res.status(404).json({ message: "Not found" });
+    if (!session.transcriptUrl) return res.status(400).json({ message: "No transcript available for this session" });
+    try {
+      const notes = await generateAndSaveMentorshipRecap(session.id, startup.id, session.transcriptUrl);
+      res.json(notes);
+    } catch (e: any) {
+      res.status(500).json({ message: e.message || "Couldn't generate the recap" });
+    }
   }));
 
   // Admin/trainer upsert of a startup's rating and written feedback for a

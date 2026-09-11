@@ -1599,7 +1599,6 @@ export const storage = {
     return row;
   },
 
-  // Admin/mentor-owned fields only.
   async upsertMentorshipSessionNotes(
     sessionId: string,
     startupId: string,
@@ -1609,6 +1608,8 @@ export const storage = {
       whatIsGoingWell?: string | null;
       whatIsNotGoingWell?: string | null;
       actionItems?: string | null;
+      aiGeneratedAt?: Date | null;
+      founderComments?: string | null;
       mentorRating?: number | null;
       mentorFeedback?: string | null;
     },

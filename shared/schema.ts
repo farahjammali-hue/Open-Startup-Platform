@@ -646,12 +646,17 @@ export const mentorshipSessionNotes = pgTable("mentorship_session_notes", {
   startupId: uuid("startup_id")
     .references(() => startups.id, { onDelete: "cascade" })
     .notNull(),
-  // Admin/mentor-owned.
+  // AI-generated from the session's Zoom transcript once one is available
+  // (see server/ai.ts) — no longer filled in by hand by anyone.
   teamMembersPresence: text("team_members_presence"),
   pointsDiscussed: text("points_discussed"),
   whatIsGoingWell: text("what_is_going_well"),
   whatIsNotGoingWell: text("what_is_not_going_well"),
   actionItems: text("action_items"),
+  aiGeneratedAt: timestamp("ai_generated_at"),
+  // The startup's own free-text notes, editable any time from scheduling
+  // onward — independent of the AI recap above.
+  founderComments: text("founder_comments"),
   mentorRating: integer("mentor_rating"),
   mentorFeedback: text("mentor_feedback"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
@@ -1219,13 +1224,11 @@ export const mentorshipModuleSessionSchema = z.object({
   materialsUrl: z.string().max(500).optional().or(z.literal("")),
 });
 
-// Filled in by the startup itself, briefly, after a session is held.
-export const mentorshipSessionRecapSchema = z.object({
-  teamMembersPresence: z.string().max(500).optional().or(z.literal("")),
-  pointsDiscussed: z.string().max(2000).optional().or(z.literal("")),
-  whatIsGoingWell: z.string().max(2000).optional().or(z.literal("")),
-  whatIsNotGoingWell: z.string().max(2000).optional().or(z.literal("")),
-  actionItems: z.string().max(2000).optional().or(z.literal("")),
+// The startup's own free-text notes on a session, editable any time from
+// scheduling onward. The recap fields (team members presence, points
+// discussed, action items) are AI-generated instead — see server/ai.ts.
+export const mentorshipFounderCommentsSchema = z.object({
+  founderComments: z.string().max(2000).optional().or(z.literal("")),
 });
 
 // Admin/mentor-owned — the rating and written feedback given to this startup.
@@ -1450,7 +1453,7 @@ export type TrainingProgressInput = z.infer<typeof trainingProgressSchema>;
 export type TrainingInput = z.infer<typeof trainingSchema>;
 export type AssignMentorInput = z.infer<typeof assignMentorSchema>;
 export type MentorshipModuleSessionInput = z.infer<typeof mentorshipModuleSessionSchema>;
-export type MentorshipSessionRecapInput = z.infer<typeof mentorshipSessionRecapSchema>;
+export type MentorshipFounderCommentsInput = z.infer<typeof mentorshipFounderCommentsSchema>;
 export type MentorshipMentorFeedbackInput = z.infer<typeof mentorshipMentorFeedbackSchema>;
 export type TrainingModuleInput = z.infer<typeof trainingModuleSchema>;
 export type TrainerInput = z.infer<typeof trainerSchema>;

@@ -19,11 +19,9 @@ import {
 interface MentorshipSessionNotes {
   teamMembersPresence: string | null;
   pointsDiscussed: string | null;
-  whatIsGoingWell: string | null;
-  whatIsNotGoingWell: string | null;
   actionItems: string | null;
-  mentorRating: number | null;
-  mentorFeedback: string | null;
+  aiGeneratedAt: string | null;
+  founderComments: string | null;
 }
 
 interface MentorshipSession {
@@ -51,12 +49,12 @@ interface ExpertProfile {
   expertiseAreas: string[] | null;
 }
 
-const TABS = ["mentor", "sessions", "sessionDetails", "otherExperts"] as const;
+const TABS = ["mentor", "sessions", "sessionsRecap", "otherExperts"] as const;
 type Tab = (typeof TABS)[number];
 const TAB_LABELS: Record<Tab, string> = {
   mentor: "Mentor",
   sessions: "Sessions",
-  sessionDetails: "Session details",
+  sessionsRecap: "Sessions recap",
   otherExperts: "Other experts",
 };
 
@@ -141,7 +139,7 @@ export default function Mentorship() {
 
         {!isLoading && tab === "mentor" && <MentorTab mentor={mentor} />}
 
-        {!isLoading && tab === "sessionDetails" && <SessionDetailsTab sessions={sessions} />}
+        {!isLoading && tab === "sessionsRecap" && <SessionsRecapTab sessions={sessions} />}
 
         {tab === "otherExperts" && (
           expertsLoading ? (
@@ -283,87 +281,96 @@ function ExpertDetailModal({ expert: e, onClose }: { expert: ExpertProfile; onCl
   );
 }
 
-function SessionDetailsTab({ sessions }: { sessions: MentorshipSession[] }) {
-  const completed = sessions
-    .filter((s) => s.status === "completed")
-    .sort((a, b) => +new Date(a.scheduledAt) - +new Date(b.scheduledAt));
+function SessionsRecapTab({ sessions }: { sessions: MentorshipSession[] }) {
+  const sorted = [...sessions].sort((a, b) => +new Date(a.scheduledAt) - +new Date(b.scheduledAt));
 
-  if (completed.length === 0) return <p className="ost-card-subtext">No completed sessions yet.</p>;
+  if (sorted.length === 0) return <p className="ost-card-subtext">No sessions scheduled yet.</p>;
 
   return (
     <div className="space-y-3">
-      {completed.map((s) => (
+      {sorted.map((s) => (
         <div key={s.id} className="ost-card p-5">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
             <p className="font-semibold text-primary">Session {s.number} · {s.title}</p>
             <span className="shrink-0 text-xs text-slate-400">{new Date(s.scheduledAt).toLocaleDateString()}</span>
           </div>
-          <div className="mt-3"><SessionRecapForm session={s} /></div>
+          <div className="mt-3"><SessionRecapCard session={s} /></div>
         </div>
       ))}
     </div>
   );
 }
 
-function SessionRecapForm({ session: s }: { session: MentorshipSession }) {
+function SessionRecapCard({ session: s }: { session: MentorshipSession }) {
   const queryClient = useQueryClient();
   const n = s.notes;
-  const [teamMembersPresence, setTeamMembersPresence] = useState(n.teamMembersPresence ?? "");
-  const [pointsDiscussed, setPointsDiscussed] = useState(n.pointsDiscussed ?? "");
-  const [whatIsGoingWell, setWhatIsGoingWell] = useState(n.whatIsGoingWell ?? "");
-  const [whatIsNotGoingWell, setWhatIsNotGoingWell] = useState(n.whatIsNotGoingWell ?? "");
-  const [actionItems, setActionItems] = useState(n.actionItems ?? "");
+  const [founderComments, setFounderComments] = useState(n.founderComments ?? "");
   const [saving, setSaving] = useState(false);
 
-  async function save() {
+  async function saveComments() {
     setSaving(true);
     try {
       await api(`/api/mentorship/sessions/${s.id}/notes`, {
         method: "PATCH",
-        body: JSON.stringify({ teamMembersPresence, pointsDiscussed, whatIsGoingWell, whatIsNotGoingWell, actionItems }),
+        body: JSON.stringify({ founderComments }),
       });
       queryClient.invalidateQueries({ queryKey: ["mentorship"] });
-      showToast("Recap saved");
+      showToast("Comments saved");
     } catch (e: any) {
-      showToast(e.message || "Couldn't save recap");
+      showToast(e.message || "Couldn't save comments");
     } finally {
       setSaving(false);
     }
   }
 
-  const rows: [string, string, (v: string) => void][] = [
-    ["Team members presence", teamMembersPresence, setTeamMembersPresence],
-    ["Points discussed", pointsDiscussed, setPointsDiscussed],
-    ["What's going well", whatIsGoingWell, setWhatIsGoingWell],
-    ["What's not going well", whatIsNotGoingWell, setWhatIsNotGoingWell],
-    ["Action items", actionItems, setActionItems],
+  const recapRows: [string, string | null][] = [
+    ["Team members presence", n.teamMembersPresence],
+    ["Points discussed", n.pointsDiscussed],
+    ["Action items", n.actionItems],
   ];
 
   return (
-    <div className="space-y-3">
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <tbody>
-            {rows.map(([label, value, setValue]) => (
-              <tr key={label} className="border-b border-slate-50 last:border-0">
-                <th scope="row" className="w-44 py-2 pr-4 text-left align-top text-xs font-semibold uppercase tracking-wide text-slate-400">{label}</th>
-                <td className="py-2 align-top">
-                  <textarea
-                    className="ost-input min-h-[44px] w-full text-sm"
-                    value={value}
-                    onChange={(e) => setValue(e.target.value)}
-                    placeholder="—"
-                  />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+    <div className="space-y-4">
+      <div>
+        <div className="mb-2 flex items-center justify-between">
+          <p className="ost-label !mb-0">Session recap</p>
+          {n.aiGeneratedAt && <span className="text-xs text-slate-400">Generated by AI · {new Date(n.aiGeneratedAt).toLocaleDateString()}</span>}
+        </div>
+        {n.aiGeneratedAt ? (
+          <div className="overflow-x-auto rounded-lg border border-slate-100">
+            <table className="w-full text-sm">
+              <tbody>
+                {recapRows.map(([label, value]) => (
+                  <tr key={label} className="border-b border-slate-50 last:border-0">
+                    <th scope="row" className="w-44 py-2 pl-3 pr-3 text-left align-top text-xs font-semibold uppercase tracking-wide text-slate-400">{label}</th>
+                    <td className="whitespace-pre-wrap py-2 pr-3 align-top text-slate-600">{value || <span className="text-slate-300">—</span>}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="text-sm text-slate-400">
+            {s.status === "completed"
+              ? "Will appear here automatically once available."
+              : "Will be generated automatically after this session is held."}
+          </p>
+        )}
       </div>
-      <div className="flex justify-end">
-        <button type="button" onClick={save} disabled={saving} className="ost-btn-primary !px-3 !py-1.5 text-xs disabled:opacity-50">
-          {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />} Save
-        </button>
+
+      <div>
+        <label className="ost-label">Your comments</label>
+        <textarea
+          className="ost-input mb-2 min-h-[60px] w-full text-sm"
+          value={founderComments}
+          onChange={(e) => setFounderComments(e.target.value)}
+          placeholder="Add notes about this session — questions, context for your mentor, anything you want on record."
+        />
+        <div className="flex justify-end">
+          <button type="button" onClick={saveComments} disabled={saving} className="ost-btn-primary !px-3 !py-1.5 text-xs disabled:opacity-50">
+            {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />} Save
+          </button>
+        </div>
       </div>
     </div>
   );

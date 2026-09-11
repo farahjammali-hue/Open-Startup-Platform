@@ -12,7 +12,7 @@ import { StatusBadge } from "../../components/StatusBadge";
 import { MentorAssignment, type MentorOption } from "../../components/admin/MentorAssignment";
 import { MENTORSHIP_SESSION_STATUS_TONES } from "../../lib/statusTones";
 import { showToast } from "../../lib/toast";
-import { CalendarClock, Pencil, Trash2, Plus, Loader2, Building2, Upload, FileText, ClipboardList } from "lucide-react";
+import { CalendarClock, Pencil, Trash2, Plus, Loader2, Building2, Upload, FileText, ClipboardList, Sparkles } from "lucide-react";
 
 interface Expert {
   id: string;
@@ -83,9 +83,9 @@ interface MentorshipSessionNoteRow {
   sessionId: string;
   teamMembersPresence: string | null;
   pointsDiscussed: string | null;
-  whatIsGoingWell: string | null;
-  whatIsNotGoingWell: string | null;
   actionItems: string | null;
+  aiGeneratedAt: string | null;
+  founderComments: string | null;
   mentorRating: number | null;
   mentorFeedback: string | null;
 }
@@ -101,7 +101,7 @@ export default function AdminMentorshipStartup() {
   const startupId = params?.startupId ?? "";
   const qc = useQueryClient();
   const [editingSession, setEditingSession] = useState<MentorshipSession | "new" | null>(null);
-  const [notesModalSession, setNotesModalSession] = useState<{ sessionId: string; sessionNumber: number; sessionTitle: string } | null>(null);
+  const [notesModalSession, setNotesModalSession] = useState<{ sessionId: string; sessionNumber: number; sessionTitle: string; hasTranscript: boolean } | null>(null);
   const [editingExpert, setEditingExpert] = useState<Expert | "new" | null>(null);
   const [importing, setImporting] = useState(false);
   const csvInputRef = useRef<HTMLInputElement>(null);
@@ -292,9 +292,8 @@ export default function AdminMentorshipStartup() {
             )}
             {sessions.map((s) => {
               const notes = notesBySessionId.get(s.id) ?? null;
-              const hasRecap = Boolean(
-                notes && (notes.pointsDiscussed || notes.whatIsGoingWell || notes.whatIsNotGoingWell || notes.actionItems || notes.teamMembersPresence),
-              );
+              const hasRecap = Boolean(notes?.aiGeneratedAt);
+              const hasComments = Boolean(notes?.founderComments);
               const hasFeedback = Boolean(notes && (notes.mentorRating || notes.mentorFeedback));
               return (
                 <div key={s.id} className="flex items-start justify-between gap-3 rounded-lg border border-slate-100 bg-offwhite px-4 py-3">
@@ -302,7 +301,8 @@ export default function AdminMentorshipStartup() {
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="text-sm font-semibold text-primary">Session {s.number} · {s.title}</p>
                       <StatusBadge tone={MENTORSHIP_SESSION_STATUS_TONES[s.status]}>{s.status}</StatusBadge>
-                      <StatusBadge tone={hasRecap ? "teal" : "gray"}>{hasRecap ? "Recap submitted" : "No recap yet"}</StatusBadge>
+                      <StatusBadge tone={hasRecap ? "teal" : "gray"}>{hasRecap ? "AI recap ready" : "No recap yet"}</StatusBadge>
+                      {hasComments && <StatusBadge tone="teal">Startup left comments</StatusBadge>}
                       <StatusBadge tone={hasFeedback ? "teal" : "gray"}>{hasFeedback ? "Feedback added" : "No feedback yet"}</StatusBadge>
                     </div>
                     {s.description && <p className="mt-1 text-xs text-slate-500">{s.description}</p>}
@@ -316,7 +316,7 @@ export default function AdminMentorshipStartup() {
                     <button
                       aria-label={`Recap and feedback for ${s.title}`}
                       title="Recap & feedback"
-                      onClick={() => setNotesModalSession({ sessionId: s.id, sessionNumber: s.number, sessionTitle: s.title })}
+                      onClick={() => setNotesModalSession({ sessionId: s.id, sessionNumber: s.number, sessionTitle: s.title, hasTranscript: !!s.transcriptUrl })}
                       className="ost-btn-ghost !px-3 !py-1.5 text-xs"
                     >
                       <ClipboardList className="h-3.5 w-3.5" /> Recap &amp; feedback
@@ -487,6 +487,7 @@ export default function AdminMentorshipStartup() {
           sessionId={notesModalSession.sessionId}
           title={`Session ${notesModalSession.sessionNumber} — ${notesModalSession.sessionTitle}`}
           notes={notesBySessionId.get(notesModalSession.sessionId) ?? null}
+          hasTranscript={notesModalSession.hasTranscript}
           onClose={() => setNotesModalSession(null)}
           onSaved={() => qc.invalidateQueries({ queryKey: ["admin-startup-basic", startupId] })}
         />
@@ -568,6 +569,7 @@ function SessionNotesModal({
   sessionId,
   title,
   notes,
+  hasTranscript,
   onClose,
   onSaved,
 }: {
@@ -575,22 +577,36 @@ function SessionNotesModal({
   sessionId: string;
   title: string;
   notes: MentorshipSessionNoteRow | null;
+  hasTranscript: boolean;
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const qc = useQueryClient();
   const [mentorRating, setMentorRating] = useState(notes?.mentorRating ? String(notes.mentorRating) : "");
   const [mentorFeedback, setMentorFeedback] = useState(notes?.mentorFeedback ?? "");
   const [saving, setSaving] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const recapRows: [string, string | null][] = [
     ["Team members presence", notes?.teamMembersPresence ?? null],
     ["Points discussed", notes?.pointsDiscussed ?? null],
-    ["What's going well", notes?.whatIsGoingWell ?? null],
-    ["What's not going well", notes?.whatIsNotGoingWell ?? null],
     ["Action items", notes?.actionItems ?? null],
   ];
-  const hasRecap = recapRows.some(([, v]) => v);
+
+  async function generateRecap() {
+    setGenerating(true);
+    setError(null);
+    try {
+      await api(`/api/admin/startups/${startupId}/mentorship-sessions/${sessionId}/generate-recap`, { method: "POST" });
+      showToast("Recap generated");
+      qc.invalidateQueries({ queryKey: ["admin-startup-basic", startupId] });
+    } catch (e: any) {
+      setError(e.message || "Couldn't generate the recap");
+    } finally {
+      setGenerating(false);
+    }
+  }
 
   async function save() {
     setSaving(true);
@@ -617,23 +633,42 @@ function SessionNotesModal({
     <ModalShell maxWidth="max-w-lg">
       <h3 className="mb-4 text-lg font-bold text-primary">{title}</h3>
 
-      <p className="ost-label mb-2">Startup's session recap</p>
-      {hasRecap ? (
+      <div className="mb-2 flex items-center justify-between">
+        <p className="ost-label !mb-0">Session recap</p>
+        <div className="flex items-center gap-2">
+          {notes?.aiGeneratedAt && <span className="text-xs text-slate-400">Generated {new Date(notes.aiGeneratedAt).toLocaleDateString()}</span>}
+          <button
+            onClick={generateRecap}
+            disabled={generating || !hasTranscript}
+            title={hasTranscript ? "Generate or refresh the AI recap from this session's transcript" : "No transcript available for this session yet"}
+            className="ost-btn-ghost !px-2.5 !py-1 text-xs disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+            {notes?.aiGeneratedAt ? "Regenerate" : "Generate"}
+          </button>
+        </div>
+      </div>
+      {notes?.aiGeneratedAt ? (
         <div className="mb-4 overflow-x-auto rounded-lg border border-slate-100">
           <table className="w-full text-sm">
             <tbody>
               {recapRows.map(([label, value]) => (
                 <tr key={label} className="border-b border-slate-50 last:border-0">
                   <th scope="row" className="w-40 py-2 pl-3 pr-3 text-left align-top text-xs font-semibold uppercase tracking-wide text-slate-400">{label}</th>
-                  <td className="py-2 pr-3 align-top text-slate-600">{value || <span className="text-slate-300">—</span>}</td>
+                  <td className="whitespace-pre-wrap py-2 pr-3 align-top text-slate-600">{value || <span className="text-slate-300">—</span>}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       ) : (
-        <p className="mb-4 text-sm text-slate-400">The startup hasn't submitted a recap for this session yet.</p>
+        <p className="mb-4 text-sm text-slate-400">
+          {hasTranscript ? "Not generated yet." : "No transcript available yet — the recap generates automatically once one is captured."}
+        </p>
       )}
+
+      <p className="ost-label mb-2">Startup's comments</p>
+      <p className="mb-4 text-sm text-slate-600">{notes?.founderComments || <span className="text-slate-300">The startup hasn't left any comments on this session.</span>}</p>
 
       <div className="grid gap-3 sm:grid-cols-2">
         <div>

@@ -833,6 +833,12 @@ ALTER TABLE training_modules ADD COLUMN IF NOT EXISTS track training_module_trac
 -- Lets a trainer be picked from the shared mentorship experts catalog when
 -- creating a session, instead of only the manually-added trainer directory.
 ALTER TABLE trainers ADD COLUMN IF NOT EXISTS expert_id uuid REFERENCES experts(id) ON DELETE SET NULL;
+
+-- Session recaps (team members presence, points discussed, action items)
+-- are now AI-generated from the Zoom transcript instead of hand-typed, and
+-- the startup gets a separate always-editable comments field.
+ALTER TABLE mentorship_session_notes ADD COLUMN IF NOT EXISTS ai_generated_at timestamp;
+ALTER TABLE mentorship_session_notes ADD COLUMN IF NOT EXISTS founder_comments text;
 `;
 
 try {
