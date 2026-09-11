@@ -14,9 +14,10 @@ import { MetricsKpiPanel } from "../../components/metrics/MetricsKpiPanel";
 import { QuarterlySummaryPanel } from "../../components/metrics/QuarterlySummaryPanel";
 import { LEGAL_ENTITY_LABELS, BUSINESS_MODEL_LABELS, CUSTOMER_BASE_LABELS } from "../../lib/startupProfileLabels";
 import { formatMoney } from "../../lib/format";
+import { downloadXlsx } from "../../lib/xlsx";
 import {
   Building2, Users, Target, Inbox, ExternalLink,
-  Briefcase, Cpu, TrendingUp, Handshake, Globe2, PieChart,
+  Briefcase, Cpu, TrendingUp, Handshake, Globe2, PieChart, Download,
 } from "lucide-react";
 
 interface StartupProfileBasic {
@@ -35,6 +36,38 @@ interface Detail {
   goals: Goal[];
   teamMembers: TeamMemberRow[];
   capTableEntries: CapTableEntryRow[];
+}
+
+function buildInitialDataRows(data: Detail): (string | number)[][] {
+  const { startup, goals, teamMembers, capTableEntries } = data;
+  const capTableTotal = capTableEntries.reduce((sum, e) => sum + e.percentage, 0);
+  const rows: (string | number)[][] = [["Section", "Field", "Value"]];
+  const add = (section: string, field: string, value: string | number | null | undefined) => rows.push([section, field, value ?? ""]);
+
+  add("Startup Profile", "Legal Entity", startup.legalEntityStatus ? LEGAL_ENTITY_LABELS[startup.legalEntityStatus] : "");
+  add("Startup Profile", "Year of constitution", startup.startedYear);
+  add("Startup Profile", "Country", startup.country);
+  add("Startup Profile", "Business Model Type", startup.businessModelType ? BUSINESS_MODEL_LABELS[startup.businessModelType] : "");
+  add("Startup Profile", "Deck link", startup.deckUrl);
+  add("Core Business", "Overview", startup.coreBusinessOverview);
+  add("Core IP / Technology", "Overview", startup.coreIpTechnology);
+  add("Traction & previous funding", "Total revenues since founding year", startup.totalRevenueSinceFounding);
+  add("Traction & previous funding", "Total investments raised", startup.amountRaised);
+  add("Traction & previous funding", "Total Grants", startup.totalGrants);
+  add("Round Details", "Total Round Size", startup.totalRoundSize);
+  add("Round Details", "Round terms", startup.roundTerms);
+  add("Round Details", "Last Valuation", startup.lastValuation);
+  add("Impact Metrics", "SDGs Addressed", startup.sdgsAddressed?.join(", ") ?? "");
+  add("Impact Metrics", "Female team members", startup.femaleTeamMembers);
+  add("Impact Metrics", "Youth employees", startup.youthEmployees);
+  add("Markets", "Country of Incorporation", startup.countryOfIncorporation);
+  add("Markets", "Customer Base", startup.customerBase ? CUSTOMER_BASE_LABELS[startup.customerBase] : "");
+  add("Markets", "Countries of Operation", startup.countriesOfOperation);
+  for (const entry of capTableEntries) add("Cap Table", entry.name, `${entry.percentage}%`);
+  if (capTableEntries.length > 0) add("Cap Table", "Total", `${capTableTotal}%`);
+  for (const m of teamMembers) add("Team", m.name, `${m.role || "—"} · ${m.type.replace("_", " ")}`);
+  for (const g of goals) add("Objectives", g.title, `${GOAL_STATUS_LABELS[g.status]}${g.targetDate ? ` (target: ${new Date(g.targetDate).toLocaleDateString()})` : ""}`);
+  return rows;
 }
 
 export default function AdminStartupDashboard() {
@@ -91,6 +124,15 @@ export default function AdminStartupDashboard() {
 
         {tab === "initial" && (
           <>
+            <div className="flex justify-end">
+              <button
+                onClick={() => downloadXlsx(`${startup.companyName.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}-initial-data.xlsx`, "Initial Data", buildInitialDataRows(data), { mergeColumns: [0] })}
+                className="ost-btn-ghost !px-3 !py-1.5 text-xs"
+              >
+                <Download className="h-3.5 w-3.5" /> Export Excel
+              </button>
+            </div>
+
             <Section title="Startup Profile" icon={Building2}>
               <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                 <div>

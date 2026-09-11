@@ -5,8 +5,9 @@ import { Counter, Money, MultiPills } from "../../components/StartupFormFields";
 import { api } from "../../lib/utils";
 import { showToast } from "../../lib/toast";
 import { formatMoney } from "../../lib/format";
+import { downloadXlsx } from "../../lib/xlsx";
 import { LEGAL_ENTITY_LABELS, BUSINESS_MODEL_LABELS, CUSTOMER_BASE_LABELS } from "../../lib/startupProfileLabels";
-import { Building2, Briefcase, Cpu, Pencil, ExternalLink, Loader2, TrendingUp, Handshake, Users, Globe2, PieChart, Plus, Trash2 } from "lucide-react";
+import { Building2, Briefcase, Cpu, Pencil, ExternalLink, Loader2, TrendingUp, Handshake, Users, Globe2, PieChart, Plus, Trash2, Download } from "lucide-react";
 import type { TeamMemberRow, CapTableEntryRow } from "./types";
 import type { StartupProfile } from "../StartupDashboard";
 
@@ -60,6 +61,41 @@ function LinkField({ label, url }: { label: string; url: string | null }) {
   );
 }
 
+function buildInitialDataRows(startup: StartupProfile, team: TeamMemberRow[], capTable: CapTableEntryRow[]): (string | number)[][] {
+  const founderCount = team.filter((t) => t.type === "founder").length;
+  const fullTimeCount = team.filter((t) => t.type === "founder" || t.type === "full_time").length;
+  const capTableTotal = capTable.reduce((sum, e) => sum + e.percentage, 0);
+  const rows: (string | number)[][] = [["Section", "Field", "Value"]];
+  const add = (section: string, field: string, value: string | number | null | undefined) => rows.push([section, field, value ?? ""]);
+
+  add("Startup Profile", "Legal Entity", startup.legalEntityStatus ? LEGAL_ENTITY_LABELS[startup.legalEntityStatus] : "");
+  add("Startup Profile", "Year of constitution", startup.startedYear);
+  add("Startup Profile", "Country", startup.country);
+  add("Startup Profile", "Business Model Type", startup.businessModelType ? BUSINESS_MODEL_LABELS[startup.businessModelType] : "");
+  add("Startup Profile", "Deck link", startup.deckUrl);
+  add("Startup Profile", "Website link", startup.website);
+  add("Startup Profile", "Data Room link", startup.dataRoomLink);
+  add("Core Business", "Overview", startup.coreBusinessOverview);
+  add("Core IP / Technology", "Overview", startup.coreIpTechnology);
+  add("Traction & previous funding", "Total revenues since founding year", startup.totalRevenueSinceFounding);
+  add("Traction & previous funding", "Total investments raised", startup.amountRaised);
+  add("Traction & previous funding", "Total Grants", startup.totalGrants);
+  add("Round Details", "Total Round Size", startup.totalRoundSize);
+  add("Round Details", "Round terms", startup.roundTerms);
+  add("Round Details", "Last Valuation", startup.lastValuation);
+  add("Team", "Founders (number)", founderCount);
+  add("Team", "Full-Time Employees (counting founders)", fullTimeCount);
+  add("Impact Metrics", "SDGs Addressed", startup.sdgsAddressed?.join(", ") ?? "");
+  add("Impact Metrics", "Number of female team members", startup.femaleTeamMembers);
+  add("Impact Metrics", "Number of Youth employees", startup.youthEmployees);
+  add("Markets", "Country of Incorporation", startup.countryOfIncorporation);
+  add("Markets", "Customer Base", startup.customerBase ? CUSTOMER_BASE_LABELS[startup.customerBase] : "");
+  add("Markets", "Countries of Operation", startup.countriesOfOperation);
+  for (const entry of capTable) add("Cap Table", entry.name, `${entry.percentage}%`);
+  if (capTable.length > 0) add("Cap Table", "Total", `${capTableTotal}%`);
+  return rows;
+}
+
 export function OverviewTab({
   startup,
   team,
@@ -79,7 +115,13 @@ export function OverviewTab({
     <div className="space-y-6">
       {startup && (
         <div>
-          <div className="flex items-center justify-end">
+          <div className="flex items-center justify-end gap-2">
+            <button
+              onClick={() => downloadXlsx(`${startup.companyName.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}-initial-data.xlsx`, "Initial Data", buildInitialDataRows(startup, team, capTable), { mergeColumns: [0] })}
+              className="ost-btn-ghost !px-3 !py-1.5 text-xs"
+            >
+              <Download className="h-3.5 w-3.5" /> Export Excel
+            </button>
             <button onClick={() => setEditing(true)} className="ost-btn-ghost !px-3 !py-1.5 text-xs"><Pencil className="h-3.5 w-3.5" /> Edit startup profile</button>
           </div>
 
