@@ -25,7 +25,7 @@ interface MetricsProfile {
   dataRoom: Record<string, { inception?: boolean; graduation?: boolean }>;
   companyProfile: Record<string, { inception?: string; graduation?: string }>;
 }
-export interface Achievement { id: string; achievedAt: string | null; details: string; createdAt: string }
+export interface Achievement { id: string; achievement: string | null; details: string; createdAt: string }
 
 const EMPTY_PROFILE: MetricsProfile = {
   salesNotes: null, revenueNotes: null, teamRecruitNotes: null, partnershipNotes: null, fundraisingNotes: null,
@@ -541,7 +541,7 @@ function SectionTable({
 
 export function AchievementsLog({ apiBase, achievements, onSaved }: { apiBase: string; achievements: Achievement[]; onSaved?: () => void }) {
   const qc = useQueryClient();
-  const [achievedAt, setAchievedAt] = useState("");
+  const [achievement, setAchievement] = useState("");
   const [details, setDetails] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -551,14 +551,14 @@ export function AchievementsLog({ apiBase, achievements, onSaved }: { apiBase: s
   }
 
   async function add() {
-    if (!details.trim()) return;
+    if (!achievement.trim() || !details.trim()) return;
     setSaving(true);
     try {
       await api(`${apiBase}/achievements`, {
         method: "POST",
-        body: JSON.stringify({ achievedAt: achievedAt || undefined, details }),
+        body: JSON.stringify({ achievement, details }),
       });
-      setAchievedAt("");
+      setAchievement("");
       setDetails("");
       invalidate();
     } catch (e: any) {
@@ -585,12 +585,12 @@ export function AchievementsLog({ apiBase, achievements, onSaved }: { apiBase: s
         {achievements.map((a) => (
           <div key={a.id} className="flex items-start justify-between gap-3 rounded-lg border border-slate-100 px-3 py-2">
             <div className="min-w-0">
-              {a.achievedAt && <span className="mr-2 text-xs font-semibold text-slate-400">{a.achievedAt}</span>}
-              <span className="text-sm text-slate-600">{a.details}</span>
+              <p className="text-sm font-semibold text-primary">{a.achievement}</p>
+              <p className="text-sm text-slate-600">{a.details}</p>
             </div>
             <button
-              aria-label={`Delete achievement: ${a.details}`}
-              onClick={() => remove(a.id, a.details)}
+              aria-label={`Delete achievement: ${a.achievement}`}
+              onClick={() => remove(a.id, a.achievement || a.details)}
               className="ost-btn-ghost !p-1.5 shrink-0 text-red-500"
             >
               <Trash2 className="h-4 w-4" />
@@ -598,25 +598,22 @@ export function AchievementsLog({ apiBase, achievements, onSaved }: { apiBase: s
           </div>
         ))}
       </div>
-      <div className="flex items-start gap-2">
-        <div className="w-40">
-          <label className="ost-label" htmlFor="achievement-date">Date</label>
-          <input id="achievement-date" className="ost-input" placeholder="e.g. 2026-09" value={achievedAt} onChange={(e) => setAchievedAt(e.target.value)} />
+      <div className="space-y-4">
+        <div>
+          <label className="ost-label" htmlFor="achievement-title">Achievement</label>
+          <input id="achievement-title" className="ost-input" placeholder="e.g. Reached 10,000 users" value={achievement} onChange={(e) => setAchievement(e.target.value)} />
         </div>
-        <div className="flex-1">
+        <div>
           <label className="ost-label" htmlFor="achievement-details">Details</label>
           <input id="achievement-details" className="ost-input" placeholder="What happened?" value={details} onChange={(e) => setDetails(e.target.value)} />
         </div>
-        <div>
-          <label className="ost-label invisible">Add</label>
-          <button
-            onClick={add}
-            disabled={saving || !details.trim()}
-            className="ost-btn-ghost !px-3 !py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Add
-          </button>
-        </div>
+        <button
+          onClick={add}
+          disabled={saving || !achievement.trim() || !details.trim()}
+          className="ost-btn-ghost !px-3 !py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Add
+        </button>
       </div>
     </div>
   );

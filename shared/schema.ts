@@ -506,7 +506,10 @@ export const startupAchievements = pgTable("startup_achievements", {
   startupId: uuid("startup_id")
     .references(() => startups.id, { onDelete: "cascade" })
     .notNull(),
+  // superseded by `achievement` (a short title) below — the form is now two
+  // free-text fields (Achievement, Details), not a date.
   achievedAt: text("achieved_at"),
+  achievement: text("achievement"),
   details: text("details").notNull(),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
@@ -1256,7 +1259,7 @@ export const metricsProfileSchema = z.object({
 });
 
 export const achievementSchema = z.object({
-  achievedAt: z.string().max(50).optional().or(z.literal("")),
+  achievement: z.string().min(1, "Achievement is required").max(200),
   details: z.string().min(1, "Details are required").max(2000),
 });
 

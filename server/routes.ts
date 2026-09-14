@@ -1116,7 +1116,7 @@ export function registerRoutes(app: Express) {
       return res.status(400).json({ message: parsed.error.errors[0].message });
     }
     const achievement = await storage.createAchievement(startup.id, {
-      achievedAt: parsed.data.achievedAt || null,
+      achievement: parsed.data.achievement,
       details: parsed.data.details,
     });
     res.status(201).json(achievement);
@@ -2838,7 +2838,7 @@ export function registerRoutes(app: Express) {
       return res.status(400).json({ message: parsed.error.errors[0].message });
     }
     const achievement = await storage.createAchievement(startup.id, {
-      achievedAt: parsed.data.achievedAt || null,
+      achievement: parsed.data.achievement,
       details: parsed.data.details,
     });
     res.status(201).json(achievement);

@@ -778,6 +778,7 @@ CREATE TABLE IF NOT EXISTS startup_achievements (
   details text NOT NULL,
   created_at timestamp NOT NULL DEFAULT now()
 );
+ALTER TABLE startup_achievements ADD COLUMN IF NOT EXISTS achievement text;
 
 -- Dashboard's "Monthly updates" narrative check-in is now quarterly. The
 -- table/column keep their old "monthly" names non-destructively; period_month

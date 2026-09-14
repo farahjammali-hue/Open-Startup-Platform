@@ -726,7 +726,7 @@ export const storage = {
       .orderBy(desc(startupAchievements.createdAt));
   },
 
-  async createAchievement(startupId: string, data: { achievedAt?: string | null; details: string }): Promise<StartupAchievement> {
+  async createAchievement(startupId: string, data: { achievement: string; details: string }): Promise<StartupAchievement> {
     const [row] = await db.insert(startupAchievements).values({ startupId, ...data }).returning();
     return row;
   },
