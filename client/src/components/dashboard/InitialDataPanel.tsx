@@ -569,13 +569,13 @@ export function InitialDataPanel({ apiConfig }: { apiConfig: InitialDataApiConfi
           onToggle={() => {}}
         >
           <Field label="Total Addressable Market">
-            <input className={`ost-input ${H10}`} value={s.totalAddressableMarket ?? ""} onChange={(e) => set("totalAddressableMarket", e.target.value)} placeholder="e.g. $500M – $1B+ across Africa" />
+            <input className={`ost-input ${H10}`} value={s.totalAddressableMarket ?? ""} onChange={(e) => set("totalAddressableMarket", e.target.value)} placeholder="e.g. $1.5B+ across Sub-Saharan Africa" />
           </Field>
           <Field label="Serviceable Addressable Market">
-            <input className={`ost-input ${H10}`} value={s.serviceableAddressableMarket ?? ""} onChange={(e) => set("serviceableAddressableMarket", e.target.value)} placeholder="e.g. $30-40M annually in Kenya, Uganda" />
+            <input className={`ost-input ${H10}`} value={s.serviceableAddressableMarket ?? ""} onChange={(e) => set("serviceableAddressableMarket", e.target.value)} placeholder="e.g. $80-120M annually in Nigeria, Ghana" />
           </Field>
           <Field label="Serviceable Obtainable Market">
-            <input className={`ost-input ${H10}`} value={s.serviceableObtainableMarket ?? ""} onChange={(e) => set("serviceableObtainableMarket", e.target.value)} placeholder="e.g. $3-6M annually" />
+            <input className={`ost-input ${H10}`} value={s.serviceableObtainableMarket ?? ""} onChange={(e) => set("serviceableObtainableMarket", e.target.value)} placeholder="e.g. $5-10M annually" />
           </Field>
         </InitialDataCard>
 
