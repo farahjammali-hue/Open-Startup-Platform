@@ -211,7 +211,7 @@ export function MetricsKpiPanel({ apiBase, startupName }: { apiBase: string; sta
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-slate-400">Editable by both the founder and the OST team.</p>
+        <p className="text-sm text-slate-400">Switch views anytime. Your data stays in sync.</p>
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1 rounded-lg border border-slate-200 p-1">
             <button
