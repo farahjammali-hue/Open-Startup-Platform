@@ -122,11 +122,18 @@ export function KysStep({
     <div>
       <div className="mb-6">
         <div className="mb-2 flex items-baseline justify-between">
-          <span className="text-sm font-bold text-white/60">KYS completion</span>
-          <span className="text-lg font-extrabold text-secondary-300">{pct}%</span>
+          <span className="text-sm font-bold text-slate-500">KYS completion</span>
+          <span className="text-lg font-extrabold text-amber-text">{pct}%</span>
         </div>
-        <div className="h-2.5 overflow-hidden rounded-full bg-white/10">
-          <div className="h-full rounded-full" style={{ width: `${pct}%`, background: "linear-gradient(90deg, #FF3D82, #62DDD1)" }} />
+        <div
+          role="progressbar"
+          aria-label="KYS completion"
+          aria-valuenow={pct}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          className="h-2.5 overflow-hidden rounded-full bg-slate-100"
+        >
+          <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: "var(--yellow)" }} />
         </div>
       </div>
 

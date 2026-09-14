@@ -54,7 +54,7 @@ export default function ContractKys() {
           />
 
           {step !== "done" && (
-            <div className="mb-8 mt-8 flex gap-4 border-b border-white/10">
+            <div className="mb-8 mt-8 flex gap-4 border-b border-slate-200">
               <StepTab label="Contract" num={1} active={step === "contract"} done={contractSigned} onClick={() => setStep("contract")} />
               <StepTab label="Know Your Startup (KYS)" num={2} active={step === "kys"} done={kysSubmitted} onClick={() => contractSigned && setStep("kys")} />
             </div>
@@ -100,10 +100,10 @@ function StepTab({ label, num, active, done, onClick }: { label: string; num: nu
     <button
       onClick={onClick}
       className={`flex items-center gap-2 border-b-2 px-1 pb-4 pt-2 text-sm font-semibold transition ${
-        active ? "border-secondary text-secondary-300" : "border-transparent text-white/50 hover:text-white"
+        active ? "border-secondary text-secondary" : "border-transparent text-slate-400 hover:text-primary"
       }`}
     >
-      <span className={`flex h-5 w-5 items-center justify-center rounded-full text-xs font-bold ${done ? "bg-secondary text-white" : active ? "bg-secondary text-white" : "bg-white/10 text-white/40"}`}>
+      <span className={`flex h-5 w-5 items-center justify-center rounded-full text-xs font-bold ${done ? "bg-secondary text-white" : active ? "bg-secondary text-white" : "bg-slate-100 text-slate-400"}`}>
         {done ? <Check className="h-3 w-3" /> : num}
       </span>
       {label}

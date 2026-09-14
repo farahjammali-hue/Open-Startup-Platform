@@ -64,20 +64,20 @@ export function AppHeader() {
   }
 
   return (
-    <header className="flex items-center justify-between border-b border-white/10 bg-primary/40 px-6 py-3 backdrop-blur">
+    <header className="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-3">
       <div className="flex items-center gap-4">
         {startups.length > 0 && (
           <Dropdown
             align="left"
             width="w-64"
-            triggerClassName="flex items-center gap-2 rounded-lg border border-white/15 px-3 py-1.5 text-sm font-semibold text-white hover:border-secondary"
+            triggerClassName="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-semibold text-primary hover:border-secondary"
             trigger={
               <>
                 <StartupAvatar startup={active} size={20} />
                 <span className="max-w-[160px] truncate">
                   {active?.companyName ?? "Select startup"}
                 </span>
-                <ChevronDown className="h-4 w-4 text-white/40" />
+                <ChevronDown className="h-4 w-4 text-slate-400" />
               </>
             }
           >
@@ -119,7 +119,7 @@ export function AppHeader() {
       <Dropdown
         align="right"
         width="w-52"
-        triggerClassName="flex items-center gap-2 rounded-full border border-white/15 py-1 pl-1 pr-3 hover:border-secondary"
+        triggerClassName="flex items-center gap-2 rounded-full border border-slate-200 py-1 pl-1 pr-3 hover:border-secondary"
         trigger={
           <>
             {user?.avatarUrl ? (
@@ -129,10 +129,10 @@ export function AppHeader() {
                 {user?.name?.charAt(0).toUpperCase()}
               </span>
             )}
-            <span className="hidden text-sm font-medium text-white sm:inline">
+            <span className="hidden text-sm font-medium text-primary sm:inline">
               {user?.name?.split(" ")[0]}
             </span>
-            <ChevronDown className="h-4 w-4 text-white/40" />
+            <ChevronDown className="h-4 w-4 text-slate-400" />
           </>
         }
       >

@@ -47,13 +47,13 @@ export function TabBar<T extends string>({
   onChange: (key: T) => void;
 }) {
   return (
-    <div className="mb-8 mt-8 flex flex-wrap gap-2 border-b border-white/10">
+    <div className="mb-8 mt-8 flex flex-wrap gap-2 border-b border-slate-200">
       {tabs.map((t) => (
         <button
           key={t.key}
           onClick={() => onChange(t.key)}
           className={`whitespace-nowrap border-b-2 px-4 py-3 text-sm font-semibold transition ${
-            active === t.key ? "border-secondary text-secondary-300" : "border-transparent text-white/50 hover:text-white"
+            active === t.key ? "border-secondary text-secondary" : "border-transparent text-slate-400 hover:text-primary"
           }`}
         >
           {t.label}

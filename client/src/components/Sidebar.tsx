@@ -2,7 +2,6 @@ import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "../lib/auth";
 import { api } from "../lib/utils";
-import { Logo } from "./Brand";
 import { confirmLeave } from "../lib/navGuard";
 import { useKysStatus } from "../lib/kysStatus";
 import { showToast } from "../lib/toast";
@@ -124,16 +123,20 @@ export function Sidebar() {
         </div>
       );
     }
+    // .nav-item's own base color (var(--text-2), tuned for a light nav) is
+    // more specific than a plain Tailwind text-white/NN utility here (it's
+    // nested under .brand-tokens-root), so the inactive/locked colors are
+    // set inline to guarantee they win on this navy sidebar; the active
+    // state is left to .nav-item[aria-current="page"] itself, which is
+    // exactly the white-pill-with-turquoise-bar look it's meant to produce.
     return (
       <button
         key={it.label}
         onClick={() => go(it.to, it.lockedIf)}
-        className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition ${
-          it.lockedIf
-            ? "text-white/30"
-            : active
-              ? "border border-secondary/30 bg-secondary/15 text-white"
-              : "text-white/70 hover:bg-white/5 hover:text-white"
+        aria-current={active ? "page" : undefined}
+        style={active ? undefined : { color: it.lockedIf ? "rgba(255,255,255,.3)" : "rgba(255,255,255,.7)" }}
+        className={`nav-item flex w-full items-center gap-3 text-sm font-medium transition ${
+          active ? "" : "hover:bg-white/5 hover:!text-white"
         }`}
       >
         <Icon className="h-[18px] w-[18px]" /> {it.label}
@@ -142,11 +145,13 @@ export function Sidebar() {
     );
   }
 
+  const onboardingPct = kysSubmitted ? 100 : 35;
+
   return (
-    <aside className="hidden w-60 shrink-0 flex-col border-r border-white/10 bg-primary md:flex">
+    <aside className="brand-tokens-root hidden w-60 shrink-0 flex-col border-r border-white/10 bg-primary md:flex">
       <div className="flex h-16 items-center border-b border-white/10 px-5">
         <button onClick={() => go("/")}>
-          <Logo compact className="[&_*]:text-white" />
+          <img src="/logos/logo-offwhite.svg" alt="Open Startup Platform" className="h-6 w-auto" />
         </button>
       </div>
 
@@ -161,8 +166,19 @@ export function Sidebar() {
               <div className="truncate text-[11px] text-white/50">{kysSubmitted ? "Onboarding complete" : "Onboarding in progress"}</div>
             </div>
           </div>
-          <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
-            <div className="h-full rounded-full" style={{ width: kysSubmitted ? "100%" : "35%", background: "linear-gradient(90deg, #FF3D82, #62DDD1)" }} />
+          <div className="mb-1 flex items-center justify-between text-[11px] font-semibold text-white/50">
+            <span>Onboarding</span>
+            <span>{onboardingPct}%</span>
+          </div>
+          <div
+            role="progressbar"
+            aria-label="Onboarding progress"
+            aria-valuenow={onboardingPct}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            className="h-1.5 overflow-hidden rounded-full bg-white/10"
+          >
+            <div className="h-full rounded-full transition-all" style={{ width: `${onboardingPct}%`, background: "var(--yellow)" }} />
           </div>
         </div>
       )}

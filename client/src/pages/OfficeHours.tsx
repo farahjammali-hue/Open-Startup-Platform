@@ -50,7 +50,7 @@ export default function OfficeHours() {
         {error && <div className="mt-4 rounded-lg border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">{error}</div>}
 
         <div className="mb-4 mt-12 flex items-center gap-3 ost-section-label">
-          <span>Available slots</span><span className="h-px flex-1 bg-white/10" />
+          <span>Available slots</span><span className="h-px flex-1 bg-slate-200" />
         </div>
         {slotsLoading && (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -83,7 +83,7 @@ export default function OfficeHours() {
         )}
 
         <div className="mb-4 mt-12 flex items-center gap-3 ost-section-label">
-          <span>Past sessions &amp; recaps</span><span className="h-px flex-1 bg-white/10" />
+          <span>Past sessions &amp; recaps</span><span className="h-px flex-1 bg-slate-200" />
         </div>
         {bookingsLoading && (
           <div className="space-y-3">

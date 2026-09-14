@@ -67,8 +67,8 @@ describe("TabBar", () => {
 
   it("marks the active tab distinctly from inactive ones", () => {
     render(<TabBar tabs={tabs} active="overview" onChange={() => {}} />);
-    expect(screen.getByRole("button", { name: "Overview" })).toHaveClass("text-secondary-300");
-    expect(screen.getByRole("button", { name: "Deep dive" })).not.toHaveClass("text-secondary-300");
+    expect(screen.getByRole("button", { name: "Overview" })).toHaveClass("text-secondary");
+    expect(screen.getByRole("button", { name: "Deep dive" })).not.toHaveClass("text-secondary");
   });
 
   it("calls onChange with the clicked tab's key", async () => {

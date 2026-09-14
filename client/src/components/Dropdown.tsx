@@ -36,7 +36,7 @@ export function Dropdown({
         {trigger}
       </button>
       {open && (
-        <div className={`absolute ${align === "left" ? "left-0" : "right-0"} z-20 mt-2 ${width} rounded-xl border border-slate-100 bg-offwhite py-2 shadow-card-hover`}>
+        <div className={`absolute ${align === "left" ? "left-0" : "right-0"} z-20 mt-2 ${width} rounded-xl border border-slate-100 bg-white py-2 shadow-card-hover`}>
           {children(() => setOpen(false))}
         </div>
       )}

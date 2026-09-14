@@ -40,19 +40,24 @@ body {
      size/weight instead of one-off text-[Npx] values. */
 
   .ost-eyebrow {
-    @apply text-xs font-extrabold uppercase tracking-[0.2em] text-secondary-300;
+    @apply text-xs font-extrabold uppercase tracking-[0.2em];
+    color: var(--text-2);
   }
 
   .ost-page-title {
-    @apply text-[32px] font-extrabold leading-tight text-white;
+    @apply text-[32px] font-extrabold leading-tight;
+    font-family: var(--font-display);
+    color: var(--text-1);
   }
 
   .ost-page-subtext {
-    @apply max-w-[640px] text-base leading-relaxed text-white/60;
+    @apply max-w-[640px] text-base leading-relaxed;
+    color: var(--text-2);
   }
 
   .ost-section-label {
-    @apply text-xs font-extrabold uppercase tracking-wide text-white/50;
+    @apply text-xs font-extrabold uppercase tracking-wide;
+    color: var(--text-2);
   }
 
   .ost-card-title {
@@ -68,11 +73,15 @@ body {
   }
 
   .ost-muted-on-canvas {
-    @apply text-white/40;
+    color: var(--text-3);
   }
 
   .ost-back-link {
-    @apply text-white/50 transition hover:text-secondary-300;
+    @apply transition;
+    color: var(--text-2);
+  }
+  .ost-back-link:hover {
+    color: var(--info);
   }
 
   /* ---- Controls & surfaces ----------------------------------------------- */
@@ -112,7 +121,10 @@ body {
      Prefer .ost-panel below over .ost-card for content that doesn't need a
      full border + shadow treatment (e.g. secondary list items). */
   .ost-card {
-    @apply rounded-2xl border border-slate-100 bg-offwhite shadow-card;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-sm);
+    border-radius: var(--r-lg);
   }
 
   /* Lighter sibling of .ost-card: same surface (so ost-card-title,
@@ -121,16 +133,25 @@ body {
      emphasis. Use for secondary lists/rows that shouldn't visually compete
      with a page's main .ost-card content. */
   .ost-panel {
-    @apply rounded-xl border border-slate-100 bg-offwhite;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
   }
 
   .ost-chip {
     @apply inline-flex items-center gap-1.5 rounded-full bg-secondary/10 px-3 py-1 text-xs font-semibold text-secondary-600;
   }
 
-  /* Canvas: the dark "Science Road" page background used behind the light
-     content cards. Scoped to specific wrappers (not body) so unmigrated
-     pages, like the admin area, keep their light background. */
+  /* App content background: warm off-white, matching --bg-app. Cards sit on
+     it at --surface (true white) so there's always a gentle, deliberate step
+     between canvas and card instead of a harsh jump — or none at all. */
+  .ost-shell-bg {
+    background: var(--bg-app);
+  }
+
+  /* Retained for the standalone auth-style screens (Login, RoleSelect) that
+     still use the original dark "Science Road" hero treatment; the app
+     shell itself now uses .ost-shell-bg above instead. */
   .ost-canvas {
     background:
       linear-gradient(180deg, rgba(255, 61, 130, 0.28) 0%, rgba(255, 61, 130, 0.1) 5%, transparent 16%),
@@ -173,6 +194,42 @@ body {
 
 .dark .ost-chip {
   @apply bg-secondary/20 text-secondary-300;
+}
+
+/* .ost-shell-bg/.ost-page-title/etc. above are tuned for the new off-white
+   shell. In dark mode the shell (like every card) goes dark instead, so
+   these restore the white-on-dark treatment the app has always used here —
+   same values as before this file's light-mode rework, just scoped to .dark
+   now instead of being the unconditional default. */
+.dark .ost-shell-bg {
+  background: #070b22;
+}
+
+.dark .ost-eyebrow {
+  @apply text-secondary-300;
+}
+
+.dark .ost-page-title {
+  @apply text-white;
+}
+
+.dark .ost-page-subtext {
+  @apply text-white/60;
+}
+
+.dark .ost-section-label {
+  @apply text-white/50;
+}
+
+.dark .ost-muted-on-canvas {
+  @apply text-white/40;
+}
+
+.dark .ost-back-link {
+  @apply text-white/50;
+}
+.dark .ost-back-link:hover {
+  @apply text-secondary-300;
 }
 
 .dark .text-primary {
