@@ -5,7 +5,7 @@ import { api } from "../lib/utils";
 import { confirmLeave } from "../lib/navGuard";
 import { Dropdown } from "./Dropdown";
 import { ThemeToggle } from "./ThemeToggle";
-import { CaretDown as ChevronDown, Plus, Check, Buildings as Building2, SignOut as LogOut, Gear as Settings } from "@phosphor-icons/react";
+import { CaretDown as ChevronDown, Check, Buildings as Building2, SignOut as LogOut, Gear as Settings } from "@phosphor-icons/react";
 
 interface StartupLite {
   id: string;
@@ -92,15 +92,6 @@ export function AppHeader() {
                     )}
                   </button>
                 ))}
-                <div className="my-1 h-px bg-slate-200" />
-                {startups.length < 2 && (
-                  <button
-                    onClick={() => { close(); go("/startups/new"); }}
-                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-secondary hover:bg-white/60"
-                  >
-                    <Plus className="h-4 w-4" /> Create new startup
-                  </button>
-                )}
               </>
             )}
           </Dropdown>
@@ -141,12 +132,6 @@ export function AppHeader() {
               className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-primary hover:bg-white/60"
             >
               <Settings className="h-4 w-4 text-slate-400" /> Account settings
-            </button>
-            <button
-              onClick={() => { close(); go("/account#startups"); }}
-              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-primary hover:bg-white/60"
-            >
-              <Building2 className="h-4 w-4 text-slate-400" /> My startups
             </button>
             <div className="my-1 h-px bg-slate-200" />
             <button
