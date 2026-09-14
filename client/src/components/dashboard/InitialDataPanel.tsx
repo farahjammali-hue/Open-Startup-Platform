@@ -51,9 +51,9 @@ interface StartupProfileData {
   productStage: string | null;
   productRoadmapLink: string | null;
   trlLevel: number | null;
-  totalAddressableMarket: number | null;
-  serviceableAddressableMarket: number | null;
-  serviceableObtainableMarket: number | null;
+  totalAddressableMarket: string | null;
+  serviceableAddressableMarket: string | null;
+  serviceableObtainableMarket: string | null;
   goToMarketStrategyLink: string | null;
   competitionOverview: string | null;
   idealCustomerPersona: string | null;
@@ -564,13 +564,19 @@ export function InitialDataPanel({ apiConfig }: { apiConfig: InitialDataApiConfi
         <InitialDataCard
           title="10. Market Size"
           icon={ChartBar}
-          completion={completionOf([s.totalAddressableMarket != null, s.serviceableAddressableMarket != null, s.serviceableObtainableMarket != null])}
+          completion={completionOf([!!s.totalAddressableMarket, !!s.serviceableAddressableMarket, !!s.serviceableObtainableMarket])}
           isOpen={false}
           onToggle={() => {}}
         >
-          <Field label="Total Addressable Market"><Money value={s.totalAddressableMarket != null ? String(s.totalAddressableMarket) : ""} onChange={(v) => set("totalAddressableMarket", v ? Number(v) : null)} placeholder="TAM" /></Field>
-          <Field label="Serviceable Addressable Market"><Money value={s.serviceableAddressableMarket != null ? String(s.serviceableAddressableMarket) : ""} onChange={(v) => set("serviceableAddressableMarket", v ? Number(v) : null)} placeholder="SAM" /></Field>
-          <Field label="Serviceable Obtainable Market"><Money value={s.serviceableObtainableMarket != null ? String(s.serviceableObtainableMarket) : ""} onChange={(v) => set("serviceableObtainableMarket", v ? Number(v) : null)} placeholder="SOM" /></Field>
+          <Field label="Total Addressable Market">
+            <input className={`ost-input ${H10}`} value={s.totalAddressableMarket ?? ""} onChange={(e) => set("totalAddressableMarket", e.target.value)} placeholder="e.g. $500M – $1B+ across Africa" />
+          </Field>
+          <Field label="Serviceable Addressable Market">
+            <input className={`ost-input ${H10}`} value={s.serviceableAddressableMarket ?? ""} onChange={(e) => set("serviceableAddressableMarket", e.target.value)} placeholder="e.g. $30-40M annually in Kenya, Uganda" />
+          </Field>
+          <Field label="Serviceable Obtainable Market">
+            <input className={`ost-input ${H10}`} value={s.serviceableObtainableMarket ?? ""} onChange={(e) => set("serviceableObtainableMarket", e.target.value)} placeholder="e.g. $3-6M annually" />
+          </Field>
         </InitialDataCard>
 
         {/* 11. Go To Market */}

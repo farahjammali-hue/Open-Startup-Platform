@@ -401,10 +401,12 @@ export const startups = pgTable("startups", {
   productRoadmapLink: text("product_roadmap_link"),
   trlLevel: integer("trl_level"),
 
-  // Card 10 (Market Size).
-  totalAddressableMarket: bigint("total_addressable_market", { mode: "number" }),
-  serviceableAddressableMarket: bigint("serviceable_addressable_market", { mode: "number" }),
-  serviceableObtainableMarket: bigint("serviceable_obtainable_market", { mode: "number" }),
+  // Card 10 (Market Size) — free text rather than a single number: founders
+  // describe a range plus context (e.g. "$500M-$1B+ across Africa"), not
+  // just a dollar figure.
+  totalAddressableMarket: text("total_addressable_market"),
+  serviceableAddressableMarket: text("serviceable_addressable_market"),
+  serviceableObtainableMarket: text("serviceable_obtainable_market"),
 
   // Card 11 (Go To Market) — the one link field; per-market status lives in
   // startupTargetMarkets below.
@@ -1349,10 +1351,10 @@ export const startupProfileOverviewSchema = z.object({
   totalRoundSize: z.number().nonnegative().optional(),
   roundTerms: z.string().max(300).optional().or(z.literal("")),
   lastValuation: z.number().nonnegative().optional(),
-  // Card 10: Market Size
-  totalAddressableMarket: z.number().nonnegative().optional(),
-  serviceableAddressableMarket: z.number().nonnegative().optional(),
-  serviceableObtainableMarket: z.number().nonnegative().optional(),
+  // Card 10: Market Size — free text (e.g. "$500M-$1B+ across Africa"), not a bare number.
+  totalAddressableMarket: z.string().max(300).optional().or(z.literal("")),
+  serviceableAddressableMarket: z.string().max(300).optional().or(z.literal("")),
+  serviceableObtainableMarket: z.string().max(300).optional().or(z.literal("")),
   // Card 11: Go To Market
   goToMarketStrategyLink: z.string().url("Enter a valid URL").max(500).optional().or(z.literal("")),
   // Card 12: Competition

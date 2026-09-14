@@ -863,6 +863,12 @@ ALTER TABLE startups ADD COLUMN IF NOT EXISTS trl_level integer;
 ALTER TABLE startups ADD COLUMN IF NOT EXISTS total_addressable_market bigint;
 ALTER TABLE startups ADD COLUMN IF NOT EXISTS serviceable_addressable_market bigint;
 ALTER TABLE startups ADD COLUMN IF NOT EXISTS serviceable_obtainable_market bigint;
+-- Market Size became free text (a range + context, e.g. "$500M-$1B+ across
+-- Africa") instead of a bare number; converts any existing numeric values to
+-- their text form. A no-op once already text.
+ALTER TABLE startups ALTER COLUMN total_addressable_market TYPE text USING total_addressable_market::text;
+ALTER TABLE startups ALTER COLUMN serviceable_addressable_market TYPE text USING serviceable_addressable_market::text;
+ALTER TABLE startups ALTER COLUMN serviceable_obtainable_market TYPE text USING serviceable_obtainable_market::text;
 ALTER TABLE startups ADD COLUMN IF NOT EXISTS go_to_market_strategy_link text;
 ALTER TABLE startups ADD COLUMN IF NOT EXISTS competition_overview text;
 ALTER TABLE startups ADD COLUMN IF NOT EXISTS ideal_customer_persona text;
