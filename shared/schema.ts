@@ -413,6 +413,7 @@ export const startups = pgTable("startups", {
   goToMarketStrategyLink: text("go_to_market_strategy_link"),
 
   // Card 12 (Competition).
+  mainCompetitors: text("main_competitors"),
   competitionOverview: text("competition_overview"),
 
   // Card 13 (Clients) — the two single fields; per-type stats and
@@ -1361,6 +1362,7 @@ export const startupProfileOverviewSchema = z.object({
   // Card 11: Go To Market
   goToMarketStrategyLink: z.string().url("Enter a valid URL").max(500).optional().or(z.literal("")),
   // Card 12: Competition
+  mainCompetitors: z.string().max(500).optional().or(z.literal("")),
   competitionOverview: z.string().max(1600).optional().or(z.literal("")),
   // Card 13: Clients
   idealCustomerPersona: z.string().max(1600).optional().or(z.literal("")),

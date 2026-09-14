@@ -55,6 +55,7 @@ interface StartupProfileData {
   serviceableAddressableMarket: string | null;
   serviceableObtainableMarket: string | null;
   goToMarketStrategyLink: string | null;
+  mainCompetitors: string | null;
   competitionOverview: string | null;
   idealCustomerPersona: string | null;
   clientsCrmLink: string | null;
@@ -662,7 +663,10 @@ export function InitialDataPanel({ apiConfig }: { apiConfig: InitialDataApiConfi
         </InitialDataCard>
 
         {/* 12. Competition */}
-        <InitialDataCard title="12. Competition" icon={Binoculars} completion={completionOf([!!s.competitionOverview])} isOpen={false} onToggle={() => {}}>
+        <InitialDataCard title="12. Competition" icon={Binoculars} completion={completionOf([!!s.mainCompetitors, !!s.competitionOverview])} isOpen={false} onToggle={() => {}}>
+          <Field label="Main Competitors">
+            <input className={`ost-input ${H10}`} value={s.mainCompetitors ?? ""} onChange={(e) => set("mainCompetitors", e.target.value)} placeholder="e.g. Competitor A, Competitor B" />
+          </Field>
           <textarea className="ost-input min-h-[90px] w-full" value={s.competitionOverview ?? ""} onChange={(e) => set("competitionOverview", e.target.value)} />
         </InitialDataCard>
 

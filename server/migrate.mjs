@@ -871,6 +871,7 @@ ALTER TABLE startups ALTER COLUMN total_addressable_market TYPE text USING total
 ALTER TABLE startups ALTER COLUMN serviceable_addressable_market TYPE text USING serviceable_addressable_market::text;
 ALTER TABLE startups ALTER COLUMN serviceable_obtainable_market TYPE text USING serviceable_obtainable_market::text;
 ALTER TABLE startups ADD COLUMN IF NOT EXISTS go_to_market_strategy_link text;
+ALTER TABLE startups ADD COLUMN IF NOT EXISTS main_competitors text;
 ALTER TABLE startups ADD COLUMN IF NOT EXISTS competition_overview text;
 ALTER TABLE startups ADD COLUMN IF NOT EXISTS ideal_customer_persona text;
 ALTER TABLE startups ADD COLUMN IF NOT EXISTS clients_crm_link text;

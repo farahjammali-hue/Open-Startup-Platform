@@ -890,6 +890,7 @@ export function registerRoutes(app: Express) {
       serviceableAddressableMarket: d.serviceableAddressableMarket || null,
       serviceableObtainableMarket: d.serviceableObtainableMarket || null,
       goToMarketStrategyLink: d.goToMarketStrategyLink || null,
+      mainCompetitors: d.mainCompetitors || null,
       competitionOverview: d.competitionOverview || null,
       idealCustomerPersona: d.idealCustomerPersona || null,
       clientsCrmLink: d.clientsCrmLink || null,
