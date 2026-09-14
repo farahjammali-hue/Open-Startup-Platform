@@ -226,19 +226,25 @@ function AddModal({
 }
 
 function RepeatableList<T extends { id: string }>({
-  rows, renderRow, onDelete, onAdd, addLabel, emptyText,
+  rows, renderRow, onDelete, onAdd, addLabel, emptyText, onRowClick,
 }: {
   rows: T[]; renderRow: (row: T) => ReactNode; onDelete: (id: string) => void; onAdd: () => void; addLabel: string; emptyText: string;
+  /** When set, each row becomes clickable (e.g. to view its full details in a modal) — the delete button still works on its own, it just stops the click from also opening the row. */
+  onRowClick?: (row: T) => void;
 }) {
   return (
     <div className="space-y-2">
       {rows.length === 0 && <p className="text-xs text-slate-400">{emptyText}</p>}
       {rows.map((row) => (
-        <div key={row.id} className="group flex items-start justify-between gap-2 rounded-lg border border-slate-100 px-3 py-2">
+        <div
+          key={row.id}
+          onClick={onRowClick ? () => onRowClick(row) : undefined}
+          className={`group flex items-start justify-between gap-2 rounded-lg border border-slate-100 px-3 py-2 ${onRowClick ? "cursor-pointer transition hover:border-secondary/40" : ""}`}
+        >
           <div className="min-w-0 flex-1 text-xs text-slate-600">{renderRow(row)}</div>
           <button
             aria-label="Delete"
-            onClick={() => onDelete(row.id)}
+            onClick={(e) => { e.stopPropagation(); onDelete(row.id); }}
             className="shrink-0 rounded-md p-1 text-slate-300 opacity-0 transition hover:bg-red-50 hover:text-red-500 group-hover:opacity-100"
           >
             <Trash2 className="h-4 w-4" />
@@ -247,6 +253,25 @@ function RepeatableList<T extends { id: string }>({
       ))}
       <button type="button" onClick={onAdd} className="ost-btn-ghost !px-2.5 !py-1 text-xs"><Plus className="h-4 w-4" /> {addLabel}</button>
     </div>
+  );
+}
+
+function DetailModal({ title, rows, onClose }: { title: string; rows: { label: string; value: ReactNode }[]; onClose: () => void }) {
+  return (
+    <ModalShell maxWidth="max-w-md">
+      <h3 className="mb-4 text-lg font-bold text-primary">{title}</h3>
+      <div className="space-y-3">
+        {rows.map((r) => (
+          <div key={r.label}>
+            <FieldLabel>{r.label}</FieldLabel>
+            <p className="text-sm text-primary">{r.value || <span className="text-slate-300">—</span>}</p>
+          </div>
+        ))}
+      </div>
+      <div className="mt-5 flex justify-end">
+        <button onClick={onClose} className="ost-btn-ghost">Close</button>
+      </div>
+    </ModalShell>
   );
 }
 
@@ -261,6 +286,8 @@ export function InitialDataPanel({ apiConfig }: { apiConfig: InitialDataApiConfi
   const [form, setForm] = useState<Record<string, any>>({});
   const [saving, setSaving] = useState(false);
   const [activeModal, setActiveModal] = useState<string | null>(null);
+  const [viewFounder, setViewFounder] = useState<TeamMemberRow | null>(null);
+  const [viewShareholder, setViewShareholder] = useState<CapTableEntryRow | null>(null);
 
   useEffect(() => {
     if (data?.startup) setForm({ ...data.startup });
@@ -413,6 +440,7 @@ export function InitialDataPanel({ apiConfig }: { apiConfig: InitialDataApiConfi
             emptyText="No founders added yet."
             addLabel="Add founder"
             onAdd={() => setActiveModal("founder")}
+            onRowClick={setViewFounder}
             onDelete={(id) => deleteRow(apiConfig.teamUrl, id)}
             renderRow={(m) => (
               <>
@@ -430,6 +458,7 @@ export function InitialDataPanel({ apiConfig }: { apiConfig: InitialDataApiConfi
             emptyText="No shareholders added yet."
             addLabel="Add shareholder"
             onAdd={() => setActiveModal("shareholder")}
+            onRowClick={setViewShareholder}
             onDelete={(id) => deleteRow(apiConfig.capTableUrl, id)}
             renderRow={(entry) => (
               <>
@@ -661,6 +690,29 @@ export function InitialDataPanel({ apiConfig }: { apiConfig: InitialDataApiConfi
           <AchievementsLog apiBase={apiConfig.metricsApiBase} achievements={data.achievements} onSaved={invalidate} />
         </InitialDataCard>
       </div>
+
+      {viewFounder && (
+        <DetailModal
+          title={viewFounder.name}
+          onClose={() => setViewFounder(null)}
+          rows={[
+            { label: "Gender", value: viewFounder.gender },
+            { label: "Educational Background", value: viewFounder.educationalBackground },
+            { label: "Professional Background", value: viewFounder.professionalBackground },
+            { label: "Years of Experience", value: viewFounder.yearsOfExperience != null ? `${viewFounder.yearsOfExperience} yrs` : null },
+          ]}
+        />
+      )}
+      {viewShareholder && (
+        <DetailModal
+          title={viewShareholder.name}
+          onClose={() => setViewShareholder(null)}
+          rows={[
+            { label: "Shareholder %", value: `${viewShareholder.percentage}%` },
+            { label: "Current involvement", value: viewShareholder.currentInvolvement ? labelOf(INVOLVEMENT_OPTIONS, viewShareholder.currentInvolvement) : null },
+          ]}
+        />
+      )}
 
       {activeModal === "founder" && (
         <AddModal
