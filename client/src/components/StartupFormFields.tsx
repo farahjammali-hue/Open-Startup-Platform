@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { CircleNotch as Loader2, Lock, Globe, Upload, Image as ImageIcon, FileText, ArrowSquareOut as ExternalLink } from "@phosphor-icons/react";
+import { CircleNotch as Loader2, Lock, Globe, Upload, Image as ImageIcon, FileText, ArrowSquareOut as ExternalLink, Check } from "@phosphor-icons/react";
 
 async function compressImage(file: File): Promise<Blob> {
   return new Promise((resolve, reject) => {
@@ -210,7 +210,7 @@ export function LinkInput({ value, onChange }: { value: string; onChange: (v: st
   );
 }
 
-export function Money({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+export function Money({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
   return (
     <div className="relative">
       <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">$</span>
@@ -220,7 +220,7 @@ export function Money({ value, onChange }: { value: string; onChange: (v: string
         className="ost-input pl-7"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder="0"
+        placeholder={placeholder}
       />
     </div>
   );
@@ -247,6 +247,24 @@ export function YesNo({ value, onChange }: { value: boolean | undefined; onChang
   );
 }
 
+function PillButton({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm font-medium transition ${
+        active
+          ? "border-primary bg-primary text-white"
+          : "border-slate-200 bg-white text-slate-600 hover:border-primary/40"
+      }`}
+    >
+      {active && <Check className="h-3.5 w-3.5" weight="bold" />}
+      {label}
+    </button>
+  );
+}
+
+/** Single-choice pill group — selecting a pill deselects any other; the caption below always reads "Single choice" since that's inherent to this component. */
 export function Pills({
   options,
   value,
@@ -257,28 +275,18 @@ export function Pills({
   onChange: (v: string) => void;
 }) {
   return (
-    <div className="flex flex-wrap gap-2">
-      {options.map((o) => {
-        const active = value === o.value;
-        return (
-          <button
-            key={o.value}
-            type="button"
-            onClick={() => onChange(active ? "" : o.value)}
-            className={`rounded-full border px-3.5 py-1.5 text-sm font-medium transition ${
-              active
-                ? "border-secondary bg-secondary text-white"
-                : "border-slate-200 bg-white text-slate-600 hover:border-secondary"
-            }`}
-          >
-            {o.label}
-          </button>
-        );
-      })}
+    <div>
+      <div className="flex flex-wrap gap-2">
+        {options.map((o) => (
+          <PillButton key={o.value} label={o.label} active={value === o.value} onClick={() => onChange(value === o.value ? "" : o.value)} />
+        ))}
+      </div>
+      <p className="mt-1.5 text-xs text-slate-400">Single choice</p>
     </div>
   );
 }
 
+/** Multi-choice pill group — any number of pills can be active at once; the caption below always reads "Multiple choice" since that's inherent to this component. */
 export function MultiPills({
   options,
   value,
@@ -289,26 +297,21 @@ export function MultiPills({
   onChange: (v: string[]) => void;
 }) {
   return (
-    <div className="flex flex-wrap gap-2">
-      {options.map((o) => {
-        const active = value.includes(o.value);
-        return (
-          <button
-            key={o.value}
-            type="button"
-            onClick={() =>
-              onChange(active ? value.filter((x) => x !== o.value) : [...value, o.value])
-            }
-            className={`rounded-full border px-3.5 py-1.5 text-sm font-medium transition ${
-              active
-                ? "border-secondary bg-secondary text-white"
-                : "border-slate-200 bg-white text-slate-600 hover:border-secondary"
-            }`}
-          >
-            {o.label}
-          </button>
-        );
-      })}
+    <div>
+      <div className="flex flex-wrap gap-2">
+        {options.map((o) => {
+          const active = value.includes(o.value);
+          return (
+            <PillButton
+              key={o.value}
+              label={o.label}
+              active={active}
+              onClick={() => onChange(active ? value.filter((x) => x !== o.value) : [...value, o.value])}
+            />
+          );
+        })}
+      </div>
+      <p className="mt-1.5 text-xs text-slate-400">Multiple choice</p>
     </div>
   );
 }

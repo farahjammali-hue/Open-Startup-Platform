@@ -7,14 +7,18 @@ import { ModalShell } from "../ModalShell";
 import { Skeleton } from "../Skeleton";
 import { Pills, MultiPills, Money, LinkInput } from "../StartupFormFields";
 import { AchievementsLog, type Achievement } from "../metrics/MetricsKpiPanel";
-import { InitialDataCard } from "./InitialDataCard";
+import { InitialDataCard, type CardCompletion } from "./InitialDataCard";
 import { LEGAL_ENTITY_LABELS } from "../../lib/startupProfileLabels";
 import {
   BUSINESS_MODEL_OPTIONS, PRODUCT_STAGE_OPTIONS, INVESTMENT_STAGE_OPTIONS, FUNDING_TYPE_OPTIONS,
   PATENT_APPLICATION_TYPE_OPTIONS, PATENT_STATUS_OPTIONS, GTM_STATUS_OPTIONS, CLIENT_TYPE_OPTIONS,
   PARTNER_TYPE_OPTIONS, INVOLVEMENT_OPTIONS, TRL_EXPLAINER_URL, type Option,
 } from "@shared/initialDataCatalog";
-import { CircleNotch as Loader2, Plus, Trash as Trash2, ArrowSquareOut as ExternalLink } from "@phosphor-icons/react";
+import {
+  CircleNotch as Loader2, Plus, Trash as Trash2, ArrowSquareOut as ExternalLink,
+  Buildings, NotePencil, Lightbulb, Users, ChartPieSlice, PiggyBank, Cpu, Package,
+  Scales, ChartBar, Target, Binoculars, UserCircle, Handshake, Trophy, type Icon,
+} from "@phosphor-icons/react";
 
 /* ---------------- Types matching the GET response ---------------- */
 
@@ -105,7 +109,38 @@ function labelOf(options: Option[], value: string | null | undefined): string {
   return options.find((o) => o.value === value)?.label ?? (value || "—");
 }
 
+/** empty (0 filled) / partial (some) / complete (all) — the same rule for every card. */
+function completionOf(filled: boolean[]): CardCompletion {
+  const n = filled.filter(Boolean).length;
+  if (n === 0) return "empty";
+  return n === filled.length ? "complete" : "partial";
+}
+
 /* ---------------- Generic building blocks ---------------- */
+
+/** Label used above every single-line field, identically across all 15 cards. */
+function FieldLabel({ children }: { children: ReactNode }) {
+  return (
+    <label className="mb-1.5 block text-[13px] font-medium" style={{ color: "var(--text-2)" }}>
+      {children}
+    </label>
+  );
+}
+
+/** A labeled field wrapper — pairs FieldLabel with its input so call sites read as one unit. */
+function Field({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div>
+      <FieldLabel>{label}</FieldLabel>
+      {children}
+    </div>
+  );
+}
+
+// Appended to `ost-input` (not replacing it) so single-line fields get a fixed
+// 40px height on top of ost-input's existing border/bg/focus-ring — textareas
+// are exempt, they size by content the way a multi-line field should.
+const H10 = "h-10";
 
 function Row({ label, value }: { label: string; value: ReactNode }) {
   return (
@@ -161,9 +196,9 @@ function AddModal({
       <h3 className="mb-4 text-lg font-bold text-primary">{title}</h3>
       {fields.map((f) => (
         <div key={f.key} className="mb-3">
-          <label className="ost-label">{f.label}</label>
+          <FieldLabel>{f.label}</FieldLabel>
           {f.type === "select" ? (
-            <select className="ost-input" value={values[f.key] ?? ""} onChange={(e) => setValues((v) => ({ ...v, [f.key]: e.target.value }))}>
+            <select className={`ost-input ${H10}`} value={values[f.key] ?? ""} onChange={(e) => setValues((v) => ({ ...v, [f.key]: e.target.value }))}>
               <option value="">Select…</option>
               {f.options!.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
@@ -172,7 +207,7 @@ function AddModal({
           ) : (
             <input
               type={f.type === "number" ? "number" : "text"}
-              className="ost-input"
+              className={`ost-input ${H10}`}
               value={values[f.key] ?? ""}
               onChange={(e) => setValues((v) => ({ ...v, [f.key]: e.target.value }))}
             />
@@ -199,9 +234,13 @@ function RepeatableList<T extends { id: string }>({
     <div className="space-y-2">
       {rows.length === 0 && <p className="text-xs text-slate-400">{emptyText}</p>}
       {rows.map((row) => (
-        <div key={row.id} className="flex items-start justify-between gap-2 rounded-lg border border-slate-100 px-3 py-2">
+        <div key={row.id} className="group flex items-start justify-between gap-2 rounded-lg border border-slate-100 px-3 py-2">
           <div className="min-w-0 flex-1 text-xs text-slate-600">{renderRow(row)}</div>
-          <button aria-label="Delete" onClick={() => onDelete(row.id)} className="shrink-0 text-slate-300 hover:text-red-500">
+          <button
+            aria-label="Delete"
+            onClick={() => onDelete(row.id)}
+            className="shrink-0 rounded-md p-1 text-slate-300 opacity-0 transition hover:bg-red-50 hover:text-red-500 group-hover:opacity-100"
+          >
             <Trash2 className="h-4 w-4" />
           </button>
         </div>
@@ -286,7 +325,7 @@ export function InitialDataPanel({ apiConfig }: { apiConfig: InitialDataApiConfi
 
   if (isLoading || !data) {
     return (
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-40 w-full" />)}
       </div>
     );
@@ -304,72 +343,71 @@ export function InitialDataPanel({ apiConfig }: { apiConfig: InitialDataApiConfi
         </button>
       </div>
 
-      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {/* 1. Profile */}
-        <InitialDataCard title="1. Profile" isOpen={false} onToggle={() => {}}>
-          <div className="grid grid-cols-2 gap-2.5">
-            <div>
-              <label className="ost-label">Legal Entity</label>
-              <select className="ost-input" value={s.legalEntityStatus ?? ""} onChange={(e) => set("legalEntityStatus", e.target.value)}>
+        <InitialDataCard
+          title="1. Profile"
+          icon={Buildings}
+          completion={completionOf([!!s.legalEntityStatus, s.startedYear != null, !!s.country, (s.businessModelTypes?.length ?? 0) > 0])}
+          isOpen={expanded.has("profile")}
+          onToggle={() => toggle("profile")}
+          hidden={
+            <>
+              <Field label="Other countries">
+                <input className={`ost-input ${H10}`} value={s.countriesOfOperation ?? ""} onChange={(e) => set("countriesOfOperation", e.target.value)} placeholder="e.g. Kenya, Tanzania" />
+              </Field>
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="Pitch deck link"><LinkInput value={s.deckUrl ?? ""} onChange={(v) => set("deckUrl", v)} /></Field>
+                <Field label="Data Room link"><LinkInput value={s.dataRoomLink ?? ""} onChange={(v) => set("dataRoomLink", v)} /></Field>
+              </div>
+            </>
+          }
+        >
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Legal Entity">
+              <select className={`ost-input ${H10}`} value={s.legalEntityStatus ?? ""} onChange={(e) => set("legalEntityStatus", e.target.value)}>
                 <option value="">Not set</option>
                 {Object.entries(LEGAL_ENTITY_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
               </select>
-            </div>
-            <div>
-              <label className="ost-label">Year of constitution</label>
-              <input type="number" className="ost-input" value={s.startedYear ?? ""} onChange={(e) => set("startedYear", e.target.value ? Number(e.target.value) : null)} />
-            </div>
-            <div>
-              <label className="ost-label">Headquarters</label>
-              <input className="ost-input" value={s.country ?? ""} onChange={(e) => set("country", e.target.value)} />
-            </div>
-            <div>
-              <label className="ost-label">Other countries</label>
-              <input className="ost-input" value={s.countriesOfOperation ?? ""} onChange={(e) => set("countriesOfOperation", e.target.value)} placeholder="e.g. Kenya, Tanzania" />
-            </div>
+            </Field>
+            <Field label="Year of constitution">
+              <input type="number" className={`ost-input ${H10}`} value={s.startedYear ?? ""} onChange={(e) => set("startedYear", e.target.value ? Number(e.target.value) : null)} />
+            </Field>
           </div>
-          <div>
-            <label className="ost-label">Business model</label>
+          <Field label="Headquarters">
+            <input className={`ost-input ${H10}`} value={s.country ?? ""} onChange={(e) => set("country", e.target.value)} />
+          </Field>
+          <Field label="Business model">
             <MultiPills options={BUSINESS_MODEL_OPTIONS} value={s.businessModelTypes ?? []} onChange={(v) => set("businessModelTypes", v)} />
-          </div>
-          <div className="grid grid-cols-2 gap-2.5">
-            <div>
-              <label className="ost-label">Pitch deck link</label>
-              <LinkInput value={s.deckUrl ?? ""} onChange={(v) => set("deckUrl", v)} />
-            </div>
-            <div>
-              <label className="ost-label">Data Room link</label>
-              <LinkInput value={s.dataRoomLink ?? ""} onChange={(v) => set("dataRoomLink", v)} />
-            </div>
-          </div>
+          </Field>
         </InitialDataCard>
 
         {/* 2. Brief Description */}
-        <InitialDataCard title="2. Brief Description" isOpen={false} onToggle={() => {}}>
+        <InitialDataCard title="2. Brief Description" icon={NotePencil} completion={completionOf([!!s.coreBusinessOverview])} isOpen={false} onToggle={() => {}}>
           <textarea className="ost-input min-h-[90px] w-full" value={s.coreBusinessOverview ?? ""} onChange={(e) => set("coreBusinessOverview", e.target.value)} placeholder="Mission, target market, and unique value proposition in 200 words or less." />
         </InitialDataCard>
 
         {/* 3. Unique Value Proposition */}
-        <InitialDataCard title="3. Unique Value Proposition" isOpen={false} onToggle={() => {}}>
+        <InitialDataCard title="3. Unique Value Proposition" icon={Lightbulb} completion={completionOf([!!s.uniqueValueProposition])} isOpen={false} onToggle={() => {}}>
           <textarea className="ost-input min-h-[90px] w-full" value={s.uniqueValueProposition ?? ""} onChange={(e) => set("uniqueValueProposition", e.target.value)} />
         </InitialDataCard>
 
         {/* 4. Team */}
         <InitialDataCard
           title="4. Team"
+          icon={Users}
+          completion={completionOf([founders.length > 0, s.teamSize != null])}
           isOpen={expanded.has("team")}
           onToggle={() => toggle("team")}
           hidden={
-            <>
-              <div className="grid grid-cols-2 gap-2">
-                <div><label className="ost-label">Team Size</label><input type="number" className="ost-input" value={s.teamSize ?? ""} onChange={(e) => set("teamSize", e.target.value ? Number(e.target.value) : null)} /></div>
-                <div><label className="ost-label">% Youth in team</label><input type="number" className="ost-input" value={s.youthEmployees ?? ""} onChange={(e) => set("youthEmployees", e.target.value ? Number(e.target.value) : null)} /></div>
-                <div><label className="ost-label">Contractors</label><input type="number" className="ost-input" value={s.contractorsCount ?? ""} onChange={(e) => set("contractorsCount", e.target.value ? Number(e.target.value) : null)} /></div>
-                <div><label className="ost-label">Paid employees</label><input type="number" className="ost-input" value={s.paidEmployeesCount ?? ""} onChange={(e) => set("paidEmployeesCount", e.target.value ? Number(e.target.value) : null)} /></div>
-                <div><label className="ost-label">Advisors</label><input type="number" className="ost-input" value={s.advisorsCount ?? ""} onChange={(e) => set("advisorsCount", e.target.value ? Number(e.target.value) : null)} /></div>
-                <div><label className="ost-label">Female employees</label><input type="number" className="ost-input" value={s.femaleTeamMembers ?? ""} onChange={(e) => set("femaleTeamMembers", e.target.value ? Number(e.target.value) : null)} /></div>
-              </div>
-            </>
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="Team Size"><input type="number" className={`ost-input ${H10}`} value={s.teamSize ?? ""} onChange={(e) => set("teamSize", e.target.value ? Number(e.target.value) : null)} /></Field>
+              <Field label="% Youth in team"><input type="number" className={`ost-input ${H10}`} value={s.youthEmployees ?? ""} onChange={(e) => set("youthEmployees", e.target.value ? Number(e.target.value) : null)} /></Field>
+              <Field label="Contractors"><input type="number" className={`ost-input ${H10}`} value={s.contractorsCount ?? ""} onChange={(e) => set("contractorsCount", e.target.value ? Number(e.target.value) : null)} /></Field>
+              <Field label="Paid employees"><input type="number" className={`ost-input ${H10}`} value={s.paidEmployeesCount ?? ""} onChange={(e) => set("paidEmployeesCount", e.target.value ? Number(e.target.value) : null)} /></Field>
+              <Field label="Advisors"><input type="number" className={`ost-input ${H10}`} value={s.advisorsCount ?? ""} onChange={(e) => set("advisorsCount", e.target.value ? Number(e.target.value) : null)} /></Field>
+              <Field label="Female employees"><input type="number" className={`ost-input ${H10}`} value={s.femaleTeamMembers ?? ""} onChange={(e) => set("femaleTeamMembers", e.target.value ? Number(e.target.value) : null)} /></Field>
+            </div>
           }
         >
           <RepeatableList
@@ -388,7 +426,7 @@ export function InitialDataPanel({ apiConfig }: { apiConfig: InitialDataApiConfi
         </InitialDataCard>
 
         {/* 5. Shareholders */}
-        <InitialDataCard title="5. Shareholders" isOpen={false} onToggle={() => {}}>
+        <InitialDataCard title="5. Shareholders" icon={ChartPieSlice} completion={completionOf([data.capTableEntries.length > 0])} isOpen={false} onToggle={() => {}}>
           <RepeatableList
             rows={data.capTableEntries}
             emptyText="No shareholders added yet."
@@ -407,14 +445,19 @@ export function InitialDataPanel({ apiConfig }: { apiConfig: InitialDataApiConfi
         {/* 6. Funding */}
         <InitialDataCard
           title="6. Funding"
+          icon={PiggyBank}
+          completion={completionOf([s.totalFundingRaised != null, !!s.investmentStage])}
           isOpen={expanded.has("funding")}
           onToggle={() => toggle("funding")}
           hidden={
             <>
-              <div>
-                <label className="ost-label">CRM of investors (link)</label>
-                <LinkInput value={s.fundingCrmLink ?? ""} onChange={(v) => set("fundingCrmLink", v)} />
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="Dilutive"><Money value={s.totalFundingDilutive != null ? String(s.totalFundingDilutive) : ""} onChange={(v) => set("totalFundingDilutive", v ? Number(v) : null)} placeholder="Dilutive" /></Field>
+                <Field label="Non-Dilutive"><Money value={s.totalFundingNonDilutive != null ? String(s.totalFundingNonDilutive) : ""} onChange={(v) => set("totalFundingNonDilutive", v ? Number(v) : null)} placeholder="Non-dilutive" /></Field>
+                <Field label="Round Size"><Money value={s.roundSize != null ? String(s.roundSize) : ""} onChange={(v) => set("roundSize", v ? Number(v) : null)} placeholder="Round size" /></Field>
+                <Field label="Committed Funds"><Money value={s.committedFunds != null ? String(s.committedFunds) : ""} onChange={(v) => set("committedFunds", v ? Number(v) : null)} placeholder="Committed funds" /></Field>
               </div>
+              <Field label="CRM of investors (link)"><LinkInput value={s.fundingCrmLink ?? ""} onChange={(v) => set("fundingCrmLink", v)} /></Field>
               <RepeatableList
                 rows={data.fundingRounds}
                 emptyText="No funding rounds added yet."
@@ -431,48 +474,50 @@ export function InitialDataPanel({ apiConfig }: { apiConfig: InitialDataApiConfi
             </>
           }
         >
-          <div className="grid grid-cols-2 gap-2.5">
-            <div><label className="ost-label">Total raised</label><Money value={s.totalFundingRaised != null ? String(s.totalFundingRaised) : ""} onChange={(v) => set("totalFundingRaised", v ? Number(v) : null)} /></div>
-            <div><label className="ost-label">Dilutive</label><Money value={s.totalFundingDilutive != null ? String(s.totalFundingDilutive) : ""} onChange={(v) => set("totalFundingDilutive", v ? Number(v) : null)} /></div>
-            <div><label className="ost-label">Non-Dilutive</label><Money value={s.totalFundingNonDilutive != null ? String(s.totalFundingNonDilutive) : ""} onChange={(v) => set("totalFundingNonDilutive", v ? Number(v) : null)} /></div>
-            <div><label className="ost-label">Round Size</label><Money value={s.roundSize != null ? String(s.roundSize) : ""} onChange={(v) => set("roundSize", v ? Number(v) : null)} /></div>
-            <div><label className="ost-label">Committed Funds</label><Money value={s.committedFunds != null ? String(s.committedFunds) : ""} onChange={(v) => set("committedFunds", v ? Number(v) : null)} /></div>
-          </div>
-          <div>
-            <label className="ost-label">Investment Stage</label>
+          <Field label="Total raised">
+            <Money value={s.totalFundingRaised != null ? String(s.totalFundingRaised) : ""} onChange={(v) => set("totalFundingRaised", v ? Number(v) : null)} placeholder="Total raised" />
+          </Field>
+          <Field label="Investment Stage">
             <Pills options={INVESTMENT_STAGE_OPTIONS} value={s.investmentStage ?? ""} onChange={(v) => set("investmentStage", v)} />
-          </div>
+          </Field>
         </InitialDataCard>
 
         {/* 7. Technology */}
-        <InitialDataCard title="7. Technology" isOpen={false} onToggle={() => {}}>
-          <div><label className="ost-label">Core technology</label><textarea className="ost-input min-h-[60px]" value={s.coreIpTechnology ?? ""} onChange={(e) => set("coreIpTechnology", e.target.value)} /></div>
-          <div><label className="ost-label">Main Technologies</label><input className="ost-input" value={s.mainTechnologies ?? ""} onChange={(e) => set("mainTechnologies", e.target.value)} /></div>
-          <div><label className="ost-label">Product Type</label><input className="ost-input" value={s.productType ?? ""} onChange={(e) => set("productType", e.target.value)} /></div>
+        <InitialDataCard
+          title="7. Technology"
+          icon={Cpu}
+          completion={completionOf([!!s.coreIpTechnology, !!s.mainTechnologies, !!s.productType])}
+          isOpen={false}
+          onToggle={() => {}}
+        >
+          <Field label="Core technology"><textarea className="ost-input min-h-[60px]" value={s.coreIpTechnology ?? ""} onChange={(e) => set("coreIpTechnology", e.target.value)} /></Field>
+          <Field label="Main Technologies"><input className={`ost-input ${H10}`} value={s.mainTechnologies ?? ""} onChange={(e) => set("mainTechnologies", e.target.value)} /></Field>
+          <Field label="Product Type"><input className={`ost-input ${H10}`} value={s.productType ?? ""} onChange={(e) => set("productType", e.target.value)} /></Field>
         </InitialDataCard>
 
         {/* 8. Product */}
         <InitialDataCard
           title="8. Product"
+          icon={Package}
+          completion={completionOf([!!s.productStage, s.trlLevel != null])}
           isOpen={expanded.has("product")}
           onToggle={() => toggle("product")}
           hidden={<a href={TRL_EXPLAINER_URL} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm text-secondary hover:underline">What is a TRL level? <ExternalLink className="h-4 w-4" /></a>}
         >
-          <div>
-            <label className="ost-label">Product Stage</label>
-            <select className="ost-input" value={s.productStage ?? ""} onChange={(e) => set("productStage", e.target.value)}>
+          <Field label="Product Stage">
+            <select className={`ost-input ${H10}`} value={s.productStage ?? ""} onChange={(e) => set("productStage", e.target.value)}>
               <option value="">Not set</option>
               {PRODUCT_STAGE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
-          </div>
-          <div className="grid grid-cols-2 gap-2.5">
-            <div><label className="ost-label">Product roadmap</label><LinkInput value={s.productRoadmapLink ?? ""} onChange={(v) => set("productRoadmapLink", v)} /></div>
-            <div><label className="ost-label">TRL level (1-9)</label><input type="number" min={1} max={9} className="ost-input" value={s.trlLevel ?? ""} onChange={(e) => set("trlLevel", e.target.value ? Number(e.target.value) : null)} /></div>
+          </Field>
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Product roadmap"><LinkInput value={s.productRoadmapLink ?? ""} onChange={(v) => set("productRoadmapLink", v)} /></Field>
+            <Field label="TRL level (1-9)"><input type="number" min={1} max={9} className={`ost-input ${H10}`} value={s.trlLevel ?? ""} onChange={(e) => set("trlLevel", e.target.value ? Number(e.target.value) : null)} /></Field>
           </div>
         </InitialDataCard>
 
         {/* 9. Patenting */}
-        <InitialDataCard title="9. Patenting" isOpen={false} onToggle={() => {}}>
+        <InitialDataCard title="9. Patenting" icon={Scales} completion={completionOf([data.patents.length > 0])} isOpen={false} onToggle={() => {}}>
           <RepeatableList
             rows={data.patents}
             emptyText="No patents added yet."
@@ -489,14 +534,26 @@ export function InitialDataPanel({ apiConfig }: { apiConfig: InitialDataApiConfi
         </InitialDataCard>
 
         {/* 10. Market Size */}
-        <InitialDataCard title="10. Market Size" isOpen={false} onToggle={() => {}}>
-          <div><label className="ost-label">Total Addressable Market</label><Money value={s.totalAddressableMarket != null ? String(s.totalAddressableMarket) : ""} onChange={(v) => set("totalAddressableMarket", v ? Number(v) : null)} /></div>
-          <div><label className="ost-label">Serviceable Addressable Market</label><Money value={s.serviceableAddressableMarket != null ? String(s.serviceableAddressableMarket) : ""} onChange={(v) => set("serviceableAddressableMarket", v ? Number(v) : null)} /></div>
-          <div><label className="ost-label">Serviceable Obtainable Market</label><Money value={s.serviceableObtainableMarket != null ? String(s.serviceableObtainableMarket) : ""} onChange={(v) => set("serviceableObtainableMarket", v ? Number(v) : null)} /></div>
+        <InitialDataCard
+          title="10. Market Size"
+          icon={ChartBar}
+          completion={completionOf([s.totalAddressableMarket != null, s.serviceableAddressableMarket != null, s.serviceableObtainableMarket != null])}
+          isOpen={false}
+          onToggle={() => {}}
+        >
+          <Field label="Total Addressable Market"><Money value={s.totalAddressableMarket != null ? String(s.totalAddressableMarket) : ""} onChange={(v) => set("totalAddressableMarket", v ? Number(v) : null)} placeholder="TAM" /></Field>
+          <Field label="Serviceable Addressable Market"><Money value={s.serviceableAddressableMarket != null ? String(s.serviceableAddressableMarket) : ""} onChange={(v) => set("serviceableAddressableMarket", v ? Number(v) : null)} placeholder="SAM" /></Field>
+          <Field label="Serviceable Obtainable Market"><Money value={s.serviceableObtainableMarket != null ? String(s.serviceableObtainableMarket) : ""} onChange={(v) => set("serviceableObtainableMarket", v ? Number(v) : null)} placeholder="SOM" /></Field>
         </InitialDataCard>
 
         {/* 11. Go To Market */}
-        <InitialDataCard title="11. Go To Market" isOpen={false} onToggle={() => {}}>
+        <InitialDataCard
+          title="11. Go To Market"
+          icon={Target}
+          completion={completionOf([data.targetMarkets.length > 0, !!s.goToMarketStrategyLink])}
+          isOpen={false}
+          onToggle={() => {}}
+        >
           <RepeatableList
             rows={data.targetMarkets}
             emptyText="No target markets added yet."
@@ -510,22 +567,24 @@ export function InitialDataPanel({ apiConfig }: { apiConfig: InitialDataApiConfi
               </>
             )}
           />
-          <div className="mt-2"><label className="ost-label">Go To Market strategy (link)</label><LinkInput value={s.goToMarketStrategyLink ?? ""} onChange={(v) => set("goToMarketStrategyLink", v)} /></div>
+          <Field label="Go To Market strategy (link)"><LinkInput value={s.goToMarketStrategyLink ?? ""} onChange={(v) => set("goToMarketStrategyLink", v)} /></Field>
         </InitialDataCard>
 
         {/* 12. Competition */}
-        <InitialDataCard title="12. Competition" isOpen={false} onToggle={() => {}}>
+        <InitialDataCard title="12. Competition" icon={Binoculars} completion={completionOf([!!s.competitionOverview])} isOpen={false} onToggle={() => {}}>
           <textarea className="ost-input min-h-[90px] w-full" value={s.competitionOverview ?? ""} onChange={(e) => set("competitionOverview", e.target.value)} />
         </InitialDataCard>
 
         {/* 13. Clients */}
         <InitialDataCard
           title="13. Clients"
+          icon={UserCircle}
+          completion={completionOf([data.clientStats.length > 0, !!s.idealCustomerPersona])}
           isOpen={expanded.has("clients")}
           onToggle={() => toggle("clients")}
           hidden={
             <>
-              <div><label className="ost-label">CRM of clients (link)</label><LinkInput value={s.clientsCrmLink ?? ""} onChange={(v) => set("clientsCrmLink", v)} /></div>
+              <Field label="CRM of clients (link)"><LinkInput value={s.clientsCrmLink ?? ""} onChange={(v) => set("clientsCrmLink", v)} /></Field>
               <RepeatableList
                 rows={data.clientDetails}
                 emptyText="No client details added yet."
@@ -555,17 +614,19 @@ export function InitialDataPanel({ apiConfig }: { apiConfig: InitialDataApiConfi
               </>
             )}
           />
-          <div className="mt-2"><label className="ost-label">Ideal Customer Persona</label><textarea className="ost-input min-h-[50px]" value={s.idealCustomerPersona ?? ""} onChange={(e) => set("idealCustomerPersona", e.target.value)} /></div>
+          <Field label="Ideal Customer Persona"><textarea className="ost-input min-h-[50px]" value={s.idealCustomerPersona ?? ""} onChange={(e) => set("idealCustomerPersona", e.target.value)} /></Field>
         </InitialDataCard>
 
         {/* 14. Partner */}
         <InitialDataCard
           title="14. Partner"
+          icon={Handshake}
+          completion={completionOf([data.partnerStats.length > 0])}
           isOpen={expanded.has("partners")}
           onToggle={() => toggle("partners")}
           hidden={
             <>
-              <div><label className="ost-label">CRM of partners (link)</label><LinkInput value={s.partnersCrmLink ?? ""} onChange={(v) => set("partnersCrmLink", v)} /></div>
+              <Field label="CRM of partners (link)"><LinkInput value={s.partnersCrmLink ?? ""} onChange={(v) => set("partnersCrmLink", v)} /></Field>
               <RepeatableList
                 rows={data.partnerDetails}
                 emptyText="No partner details added yet."
@@ -598,7 +659,7 @@ export function InitialDataPanel({ apiConfig }: { apiConfig: InitialDataApiConfi
         </InitialDataCard>
 
         {/* 15. Key Achievements */}
-        <InitialDataCard title="15. Key Achievements" isOpen={false} onToggle={() => {}}>
+        <InitialDataCard title="15. Key Achievements" icon={Trophy} completion={completionOf([data.achievements.length > 0])} isOpen={false} onToggle={() => {}}>
           <AchievementsLog apiBase={apiConfig.metricsApiBase} achievements={data.achievements} onSaved={invalidate} />
         </InitialDataCard>
       </div>
