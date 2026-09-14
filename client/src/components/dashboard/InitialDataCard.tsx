@@ -27,7 +27,7 @@ function CompletionBadge({ status }: { status: CardCompletion }) {
   );
 }
 
-/** One of the 15 Initial Data cards: a header (number + title, optional icon, completion badge), a visible face, and an optional "See more" disclosure. */
+/** One of the 15 Initial Data cards: a header (title, optional icon, completion badge), a visible face, and an optional "See more" disclosure. Callers still pass a "N. Title" string (source order in InitialDataPanel.tsx); the leading number is stripped here rather than in each call site. */
 export function InitialDataCard({
   title,
   icon: CardIcon,
@@ -45,7 +45,7 @@ export function InitialDataCard({
   isOpen: boolean;
   onToggle: () => void;
 }) {
-  const [number, ...rest] = title.split(". ");
+  const [, ...rest] = title.split(". ");
   const label = rest.join(". ") || title;
 
   return (
@@ -53,9 +53,7 @@ export function InitialDataCard({
       <div className="flex items-start justify-between gap-2">
         <h3 className="flex items-center gap-2 text-base font-semibold" style={{ color: "var(--text-1)" }}>
           {CardIcon && <CardIcon className="h-5 w-5 shrink-0" style={{ color: "var(--info)" }} />}
-          <span>
-            <span style={{ color: "var(--text-3)" }}>{number}.</span> {label}
-          </span>
+          <span>{label}</span>
         </h3>
         <CompletionBadge status={completion} />
       </div>
