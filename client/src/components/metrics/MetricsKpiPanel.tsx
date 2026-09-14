@@ -509,7 +509,7 @@ function SectionTable({
                     <td className="px-1 align-middle group-hover:bg-[var(--bg-app)]">
                       <MetricInput
                         metric={metric}
-                        className="ost-input !py-1 w-24 text-right text-xs tabular-nums"
+                        className="ost-input !py-1 w-24 border-[var(--border-strong)] bg-[var(--bg-subtle)] text-right text-xs tabular-nums"
                         aria-label={`${metric.label} — Initial Data`}
                         value={values.initial?.[metric.key] ?? ""}
                         onChange={(e) => setCell("initial", metric.key, e.target.value)}
@@ -519,7 +519,7 @@ function SectionTable({
                       <td key={period} className="px-1 align-middle group-hover:bg-[var(--bg-app)]">
                         <MetricInput
                           metric={metric}
-                          className="ost-input !py-1 w-20 text-right text-xs tabular-nums"
+                          className="ost-input !py-1 w-20 border-[var(--border-strong)] bg-[var(--bg-subtle)] text-right text-xs tabular-nums"
                           aria-label={`${metric.label} — ${MONTHS[i]}`}
                           value={values[period]?.[metric.key] ?? ""}
                           onChange={(e) => setCell(period, metric.key, e.target.value)}
