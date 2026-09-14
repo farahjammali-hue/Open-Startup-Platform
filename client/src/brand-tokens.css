@@ -5,12 +5,24 @@
    ============================================================ */
 
 /* ---------- FONTS ----------------------------------------------------------
-   IMPORTANT: the Graphik files shipped in the brand kit are a DISPLAY SUBSET.
-   They contain only A-Z a-z 0-9 and basic punctuation — NO $ % — accents (é à …).
-   So Graphik is used for DISPLAY HEADINGS ONLY (English, no symbols).
-   All UI text, body copy, numbers, currency, and any name with an accent use
-   the UI face below (Inter) until the FULL Graphik family is licensed from
-   commercialtype.com and self-hosted, at which point swap Inter out.
+   IMPORTANT: the Graphik files shipped in the brand kit are a DISPLAY SUBSET —
+   74 glyphs, A-Z a-z 0-9 and basic punctuation only. NO $, NO %, NO accented
+   characters (é à ç …). Two-face system, enforced by what each token
+   references rather than by convention:
+     --font-display (Graphik): h1, h2, and hero titles ONLY — plain English
+       headings/page titles/program labels, never data.
+     --font-ui (Inter for now; self-host in production): everything else —
+       every input, table, body element, label, number, currency, and any
+       name that might carry an accent. This is body's own font-family (see
+       .brand-tokens-root below), so it's what anything inherits by default;
+       only h1/h2/hero opt into --font-display explicitly.
+   --font-display's fallback chain still carries Inter + the same system
+   fallbacks as --font-ui, so even a heading that ends up with a $, %, or
+   accented character (e.g. a company name used as a page title) resolves
+   those glyphs from Inter/system-ui per-character instead of showing tofu —
+   belt and suspenders on top of the "display only holds headings" rule.
+   Full family: license from commercialtype.com and self-host, then swap
+   Inter out of --font-display's fallback.
 
    ADJUSTMENT 1: the brand kit's Font/ folder ships .otf, not .woff2 — there
    was no woff2 build to drop in. Referencing the .otf files directly here
@@ -80,13 +92,14 @@
   --sector-health:   var(--turquoise);
 
   /* ---------- TYPOGRAPHY ---------- */
-  --font-display: "Graphik", "Inter", system-ui, sans-serif;   /* headings ONLY */
+  --font-display: "Graphik", "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;   /* h1/h2/hero ONLY */
   --font-ui:      "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 
-  /* Type scale (px / line-height). Display uses --font-display; the rest --font-ui. */
+  /* Type scale (px / line-height). --font-display is used by --t-display and
+     --t-h1/--t-h2 only — every other rung is --font-ui, including --t-h3. */
   --t-display: 700 40px/1.1 var(--font-display);   /* hero / page hero, weight 900 for impact */
   --t-h1:      600 28px/1.2 var(--font-display);
-  --t-h2:      600 20px/1.3 var(--font-ui);
+  --t-h2:      600 20px/1.3 var(--font-display);
   --t-h3:      600 16px/1.4 var(--font-ui);
   --t-body:    400 14px/1.5 var(--font-ui);
   --t-small:   400 13px/1.45 var(--font-ui);
