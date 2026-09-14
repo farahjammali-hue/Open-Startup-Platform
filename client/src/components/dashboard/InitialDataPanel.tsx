@@ -539,9 +539,8 @@ export function InitialDataPanel({ apiConfig }: { apiConfig: InitialDataApiConfi
           title="8. Product"
           icon={Package}
           completion={completionOf([!!s.productStage, s.trlLevel != null])}
-          isOpen={expanded.has("product")}
-          onToggle={() => toggle("product")}
-          hidden={<a href={TRL_EXPLAINER_URL} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm text-secondary hover:underline">What is a TRL level? <ExternalLink className="h-4 w-4" /></a>}
+          isOpen={false}
+          onToggle={() => {}}
         >
           <Field label="Product Stage">
             <select className={`ost-input ${H10}`} value={s.productStage ?? ""} onChange={(e) => set("productStage", e.target.value)}>
@@ -553,6 +552,9 @@ export function InitialDataPanel({ apiConfig }: { apiConfig: InitialDataApiConfi
             <Field label="Product roadmap"><LinkInput value={s.productRoadmapLink ?? ""} onChange={(v) => set("productRoadmapLink", v)} /></Field>
             <Field label="TRL level (1-9)"><input type="number" min={1} max={9} className={`ost-input ${H10}`} value={s.trlLevel ?? ""} onChange={(e) => set("trlLevel", e.target.value ? Number(e.target.value) : null)} /></Field>
           </div>
+          <a href={TRL_EXPLAINER_URL} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm text-secondary hover:underline">
+            What is a TRL level? <ExternalLink className="h-4 w-4" />
+          </a>
         </InitialDataCard>
 
         {/* 9. Patenting */}
