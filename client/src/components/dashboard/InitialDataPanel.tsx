@@ -293,7 +293,6 @@ export function InitialDataPanel({ apiConfig }: { apiConfig: InitialDataApiConfi
   const [viewFounder, setViewFounder] = useState<TeamMemberRow | null>(null);
   const [viewShareholder, setViewShareholder] = useState<CapTableEntryRow | null>(null);
   const [newPatent, setNewPatent] = useState<Record<string, string>>({});
-  const [savingPatent, setSavingPatent] = useState(false);
 
   useEffect(() => {
     if (data?.startup) setForm({ ...data.startup });
@@ -327,6 +326,13 @@ export function InitialDataPanel({ apiConfig }: { apiConfig: InitialDataApiConfi
         body[k] = v;
       }
       await api(apiConfig.overviewPatchUrl, { method: "PATCH", body: JSON.stringify(body) });
+      // The Patenting card has no add button of its own — a patent typed
+      // into its always-visible fields is created here, same as any other
+      // field on this form, whenever there's something in it to save.
+      if (Object.values(newPatent).some((v) => v)) {
+        await addRow(`${sub}/patents`, newPatent);
+        setNewPatent({});
+      }
       showToast("Changes saved");
       invalidate();
     } catch (e: any) {
@@ -344,19 +350,6 @@ export function InitialDataPanel({ apiConfig }: { apiConfig: InitialDataApiConfi
     }
     await api(base, { method: "POST", body: JSON.stringify(body) });
     invalidate();
-  }
-
-  async function addPatent() {
-    if (!newPatent.applicationType && !newPatent.status && !newPatent.applicantName) return;
-    setSavingPatent(true);
-    try {
-      await addRow(`${sub}/patents`, newPatent);
-      setNewPatent({});
-    } catch (e: any) {
-      showToast(e.message || "Couldn't add this patent");
-    } finally {
-      setSavingPatent(false);
-    }
   }
 
   async function deleteRow(base: string, id: string) {
@@ -621,14 +614,6 @@ export function InitialDataPanel({ apiConfig }: { apiConfig: InitialDataApiConfi
           <Field label="Next Action">
             <textarea className="ost-input min-h-[60px]" value={newPatent.nextAction ?? ""} onChange={(e) => setNewPatent((v) => ({ ...v, nextAction: e.target.value }))} />
           </Field>
-          <button
-            type="button"
-            onClick={addPatent}
-            disabled={savingPatent}
-            className="ost-btn-primary !px-4 !py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {savingPatent && <Loader2 className="h-4 w-4 animate-spin" />} Add patent
-          </button>
         </InitialDataCard>
 
         {/* 10. Market Size */}
