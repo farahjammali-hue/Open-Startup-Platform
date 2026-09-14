@@ -1510,6 +1510,10 @@ export function registerRoutes(app: Express) {
       name: parsed.data.name,
       role: parsed.data.role || null,
       type: parsed.data.type,
+      gender: parsed.data.gender || null,
+      educationalBackground: parsed.data.educationalBackground || null,
+      professionalBackground: parsed.data.professionalBackground || null,
+      yearsOfExperience: parsed.data.yearsOfExperience ?? null,
     });
     res.status(201).json(member);
   }));
