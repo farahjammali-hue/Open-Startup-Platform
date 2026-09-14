@@ -484,7 +484,6 @@ export function InitialDataPanel({ apiConfig }: { apiConfig: InitialDataApiConfi
                 <Field label="Round Size"><Money value={s.roundSize != null ? String(s.roundSize) : ""} onChange={(v) => set("roundSize", v ? Number(v) : null)} placeholder="Round size" /></Field>
                 <Field label="Committed Funds"><Money value={s.committedFunds != null ? String(s.committedFunds) : ""} onChange={(v) => set("committedFunds", v ? Number(v) : null)} placeholder="Committed funds" /></Field>
               </div>
-              <Field label="CRM of investors (link)"><LinkInput value={s.fundingCrmLink ?? ""} onChange={(v) => set("fundingCrmLink", v)} /></Field>
               <RepeatableList
                 rows={data.fundingRounds}
                 emptyText="No funding rounds added yet."
@@ -498,6 +497,7 @@ export function InitialDataPanel({ apiConfig }: { apiConfig: InitialDataApiConfi
                   </>
                 )}
               />
+              <Field label="CRM of investors (link)"><LinkInput value={s.fundingCrmLink ?? ""} onChange={(v) => set("fundingCrmLink", v)} /></Field>
             </>
           }
         >
