@@ -79,7 +79,7 @@ export default function AdminStartupDashboard() {
 
         {tab === "initial" && (
           <>
-            <InitialDataPanel apiConfig={adminConfig} />
+            <InitialDataPanel apiConfig={adminConfig} startupName={startup.companyName} />
 
             <Section title="Objectives" icon={Target}>
               {goals.length === 0 ? <EmptyRow text="No objectives set yet." /> : (

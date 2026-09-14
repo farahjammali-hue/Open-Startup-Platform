@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../lib/utils";
 import { showToast } from "../../lib/toast";
 import { formatMoney } from "../../lib/format";
+import { downloadXlsx } from "../../lib/xlsx";
 import { ModalShell } from "../ModalShell";
 import { Skeleton } from "../Skeleton";
 import { Pills, MultiPills, Money, LinkInput } from "../StartupFormFields";
@@ -15,7 +16,7 @@ import {
   PARTNER_TYPE_OPTIONS, INVOLVEMENT_OPTIONS, TRL_EXPLAINER_URL, type Option,
 } from "@shared/initialDataCatalog";
 import {
-  CircleNotch as Loader2, Plus, Trash as Trash2, ArrowSquareOut as ExternalLink,
+  CircleNotch as Loader2, Plus, Trash as Trash2, ArrowSquareOut as ExternalLink, Download,
   Buildings, NotePencil, Lightbulb, Users, ChartPieSlice, PiggyBank, Cpu, Package,
   Scales, ChartBar, Target, Binoculars, UserCircle, Handshake, Trophy, type Icon,
 } from "@phosphor-icons/react";
@@ -282,7 +283,7 @@ function DetailModal({ title, rows, onClose }: { title: string; rows: { label: s
 
 /* ---------------- Main panel ---------------- */
 
-export function InitialDataPanel({ apiConfig }: { apiConfig: InitialDataApiConfig }) {
+export function InitialDataPanel({ apiConfig, startupName }: { apiConfig: InitialDataApiConfig; startupName?: string }) {
   const qc = useQueryClient();
   const queryKey = ["initial-data-panel", apiConfig.getUrl];
   const { data, isLoading } = useQuery<ProfileResponse>({ queryKey, queryFn: () => api(apiConfig.getUrl) });
@@ -375,9 +376,84 @@ export function InitialDataPanel({ apiConfig }: { apiConfig: InitialDataApiConfi
   const sub = apiConfig.subResourceBase;
   const founders = data.teamMembers.filter((m) => m.type === "founder");
 
+  async function exportSheet() {
+    if (!data) return; // already guaranteed by the isLoading check above; narrows for TS inside this closure
+    const rows: (string | number)[][] = [["Card", "Field", "Value"]];
+    const push = (card: string, field: string, value: string | number | null | undefined) => rows.push([card, field, value ?? ""]);
+    const money = (n: number | null | undefined) => (n == null ? null : formatMoney(n));
+
+    push("1. Profile", "Legal Entity", s.legalEntityStatus ? LEGAL_ENTITY_LABELS[s.legalEntityStatus] : "");
+    push("1. Profile", "Year of constitution", s.startedYear ?? "");
+    push("1. Profile", "Headquarters", s.country ?? "");
+    push("1. Profile", "Other countries of operation", s.countriesOfOperation ?? "");
+    push("1. Profile", "Business model", (s.businessModelTypes ?? []).map((v) => labelOf(BUSINESS_MODEL_OPTIONS, v)).join(", "));
+    push("1. Profile", "Pitch deck link", s.deckUrl ?? "");
+    push("1. Profile", "Data Room link", s.dataRoomLink ?? "");
+
+    push("2. Brief Description", "Overview", s.coreBusinessOverview ?? "");
+
+    push("3. Unique Value Proposition", "Description", s.uniqueValueProposition ?? "");
+
+    push("4. Team", "Team Size", s.teamSize ?? "");
+    push("4. Team", "% Youth in team", s.youthEmployees ?? "");
+    push("4. Team", "Contractors", s.contractorsCount ?? "");
+    push("4. Team", "Paid employees", s.paidEmployeesCount ?? "");
+    push("4. Team", "Advisors", s.advisorsCount ?? "");
+    push("4. Team", "Female employees", s.femaleTeamMembers ?? "");
+    founders.forEach((m, i) => push("4. Team", `Founder ${i + 1}`, [m.name, m.gender, m.educationalBackground, m.professionalBackground, m.yearsOfExperience != null ? `${m.yearsOfExperience} yrs` : null].filter(Boolean).join(" · ")));
+
+    data.capTableEntries.forEach((e, i) => push("5. Shareholders", `Shareholder ${i + 1}`, [`${e.name} — ${e.percentage}%`, e.currentInvolvement ? labelOf(INVOLVEMENT_OPTIONS, e.currentInvolvement) : null].filter(Boolean).join(" · ")));
+
+    push("6. Funding", "Total raised", s.totalFundingRaised ?? "");
+    push("6. Funding", "Dilutive", s.totalFundingDilutive ?? "");
+    push("6. Funding", "Non-Dilutive", s.totalFundingNonDilutive ?? "");
+    push("6. Funding", "Investment Stage", s.investmentStage ? labelOf(INVESTMENT_STAGE_OPTIONS, s.investmentStage) : "");
+    push("6. Funding", "Round Size", s.roundSize ?? "");
+    push("6. Funding", "Committed Funds", s.committedFunds ?? "");
+    data.fundingRounds.forEach((r, i) => push("6. Funding", `Funding Round ${i + 1}`, [r.investorName || "Unnamed investor", money(r.amount), labelOf(FUNDING_TYPE_OPTIONS, r.fundingType), r.round, r.roundDate].filter(Boolean).join(" · ")));
+    push("6. Funding", "CRM of investors (link)", s.fundingCrmLink ?? "");
+
+    push("7. Technology", "Core technology", s.coreIpTechnology ?? "");
+    push("7. Technology", "Main Technologies", s.mainTechnologies ?? "");
+    push("7. Technology", "Product Type", s.productType ?? "");
+
+    push("8. Product", "Product Stage", s.productStage ? labelOf(PRODUCT_STAGE_OPTIONS, s.productStage) : "");
+    push("8. Product", "Product roadmap", s.productRoadmapLink ?? "");
+    push("8. Product", "TRL level (1-9)", s.trlLevel ?? "");
+
+    data.patents.forEach((p, i) => push("9. Patenting", `Patent ${i + 1}`, [labelOf(PATENT_APPLICATION_TYPE_OPTIONS, p.applicationType), labelOf(PATENT_STATUS_OPTIONS, p.status), p.applicantName, p.country, p.priorityDate, p.effectiveFilingDate, p.publicationDate, p.publicationNumber, p.nextAction].filter(Boolean).join(" · ")));
+
+    push("10. Market Size", "Total Addressable Market", s.totalAddressableMarket ?? "");
+    push("10. Market Size", "Serviceable Addressable Market", s.serviceableAddressableMarket ?? "");
+    push("10. Market Size", "Serviceable Obtainable Market", s.serviceableObtainableMarket ?? "");
+
+    data.targetMarkets.forEach((m, i) => push("11. Go To Market", `Target Market ${i + 1}`, `${m.market} · ${labelOf(GTM_STATUS_OPTIONS, m.status)}`));
+    push("11. Go To Market", "Go To Market strategy (link)", s.goToMarketStrategyLink ?? "");
+
+    push("12. Competition", "Main Competitors", s.mainCompetitors ?? "");
+    push("12. Competition", "Overview", s.competitionOverview ?? "");
+
+    data.clientStats.forEach((c, i) => push("13. Clients", `Client Type ${i + 1}`, [labelOf(CLIENT_TYPE_OPTIONS, c.clientType), c.totalClients != null ? `${c.totalClients} clients` : null, c.majorClientNames, c.retentionRate != null ? `${c.retentionRate}% retention` : null].filter(Boolean).join(" · ")));
+    push("13. Clients", "Ideal Customer Persona", s.idealCustomerPersona ?? "");
+    data.clientDetails.forEach((c, i) => push("13. Clients", `Client Detail ${i + 1}`, [c.clientName, money(c.dealValue), c.scopeOfWork].filter(Boolean).join(" · ")));
+    push("13. Clients", "CRM of clients (link)", s.clientsCrmLink ?? "");
+
+    data.partnerStats.forEach((p, i) => push("14. Partner", `Partner Type ${i + 1}`, [labelOf(PARTNER_TYPE_OPTIONS, p.partnerType), p.totalPartners != null ? `${p.totalPartners} partners` : null, p.majorPartnerNames, p.retentionRate != null ? `${p.retentionRate}% retention` : null].filter(Boolean).join(" · ")));
+    data.partnerDetails.forEach((p, i) => push("14. Partner", `Partner Detail ${i + 1}`, [p.partnerName, p.scopeOfPartnership, p.nextSteps].filter(Boolean).join(" · ")));
+    push("14. Partner", "CRM of partners (link)", s.partnersCrmLink ?? "");
+
+    data.achievements.forEach((a, i) => push("15. Key Achievements", `Achievement ${i + 1}`, [a.achievement, a.details].filter(Boolean).join(" — ")));
+
+    const namePart = startupName ? `${startupName.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}-` : "";
+    await downloadXlsx(`${namePart}initial-data.xlsx`, "Initial Data", rows, { mergeColumns: [0] });
+  }
+
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        <button onClick={exportSheet} className="ost-btn-ghost !px-4 !py-2 text-sm">
+          <Download className="h-4 w-4" /> Export Excel
+        </button>
         <button onClick={saveOverview} disabled={saving} className="ost-btn-primary !px-4 !py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50">
           {saving && <Loader2 className="h-4 w-4 animate-spin" />} Save changes
         </button>
