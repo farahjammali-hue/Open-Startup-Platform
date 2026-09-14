@@ -1,0 +1,13 @@
+[Unit]
+Description=Check origin/main for deployable commits every few minutes
+
+[Timer]
+# First check shortly after boot, then every 5 minutes. The check is a single
+# API call and a git fetch when nothing has changed, so this is cheap.
+OnBootSec=3min
+OnUnitActiveSec=5min
+AccuracySec=30s
+Unit=ost-autodeploy.service
+
+[Install]
+WantedBy=timers.target

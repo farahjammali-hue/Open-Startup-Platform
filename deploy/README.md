@@ -232,14 +232,78 @@ container. If you ever do, existing sessions will appear to shift.
 ## Redeploying after a code change
 
 ```bash
-git pull
-docker compose --env-file .env.test -f deploy/docker-compose.yml up -d --build
+cd /home/ubuntu/ost-platform-test-new && ./deploy/deploy.sh
 ```
 
-If `shared/schema.ts` or `server/migrate.mjs` changed, run the step 5
-commands BEFORE the deploy above. Otherwise the new code queries columns the
-database doesn't have yet, and every page that touches them fails with "The
-database is out of date."
+That is the whole thing. The script dumps the database, pulls `origin/main`,
+applies migrations only if `shared/schema.ts` or `server/migrate.mjs` changed,
+rebuilds, waits for the container to report healthy, and prunes old images. If
+the container does not come up healthy it puts the previous commit back.
+
+It refuses to run if the working tree is dirty, which is deliberate: the
+compose file was once hand-edited on the server and existed nowhere else, and
+a silent checkout would have destroyed it.
+
+**Rollback restores the code, not the database.** A migration that deleted or
+dropped something is not undone by rolling back. That is what the pre-deploy
+dump in `~/ost-backups` is for; the twenty most recent are kept.
+
+To deploy a specific commit rather than the tip of `main`:
+
+```bash
+./deploy/deploy.sh <sha>
+```
+
+---
+
+## Automatic deployment
+
+A systemd timer checks `origin/main` every five minutes and deploys it when
+two conditions hold: CI passed for that commit, and the commit does not touch
+the database schema.
+
+It is pull-based, so nothing inbound is exposed and no deploy credentials are
+stored on GitHub. The repository is public, so CI status is read anonymously.
+
+**Schema changes are deliberately excluded.** Migrations can delete data (one
+already has), so a commit touching `shared/schema.ts` or `server/migrate.mjs`
+is not deployed automatically. You get a notification and run
+`./deploy/deploy.sh` by hand after reviewing the diff.
+
+### Installing it
+
+```bash
+sudo cp deploy/systemd/ost-autodeploy.* /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now ost-autodeploy.timer
+```
+
+Edit `NOTIFY_TO` in `/etc/systemd/system/ost-autodeploy.service` to change
+where notifications go, then `sudo systemctl daemon-reload`. Email is sent
+through the app container's existing SMTP settings, so no mail credentials are
+duplicated onto the host. Leave `NOTIFY_TO` empty to log only.
+
+### Watching and controlling it
+
+```bash
+systemctl list-timers ost-autodeploy.timer          # when it next runs
+sudo journalctl -u ost-autodeploy -f                # live log
+sudo systemctl start ost-autodeploy.service         # run one check now
+sudo systemctl disable --now ost-autodeploy.timer   # pause auto-deploy
+```
+
+A quiet log is normal: the script prints nothing when `main` has not moved.
+
+### Trying it safely
+
+Run one check by hand and watch what it decides:
+
+```bash
+NOTIFY_TO= /home/ubuntu/ost-platform-test-new/deploy/auto-deploy.sh
+```
+
+With `main` already deployed it exits silently, which confirms the wiring
+without changing anything.
 
 ---
 

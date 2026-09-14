@@ -1,0 +1,38 @@
+name: CI
+
+# Runs on every push and pull request. The auto-deploy timer on the VPS only
+# deploys commits whose checks here passed, so this is the gate between an
+# editor and the live test site.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Node 20 on purpose: it matches node:20-bookworm-slim in
+      # deploy/Dockerfile, so the npm here is the same major as the one the
+      # production build uses. A lockfile written by a newer npm can omit
+      # nested entries that npm 10 requires, which has broken the deploy twice.
+      # Pinning this makes CI fail instead of the server.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install (lockfile must be in sync)
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run check
+
+      - name: Tests
+        run: npm test
+
+      - name: Production build
+        run: npm run build

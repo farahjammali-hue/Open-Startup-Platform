@@ -1,0 +1,20 @@
+[Unit]
+Description=Deploy platform-test from origin/main when CI is green
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/home/ubuntu/ost-platform-test-new
+
+# Where deploy notifications go. Leave unset to log only.
+Environment=NOTIFY_TO=ghazi.dhouib@open-startup.org
+
+ExecStart=/home/ubuntu/ost-platform-test-new/deploy/auto-deploy.sh
+
+# A build plus migration can take a few minutes; do not kill it mid-flight.
+TimeoutStartSec=1800
+
+[Install]
+WantedBy=multi-user.target
