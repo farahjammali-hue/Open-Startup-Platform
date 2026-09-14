@@ -228,7 +228,9 @@ function AddModal({
 function RepeatableList<T extends { id: string }>({
   rows, renderRow, onDelete, onAdd, addLabel, emptyText, onRowClick,
 }: {
-  rows: T[]; renderRow: (row: T) => ReactNode; onDelete: (id: string) => void; onAdd: () => void; addLabel: string; emptyText: string;
+  rows: T[]; renderRow: (row: T) => ReactNode; onDelete: (id: string) => void; emptyText: string;
+  /** Omit both when the card fills a new row inline instead of via an "Add" button + modal (e.g. Patenting). */
+  onAdd?: () => void; addLabel?: string;
   /** When set, each row becomes clickable (e.g. to view its full details in a modal) — the delete button still works on its own, it just stops the click from also opening the row. */
   onRowClick?: (row: T) => void;
 }) {
@@ -251,7 +253,9 @@ function RepeatableList<T extends { id: string }>({
           </button>
         </div>
       ))}
-      <button type="button" onClick={onAdd} className="ost-btn-ghost !px-2.5 !py-1 text-xs"><Plus className="h-4 w-4" /> {addLabel}</button>
+      {onAdd && (
+        <button type="button" onClick={onAdd} className="ost-btn-ghost !px-2.5 !py-1 text-xs"><Plus className="h-4 w-4" /> {addLabel}</button>
+      )}
     </div>
   );
 }
@@ -288,6 +292,8 @@ export function InitialDataPanel({ apiConfig }: { apiConfig: InitialDataApiConfi
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [viewFounder, setViewFounder] = useState<TeamMemberRow | null>(null);
   const [viewShareholder, setViewShareholder] = useState<CapTableEntryRow | null>(null);
+  const [newPatent, setNewPatent] = useState<Record<string, string>>({});
+  const [savingPatent, setSavingPatent] = useState(false);
 
   useEffect(() => {
     if (data?.startup) setForm({ ...data.startup });
@@ -338,6 +344,19 @@ export function InitialDataPanel({ apiConfig }: { apiConfig: InitialDataApiConfi
     }
     await api(base, { method: "POST", body: JSON.stringify(body) });
     invalidate();
+  }
+
+  async function addPatent() {
+    if (!newPatent.applicationType && !newPatent.status && !newPatent.applicantName) return;
+    setSavingPatent(true);
+    try {
+      await addRow(`${sub}/patents`, newPatent);
+      setNewPatent({});
+    } catch (e: any) {
+      showToast(e.message || "Couldn't add this patent");
+    } finally {
+      setSavingPatent(false);
+    }
   }
 
   async function deleteRow(base: string, id: string) {
@@ -548,16 +567,68 @@ export function InitialDataPanel({ apiConfig }: { apiConfig: InitialDataApiConfi
           <RepeatableList
             rows={data.patents}
             emptyText="No patents added yet."
-            addLabel="Add patent"
-            onAdd={() => setActiveModal("patent")}
             onDelete={(id) => deleteRow(`${sub}/patents`, id)}
             renderRow={(p) => (
               <>
-                <p className="font-semibold text-primary">{labelOf(PATENT_APPLICATION_TYPE_OPTIONS, p.applicationType)}</p>
-                <p className="text-slate-400">{labelOf(PATENT_STATUS_OPTIONS, p.status)}</p>
+                <p className="font-semibold text-primary">{labelOf(PATENT_APPLICATION_TYPE_OPTIONS, p.applicationType)} · {labelOf(PATENT_STATUS_OPTIONS, p.status)}</p>
+                <p className="text-slate-400">{[p.applicantName, p.country].filter(Boolean).join(" · ") || "—"}</p>
+                <p className="text-slate-400">Priority {p.priorityDate || "—"} · Filing {p.effectiveFilingDate || "—"} · Publication {p.publicationDate || "—"}</p>
+                <p className="text-slate-400">Publication #: {p.publicationNumber || "—"}</p>
+                <p className="text-slate-400">Next action: {p.nextAction || "—"}</p>
               </>
             )}
           />
+
+          {/* Fields for a new patent sit directly in the card, same as Funding's fields — no "Add" button that opens a modal. */}
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Type of application">
+              <select className={`ost-input ${H10}`} value={newPatent.applicationType ?? ""} onChange={(e) => setNewPatent((v) => ({ ...v, applicationType: e.target.value }))}>
+                <option value="">Select…</option>
+                {PATENT_APPLICATION_TYPE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </Field>
+            <Field label="Status">
+              <select className={`ost-input ${H10}`} value={newPatent.status ?? ""} onChange={(e) => setNewPatent((v) => ({ ...v, status: e.target.value }))}>
+                <option value="">Select…</option>
+                {PATENT_STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </Field>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Patent Applicant Name">
+              <input className={`ost-input ${H10}`} value={newPatent.applicantName ?? ""} onChange={(e) => setNewPatent((v) => ({ ...v, applicantName: e.target.value }))} />
+            </Field>
+            <Field label="Country">
+              <input className={`ost-input ${H10}`} value={newPatent.country ?? ""} onChange={(e) => setNewPatent((v) => ({ ...v, country: e.target.value }))} />
+            </Field>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Priority Date">
+              <input className={`ost-input ${H10}`} value={newPatent.priorityDate ?? ""} onChange={(e) => setNewPatent((v) => ({ ...v, priorityDate: e.target.value }))} />
+            </Field>
+            <Field label="Effective filing date">
+              <input className={`ost-input ${H10}`} value={newPatent.effectiveFilingDate ?? ""} onChange={(e) => setNewPatent((v) => ({ ...v, effectiveFilingDate: e.target.value }))} />
+            </Field>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Publication Date">
+              <input className={`ost-input ${H10}`} value={newPatent.publicationDate ?? ""} onChange={(e) => setNewPatent((v) => ({ ...v, publicationDate: e.target.value }))} />
+            </Field>
+            <Field label="Publication Number">
+              <input className={`ost-input ${H10}`} value={newPatent.publicationNumber ?? ""} onChange={(e) => setNewPatent((v) => ({ ...v, publicationNumber: e.target.value }))} />
+            </Field>
+          </div>
+          <Field label="Next Action">
+            <textarea className="ost-input min-h-[60px]" value={newPatent.nextAction ?? ""} onChange={(e) => setNewPatent((v) => ({ ...v, nextAction: e.target.value }))} />
+          </Field>
+          <button
+            type="button"
+            onClick={addPatent}
+            disabled={savingPatent}
+            className="ost-btn-primary !px-4 !py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {savingPatent && <Loader2 className="h-4 w-4 animate-spin" />} Add patent
+          </button>
         </InitialDataCard>
 
         {/* 10. Market Size */}
@@ -759,24 +830,6 @@ export function InitialDataPanel({ apiConfig }: { apiConfig: InitialDataApiConfi
           ]}
           onClose={() => setActiveModal(null)}
           onSubmit={(v) => addRow(`${sub}/funding-rounds`, v, ["amount"])}
-        />
-      )}
-      {activeModal === "patent" && (
-        <AddModal
-          title="Add patent"
-          fields={[
-            { key: "applicationType", label: "Type of application", type: "select", options: PATENT_APPLICATION_TYPE_OPTIONS },
-            { key: "status", label: "Status", type: "select", options: PATENT_STATUS_OPTIONS },
-            { key: "applicantName", label: "Patent Applicant Name", type: "text" },
-            { key: "country", label: "Country", type: "text" },
-            { key: "priorityDate", label: "Priority Date", type: "text" },
-            { key: "effectiveFilingDate", label: "Effective filing date", type: "text" },
-            { key: "publicationDate", label: "Publication Date", type: "text" },
-            { key: "publicationNumber", label: "Publication Number", type: "text" },
-            { key: "nextAction", label: "Next Action", type: "textarea" },
-          ]}
-          onClose={() => setActiveModal(null)}
-          onSubmit={(v) => addRow(`${sub}/patents`, v)}
         />
       )}
       {activeModal === "targetMarket" && (
