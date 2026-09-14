@@ -453,14 +453,24 @@ ALTER TABLE startups ADD COLUMN IF NOT EXISTS tech_track startup_tech_track;
 -- model (mentorship_sessions, left in place below but no longer used by the
 -- app). Renamed from an earlier "Training" naming mistake; not the Open
 -- Startup School curriculum (trainings/training_progress above). This
--- one-time rename is long done in every real database (mentorship_modules
--- already exists), and is now guarded so it can never fire again — the
--- unguarded form used to collide with the unrelated "training_modules" /
--- "training_sessions" tables the separate Training feature (below) creates,
--- since it happens to reuse those same now-free legacy names.
+-- one-time rename is long done in every real database. It collides with the
+-- unrelated "training_modules" / "training_sessions" tables the separate
+-- Training feature (below) creates, because those reuse the same now-free
+-- legacy names.
+--
+-- Guarding only on "mentorship_modules is absent" was not enough. The admin
+-- reorg further down drops mentorship_modules once sessions belong to a
+-- startup, which made this guard true again on the next run and renamed the
+-- LIVE training_modules table. It aborted only because the Training foreign
+-- keys still referenced it; without them it would have silently dropped the
+-- table at the "drop mentorship_modules if empty" step.
+--
+-- mentorship_module_sessions is the reliable marker: it exists only after the
+-- rename has already happened, so this can no longer fire a second time.
 DO $$ BEGIN
   IF EXISTS (SELECT 1 FROM pg_tables WHERE tablename = 'training_modules')
-     AND NOT EXISTS (SELECT 1 FROM pg_tables WHERE tablename = 'mentorship_modules') THEN
+     AND NOT EXISTS (SELECT 1 FROM pg_tables WHERE tablename = 'mentorship_modules')
+     AND NOT EXISTS (SELECT 1 FROM pg_tables WHERE tablename = 'mentorship_module_sessions') THEN
     ALTER TABLE training_modules RENAME TO mentorship_modules;
   END IF;
   IF EXISTS (SELECT 1 FROM pg_tables WHERE tablename = 'training_sessions')
