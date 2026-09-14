@@ -4,17 +4,14 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "../../lib/utils";
 import { AppShell } from "../../components/AppShell";
 import { BackLink, PageHeader, TabBar } from "../../components/PageHeader";
-import { StatusBadge } from "../../components/StatusBadge";
 import { Skeleton, SkeletonText } from "../../components/Skeleton";
-import { GOAL_STATUS_LABELS, GOAL_STATUS_TONES, type Goal } from "../dashboard/types";
 import { MetricsKpiPanel } from "../../components/metrics/MetricsKpiPanel";
 import { QuarterlySummaryPanel } from "../../components/metrics/QuarterlySummaryPanel";
 import { InitialDataPanel, type InitialDataApiConfig } from "../../components/dashboard/InitialDataPanel";
-import { Buildings as Building2, Target, Tray as Inbox, ChartLineUp as TrendingUp, ChartPieSlice as PieChart } from "@phosphor-icons/react";
+import { Buildings as Building2, ChartLineUp as TrendingUp, ChartPieSlice as PieChart } from "@phosphor-icons/react";
 
 interface Detail {
   startup: { id: string; companyName: string };
-  goals: Goal[];
 }
 
 export default function AdminStartupDashboard() {
@@ -51,7 +48,7 @@ export default function AdminStartupDashboard() {
     );
   }
 
-  const { startup, goals } = data;
+  const { startup } = data;
 
   return (
     <AppShell>
@@ -78,25 +75,7 @@ export default function AdminStartupDashboard() {
         />
 
         {tab === "initial" && (
-          <>
-            <InitialDataPanel apiConfig={adminConfig} startupName={startup.companyName} />
-
-            <Section title="Objectives" icon={Target}>
-              {goals.length === 0 ? <EmptyRow text="No objectives set yet." /> : (
-                <div className="space-y-2">
-                  {goals.map((g) => (
-                    <div key={g.id} className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 px-4 py-3">
-                      <div>
-                        <div className="text-sm font-semibold text-primary">{g.title}</div>
-                        {g.targetDate && <div className="text-xs text-slate-400">Target: {new Date(g.targetDate).toLocaleDateString()}</div>}
-                      </div>
-                      <StatusBadge tone={GOAL_STATUS_TONES[g.status]}>{GOAL_STATUS_LABELS[g.status]}</StatusBadge>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </Section>
-          </>
+          <InitialDataPanel apiConfig={adminConfig} startupName={startup.companyName} />
         )}
 
         {tab === "monthly" && (
@@ -122,14 +101,6 @@ function Section({ title, icon: Icon, children }: { title: string; icon: any; ch
         <Icon className="h-4 w-4 text-secondary" /> {title}
       </h2>
       {children}
-    </div>
-  );
-}
-
-function EmptyRow({ text }: { text: string }) {
-  return (
-    <div className="flex items-center gap-2 py-4 text-sm text-slate-400">
-      <Inbox className="h-4 w-4" /> {text}
     </div>
   );
 }
