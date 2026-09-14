@@ -504,13 +504,13 @@ export function InitialDataPanel({ apiConfig }: { apiConfig: InitialDataApiConfi
             />
           }
         >
+          <Field label="Total raised">
+            <Money value={s.totalFundingRaised != null ? String(s.totalFundingRaised) : ""} onChange={(v) => set("totalFundingRaised", v ? Number(v) : null)} placeholder="Total raised" />
+          </Field>
           <div className="grid grid-cols-2 gap-4">
-            <Field label="Total raised">
-              <Money value={s.totalFundingRaised != null ? String(s.totalFundingRaised) : ""} onChange={(v) => set("totalFundingRaised", v ? Number(v) : null)} placeholder="Total raised" />
-            </Field>
             <Field label="Dilutive"><Money value={s.totalFundingDilutive != null ? String(s.totalFundingDilutive) : ""} onChange={(v) => set("totalFundingDilutive", v ? Number(v) : null)} placeholder="Dilutive" /></Field>
+            <Field label="Non-Dilutive"><Money value={s.totalFundingNonDilutive != null ? String(s.totalFundingNonDilutive) : ""} onChange={(v) => set("totalFundingNonDilutive", v ? Number(v) : null)} placeholder="Non-dilutive" /></Field>
           </div>
-          <Field label="Non-Dilutive"><Money value={s.totalFundingNonDilutive != null ? String(s.totalFundingNonDilutive) : ""} onChange={(v) => set("totalFundingNonDilutive", v ? Number(v) : null)} placeholder="Non-dilutive" /></Field>
           <Field label="Investment Stage">
             <Pills options={INVESTMENT_STAGE_OPTIONS} value={s.investmentStage ?? ""} onChange={(v) => set("investmentStage", v)} />
           </Field>
