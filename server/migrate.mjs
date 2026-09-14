@@ -963,7 +963,16 @@ try {
   await client.query(sql);
   console.log("Database updated successfully. You can close this window.");
 } catch (e) {
+  // Postgres puts the useful half of a failure in detail/hint: which object
+  // actually blocked a drop, which constraint was violated, and where in the
+  // script it happened. Printing only e.message hides all of that and turns a
+  // two-minute fix into guesswork.
   console.error("Update failed:", e.message);
+  if (e.detail) console.error("  detail:", e.detail);
+  if (e.hint) console.error("  hint:  ", e.hint);
+  if (e.where) console.error("  where: ", e.where);
+  if (e.code) console.error("  code:  ", e.code);
+  console.error("Nothing was applied: the whole script runs as one transaction.");
   process.exitCode = 1;
 } finally {
   await client.end().catch(() => {});
