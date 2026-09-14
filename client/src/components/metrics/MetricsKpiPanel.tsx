@@ -9,7 +9,11 @@ import {
   DATA_ROOM_ITEMS, COMPANY_PROFILE_GROUPS,
   type MetricSection, type MetricDef,
 } from "@shared/metricsCatalog";
-import { CircleNotch as Loader2, Plus, Trash as Trash2, CaretDown as ChevronDown, Table as Table2, ListChecks, Download } from "@phosphor-icons/react";
+import {
+  CircleNotch as Loader2, Plus, Trash as Trash2, CaretDown as ChevronDown, Table as Table2, ListChecks, Download,
+  type Icon as PhosphorIcon,
+} from "@phosphor-icons/react";
+import { SECTION_ICONS, stripRomanNumeral } from "../../lib/metricsSectionIcons";
 
 interface MetricEntry { id: string; period: string; values: Record<string, number | string> }
 interface MetricsProfile {
@@ -63,10 +67,12 @@ function MetricInput({
   // other cell, so columns stay aligned. Its wrapper needs an explicit
   // z-index below the sticky "Metric" column's (see SectionTable) — without
   // that, this positioned wrapper paints above the sticky column on scroll.
+  // Left-aligned regardless of the caller's className: a right-aligned value
+  // would leave a gap between it and this fixed-left "$", reading as broken.
   return (
     <div className="relative z-0">
       <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400">$</span>
-      <input className={`${className} pl-5`} {...rest} />
+      <input className={`${className.replace(/\btext-right\b/, "text-left")} pl-5`} {...rest} />
     </div>
   );
 }
@@ -290,13 +296,7 @@ export function MetricsKpiPanel({ apiBase, startupName }: { apiBase: string; sta
       )}
 
       <div className="ost-card overflow-hidden">
-        <button
-          onClick={() => setOtherExpanded((v) => !v)}
-          className="flex w-full items-center justify-between p-6 text-left"
-        >
-          <h3 className="ost-card-title text-base">VI. Other metrics</h3>
-          <ChevronDown className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${otherExpanded ? "rotate-180" : ""}`} />
-        </button>
+        <SectionHeader title="Other metrics" icon={ListChecks} isOpen={otherExpanded} onToggle={() => setOtherExpanded((v) => !v)} />
 
         {otherExpanded && (
           <div className="border-t border-slate-100 p-6 pt-5">
@@ -379,11 +379,13 @@ export function MetricsKpiPanel({ apiBase, startupName }: { apiBase: string; sta
 
 function SectionHeader({
   title,
+  icon: Icon,
   badge,
   isOpen,
   onToggle,
 }: {
   title: string;
+  icon: PhosphorIcon;
   badge?: string;
   isOpen: boolean;
   onToggle: () => void;
@@ -391,7 +393,10 @@ function SectionHeader({
   return (
     <button onClick={onToggle} className="flex w-full items-center justify-between p-6 text-left">
       <span className="flex items-center gap-2.5">
-        <h3 className="ost-card-title text-base">{title}</h3>
+        <Icon className="h-6 w-6 shrink-0" style={{ color: "var(--info)" }} />
+        <h2 className="text-base font-semibold" style={{ fontFamily: "var(--font-display)", color: "var(--text-1)" }}>
+          {stripRomanNumeral(title)}
+        </h2>
         {badge && <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-500">{badge}</span>}
       </span>
       <ChevronDown className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${isOpen ? "rotate-180" : ""}`} />
@@ -423,7 +428,7 @@ function SectionSimpleForm({
   const filled = filledCount(values, section);
   return (
     <div className="ost-card overflow-hidden">
-      <SectionHeader title={section.title} badge={`${filled}/${section.metrics.length} filled for ${periodLabelText}`} isOpen={isOpen} onToggle={onToggle} />
+      <SectionHeader title={section.title} icon={SECTION_ICONS[section.key] ?? ListChecks} badge={`${filled}/${section.metrics.length} filled for ${periodLabelText}`} isOpen={isOpen} onToggle={onToggle} />
       {isOpen && (
         <div className="border-t border-slate-100 p-6 pt-5">
           <div className="space-y-3">
@@ -471,36 +476,50 @@ function SectionTable({
 
   return (
     <div className="ost-card overflow-hidden">
-      <SectionHeader title={section.title} isOpen={isOpen} onToggle={onToggle} />
+      <SectionHeader title={section.title} icon={SECTION_ICONS[section.key] ?? ListChecks} isOpen={isOpen} onToggle={onToggle} />
       {isOpen && (
         <div className="border-t border-slate-100 p-6 pt-5">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-slate-100 text-left text-xs uppercase tracking-wide text-slate-400">
-                  <th className="sticky left-0 z-10 bg-white py-2 pr-4 font-semibold">Metric</th>
-                  <th className="py-2 px-2 font-semibold">Initial Data</th>
-                  {MONTHS.map((m) => <th key={m} className="py-2 px-2 font-semibold">{m.slice(0, 3)}</th>)}
+                <tr className="sticky top-0 z-20 h-[46px] border-b bg-white text-left" style={{ borderColor: "var(--border)" }}>
+                  <th
+                    className="sticky left-0 z-10 bg-white pr-4 text-xs font-semibold uppercase tracking-[0.08em]"
+                    style={{ color: "var(--text-2)" }}
+                  >
+                    Metric
+                  </th>
+                  <th className="px-2 text-right text-xs font-semibold uppercase tracking-[0.08em]" style={{ color: "var(--text-2)" }}>Initial Data</th>
+                  {MONTHS.map((m) => (
+                    <th key={m} className="px-2 text-right text-xs font-semibold uppercase tracking-[0.08em]" style={{ color: "var(--text-2)" }}>
+                      {m.slice(0, 3)}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
                 {section.metrics.map((metric) => (
-                  <tr key={metric.key} className="border-b border-slate-50 last:border-0">
-                    <td className="sticky left-0 z-10 whitespace-nowrap bg-white py-1.5 pr-4 font-medium text-primary">{metric.label}</td>
-                    <td className="px-1 py-1.5">
+                  <tr key={metric.key} className="group h-[46px] border-b last:border-0" style={{ borderColor: "var(--border)" }}>
+                    <td
+                      className="sticky left-0 z-10 whitespace-nowrap bg-white pr-4 align-middle font-medium group-hover:bg-[var(--bg-app)]"
+                      style={{ color: "var(--text-1)" }}
+                    >
+                      {metric.label}
+                    </td>
+                    <td className="px-1 align-middle group-hover:bg-[var(--bg-app)]">
                       <MetricInput
                         metric={metric}
-                        className="ost-input !py-1 w-24 text-xs tabular-nums"
+                        className="ost-input !py-1 w-24 text-right text-xs tabular-nums"
                         aria-label={`${metric.label} — Initial Data`}
                         value={values.initial?.[metric.key] ?? ""}
                         onChange={(e) => setCell("initial", metric.key, e.target.value)}
                       />
                     </td>
                     {monthPeriods.map((period, i) => (
-                      <td key={period} className="px-1 py-1.5">
+                      <td key={period} className="px-1 align-middle group-hover:bg-[var(--bg-app)]">
                         <MetricInput
                           metric={metric}
-                          className="ost-input !py-1 w-20 text-xs tabular-nums"
+                          className="ost-input !py-1 w-20 text-right text-xs tabular-nums"
                           aria-label={`${metric.label} — ${MONTHS[i]}`}
                           value={values[period]?.[metric.key] ?? ""}
                           onChange={(e) => setCell(period, metric.key, e.target.value)}

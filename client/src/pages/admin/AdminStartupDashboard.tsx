@@ -107,7 +107,7 @@ export default function AdminStartupDashboard() {
 
         {tab === "quarterly" && (
           <Section title="Quarterly updates" icon={PieChart}>
-            <QuarterlySummaryPanel apiBase={`/api/admin/startups/${id}/metrics`} startupName={startup.companyName} />
+            <QuarterlySummaryPanel apiBase={`/api/admin/startups/${id}/metrics`} startupName={startup.companyName} onSwitchToMonthly={() => setTab("monthly")} />
           </Section>
         )}
       </main>

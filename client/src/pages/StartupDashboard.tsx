@@ -25,7 +25,7 @@ export default function StartupDashboard() {
 
         {tab === "overview" && <OverviewTab />}
         {tab === "metrics" && <MetricsKpiTab />}
-        {tab === "monthly" && <QuarterlyUpdatesTab />}
+        {tab === "monthly" && <QuarterlyUpdatesTab onSwitchToMonthly={() => setTab("metrics")} />}
       </main>
     </AppShell>
   );

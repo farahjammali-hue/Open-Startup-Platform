@@ -3,17 +3,50 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "../../lib/utils";
 import { downloadXlsx } from "../../lib/xlsx";
 import { Skeleton } from "../Skeleton";
-import { METRIC_SECTIONS, monthPeriodsForYear, QUARTER_END_MONTH_INDEX } from "@shared/metricsCatalog";
-import { Download } from "@phosphor-icons/react";
+import { METRIC_SECTIONS, monthPeriodsForYear, QUARTER_END_MONTH_INDEX, type MetricSection } from "@shared/metricsCatalog";
+import { SECTION_ICONS, stripRomanNumeral } from "../../lib/metricsSectionIcons";
+import { Download, ChartLineUp } from "@phosphor-icons/react";
 
 interface MetricEntry { id: string; period: string; values: Record<string, number | string> }
 
 const QUARTERS = ["Q1", "Q2", "Q3", "Q4"] as const;
 
+function sectionIsEmpty(section: MetricSection, valueAt: (key: string, quarterIdx: number) => string): boolean {
+  return section.metrics.every((m) => QUARTERS.every((_, i) => valueAt(m.key, i) === ""));
+}
+
+function SectionEmptyState({ section, addLabel, onAddData }: { section: MetricSection; addLabel: string; onAddData?: () => void }) {
+  const Icon = SECTION_ICONS[section.key] ?? ChartLineUp;
+  return (
+    <div className="flex flex-col items-center gap-4 px-6 py-14 text-center">
+      <div className="flex h-16 w-24 items-center justify-center" style={{ background: "rgba(98,221,209,0.16)", borderRadius: "var(--r-pill)" }}>
+        <Icon className="h-6 w-6" style={{ color: "var(--info)" }} />
+      </div>
+      <p className="text-sm" style={{ color: "var(--text-2)" }}>
+        No {stripRomanNumeral(section.title).toLowerCase()} data yet for {new Date().getFullYear()}.
+      </p>
+      {onAddData && (
+        <button onClick={onAddData} className="ost-btn-primary !px-4 !py-2 text-sm">
+          {addLabel}
+        </button>
+      )}
+    </div>
+  );
+}
+
 /** Read-only quarter-end snapshot (Q1–Q4) of the Monthly Updates tab's metrics — one table per section. */
-export function QuarterlySummaryPanel({ apiBase, startupName }: { apiBase: string; startupName?: string }) {
+export function QuarterlySummaryPanel({
+  apiBase,
+  startupName,
+  onSwitchToMonthly,
+}: {
+  apiBase: string;
+  startupName?: string;
+  onSwitchToMonthly?: () => void;
+}) {
   const year = new Date().getFullYear();
   const periods = useMemo(() => monthPeriodsForYear(year), [year]);
+  const currentQuarterLabel = QUARTERS[Math.floor(new Date().getMonth() / 3)];
 
   const { data, isLoading } = useQuery<{ entries: MetricEntry[] }>({
     queryKey: ["metrics-panel", apiBase],
@@ -65,40 +98,69 @@ export function QuarterlySummaryPanel({ apiBase, startupName }: { apiBase: strin
         </button>
       </div>
 
-      {METRIC_SECTIONS.map((section) => (
-        <div key={section.key} className="ost-card overflow-hidden">
-          <div className="p-6 pb-4">
-            <h3 className="ost-card-title text-base">{section.title}</h3>
-          </div>
-          <div className="border-t border-slate-100 p-6 pt-5">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-slate-100 text-left text-xs uppercase tracking-wide text-slate-400">
-                    <th className="sticky left-0 z-10 bg-white py-2 pr-4 font-semibold">Metric</th>
-                    {QUARTERS.map((q) => <th key={q} className="py-2 px-2 font-semibold">{q}</th>)}
-                  </tr>
-                </thead>
-                <tbody>
-                  {section.metrics.map((metric) => (
-                    <tr key={metric.key} className="border-b border-slate-50 last:border-0">
-                      <td className="sticky left-0 z-10 whitespace-nowrap bg-white py-1.5 pr-4 font-medium text-primary">{metric.label}</td>
-                      {QUARTERS.map((q, i) => {
-                        const v = quarterValue(metric.key, i);
-                        return (
-                          <td key={q} className="px-2 py-1.5 text-xs tabular-nums text-slate-600">
-                            {v === "" ? <span className="text-slate-300">—</span> : metric.unit === "money" ? `$${v}` : v}
+      {METRIC_SECTIONS.map((section) => {
+        const Icon = SECTION_ICONS[section.key] ?? ChartLineUp;
+        const empty = sectionIsEmpty(section, quarterValue);
+        return (
+          <div key={section.key} className="ost-card overflow-hidden">
+            <div className="flex items-center gap-2.5 p-6 pb-4">
+              <Icon className="h-6 w-6 shrink-0" style={{ color: "var(--info)" }} />
+              <h2 className="text-lg font-semibold" style={{ fontFamily: "var(--font-display)", color: "var(--text-1)" }}>
+                {stripRomanNumeral(section.title)}
+              </h2>
+            </div>
+            <div className="border-t" style={{ borderColor: "var(--border)" }}>
+              {empty ? (
+                <SectionEmptyState
+                  section={section}
+                  addLabel={`Add ${currentQuarterLabel} ${stripRomanNumeral(section.title).toLowerCase()} data`}
+                  onAddData={onSwitchToMonthly}
+                />
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="sticky top-0 z-20 h-[46px] border-b bg-white" style={{ borderColor: "var(--border)" }}>
+                        <th
+                          className="sticky left-0 z-10 bg-white px-4 text-left text-xs font-semibold uppercase tracking-[0.08em]"
+                          style={{ color: "var(--text-2)" }}
+                        >
+                          Metric
+                        </th>
+                        {QUARTERS.map((q) => (
+                          <th key={q} className="px-4 text-right text-xs font-semibold uppercase tracking-[0.08em]" style={{ color: "var(--text-2)" }}>
+                            {q}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {section.metrics.map((metric) => (
+                        <tr key={metric.key} className="group h-[46px] border-b last:border-0" style={{ borderColor: "var(--border)" }}>
+                          <td
+                            className="sticky left-0 z-10 whitespace-nowrap bg-white px-4 align-middle font-medium group-hover:bg-[var(--bg-app)]"
+                            style={{ color: "var(--text-1)" }}
+                          >
+                            {metric.label}
                           </td>
-                        );
-                      })}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                          {QUARTERS.map((q, i) => {
+                            const v = quarterValue(metric.key, i);
+                            return (
+                              <td key={q} className="px-4 text-right align-middle text-xs tabular-nums group-hover:bg-[var(--bg-app)]" style={{ color: "var(--text-2)" }}>
+                                {v === "" ? <span style={{ color: "var(--text-3)" }}>—</span> : metric.unit === "money" ? `$${v}` : v}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
