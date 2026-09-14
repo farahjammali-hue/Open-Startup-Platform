@@ -673,7 +673,6 @@ export function InitialDataPanel({ apiConfig }: { apiConfig: InitialDataApiConfi
           onToggle={() => toggle("clients")}
           hidden={
             <>
-              <Field label="CRM of clients (link)"><LinkInput value={s.clientsCrmLink ?? ""} onChange={(v) => set("clientsCrmLink", v)} /></Field>
               <RepeatableList
                 rows={data.clientDetails}
                 emptyText="No client details added yet."
@@ -687,6 +686,7 @@ export function InitialDataPanel({ apiConfig }: { apiConfig: InitialDataApiConfi
                   </>
                 )}
               />
+              <Field label="CRM of clients (link)"><LinkInput value={s.clientsCrmLink ?? ""} onChange={(v) => set("clientsCrmLink", v)} /></Field>
             </>
           }
         >
@@ -715,7 +715,6 @@ export function InitialDataPanel({ apiConfig }: { apiConfig: InitialDataApiConfi
           onToggle={() => toggle("partners")}
           hidden={
             <>
-              <Field label="CRM of partners (link)"><LinkInput value={s.partnersCrmLink ?? ""} onChange={(v) => set("partnersCrmLink", v)} /></Field>
               <RepeatableList
                 rows={data.partnerDetails}
                 emptyText="No partner details added yet."
@@ -729,6 +728,7 @@ export function InitialDataPanel({ apiConfig }: { apiConfig: InitialDataApiConfi
                   </>
                 )}
               />
+              <Field label="CRM of partners (link)"><LinkInput value={s.partnersCrmLink ?? ""} onChange={(v) => set("partnersCrmLink", v)} /></Field>
             </>
           }
         >
