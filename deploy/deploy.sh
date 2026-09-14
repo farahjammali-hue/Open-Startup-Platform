@@ -42,8 +42,9 @@ git fetch --quiet origin main
 TARGET="${1:-$(git rev-parse origin/main)}"
 CURRENT="$(git rev-parse HEAD)"
 
-if [ "$TARGET" = "$CURRENT" ]; then
+if [ "$TARGET" = "$CURRENT" ] && [ "${FORCE:-0}" != "1" ]; then
   log "already at ${CURRENT:0:7}, nothing to do"
+  log "(FORCE=1 ./deploy/deploy.sh to rebuild anyway, e.g. after editing .env.test)"
   exit 0
 fi
 
