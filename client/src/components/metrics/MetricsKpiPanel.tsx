@@ -438,7 +438,7 @@ function SectionSimpleForm({
                 <MetricInput
                   metric={metric}
                   id={`${section.key}-${period}-${metric.key}`}
-                  className="ost-input w-36 shrink-0 tabular-nums"
+                  className="ost-input w-36 shrink-0 border-[var(--border-strong)] bg-[var(--bg-subtle)] tabular-nums"
                   value={values?.[metric.key] ?? ""}
                   onChange={(e) => setCell(period, metric.key, e.target.value)}
                 />
