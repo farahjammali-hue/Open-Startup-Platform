@@ -84,16 +84,17 @@ export default function Login() {
     <div className="ost-canvas flex min-h-screen">
       <BrandPanel />
 
-      <div className="flex flex-1 items-center justify-center px-6 py-12">
-        <div className="ost-card w-full max-w-md p-8 sm:p-10">
+      <div className="brand-tokens-root flex flex-1 items-center justify-center px-6 py-12">
+        <div className="card w-full max-w-md">
           <div className="mb-8 lg:hidden">
             <Logo />
           </div>
 
-          <h2 className="text-2xl font-extrabold text-primary">
+          <span className="eyebrow">Open Startup</span>
+          <h2 className="mt-1">
             {mode === "login" ? "Welcome" : "Create your account"}
           </h2>
-          <p className="mt-1 text-sm text-slate-500">
+          <p className="mt-1 text-sm" style={{ color: "var(--text-2)" }}>
             {mode === "login"
               ? "Sign in to your Open Startup workspace."
               : "Join the Open Startup platform."}
@@ -120,16 +121,16 @@ export default function Login() {
 
           <a
             href="/api/auth/google"
-            className="mt-6 flex w-full items-center justify-center gap-3 rounded-lg border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-primary transition hover:border-secondary hover:shadow-sm"
+            className="btn btn--secondary mt-6 flex w-full items-center justify-center gap-3"
           >
             <GoogleIcon />
             Continue with Google
           </a>
 
-          <div className="my-6 flex items-center gap-3 text-xs font-medium text-slate-400">
-            <span className="h-px flex-1 bg-slate-200" />
+          <div className="my-6 flex items-center gap-3 text-xs font-medium" style={{ color: "var(--text-3)" }}>
+            <span className="h-px flex-1" style={{ background: "var(--border)" }} />
             OR
-            <span className="h-px flex-1 bg-slate-200" />
+            <span className="h-px flex-1" style={{ background: "var(--border)" }} />
           </div>
 
           <form onSubmit={onSubmit} className="space-y-4">
@@ -137,22 +138,22 @@ export default function Login() {
               <>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="ost-label">First name</label>
-                    <input className="ost-input" value={firstName} onChange={(e) => setFirstName(e.target.value)} required />
+                    <label className="label">First name</label>
+                    <input className="input" value={firstName} onChange={(e) => setFirstName(e.target.value)} required />
                   </div>
                   <div>
-                    <label className="ost-label">Last name</label>
-                    <input className="ost-input" value={lastName} onChange={(e) => setLastName(e.target.value)} required />
+                    <label className="label">Last name</label>
+                    <input className="input" value={lastName} onChange={(e) => setLastName(e.target.value)} required />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="ost-label">Age</label>
-                    <input type="number" min={13} max={120} className="ost-input" value={age} onChange={(e) => setAge(e.target.value)} required />
+                    <label className="label">Age</label>
+                    <input type="number" min={13} max={120} className="input" value={age} onChange={(e) => setAge(e.target.value)} required />
                   </div>
                   <div>
-                    <label className="ost-label">Country</label>
-                    <select className="ost-input" value={country} onChange={(e) => setCountry(e.target.value)} required>
+                    <label className="label">Country</label>
+                    <select className="input" value={country} onChange={(e) => setCountry(e.target.value)} required>
                       <option value="">Select country</option>
                       {COUNTRIES.map((c) => (
                         <option key={c} value={c}>{c}</option>
@@ -164,10 +165,10 @@ export default function Login() {
             )}
 
             <div>
-              <label className="ost-label">Email</label>
+              <label className="label">Email</label>
               <input
                 type="email"
-                className="ost-input"
+                className="input"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@startup.com"
@@ -175,7 +176,7 @@ export default function Login() {
               />
             </div>
             <div>
-              <label className="ost-label">Password</label>
+              <label className="label">Password</label>
               <PasswordInput
                 value={password}
                 onChange={setPassword}
@@ -185,7 +186,7 @@ export default function Login() {
             </div>
             {mode === "register" && (
               <div>
-                <label className="ost-label">Confirm password</label>
+                <label className="label">Confirm password</label>
                 <PasswordInput
                   value={confirmPassword}
                   onChange={setConfirmPassword}
@@ -193,7 +194,7 @@ export default function Login() {
                   autoComplete="new-password"
                 />
                 {confirmPassword && password !== confirmPassword && (
-                  <p className="mt-1 text-xs font-medium text-red-500">Passwords don't match</p>
+                  <p className="mt-1 text-xs font-medium" style={{ color: "var(--danger)" }}>Passwords don't match</p>
                 )}
               </div>
             )}
@@ -202,24 +203,24 @@ export default function Login() {
               <ReCaptcha siteKey={siteKey} onChange={setCaptchaToken} />
             )}
 
-            <button type="submit" className="ost-btn-primary w-full" disabled={busy}>
+            <button type="submit" className="btn btn--primary flex w-full items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-50" disabled={busy}>
               {busy && <Loader2 className="h-4 w-4 animate-spin" />}
               {mode === "login" ? "Sign in" : "Create account"}
             </button>
           </form>
 
-          <p className="mt-6 text-center text-sm text-slate-500">
+          <p className="mt-6 text-center text-sm" style={{ color: "var(--text-2)" }}>
             {mode === "login" ? (
               <>
                 New to Open Startup?{" "}
-                <button className="font-semibold text-secondary hover:underline" onClick={() => { setMode("register"); setError(null); }}>
+                <button className="font-semibold hover:underline" style={{ color: "var(--info)" }} onClick={() => { setMode("register"); setError(null); }}>
                   Create an account
                 </button>
               </>
             ) : (
               <>
                 Already have an account?{" "}
-                <button className="font-semibold text-secondary hover:underline" onClick={() => { setMode("login"); setError(null); }}>
+                <button className="font-semibold hover:underline" style={{ color: "var(--info)" }} onClick={() => { setMode("login"); setError(null); }}>
                   Sign in
                 </button>
               </>
