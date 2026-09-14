@@ -6,7 +6,7 @@ import { BackLink, PageHeader } from "../../components/PageHeader";
 import { StatusBadge } from "../../components/StatusBadge";
 import { SkeletonRows } from "../../components/Skeleton";
 import { REVIEW_STATUS_TONES, REVIEW_STATUS_ICONS, type ReviewStatus } from "../../lib/statusTones";
-import { Building2 } from "lucide-react";
+import { Buildings as Building2 } from "@phosphor-icons/react";
 
 interface StartupRow {
   id: string;

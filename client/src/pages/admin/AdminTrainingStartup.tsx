@@ -11,7 +11,7 @@ import { TrainingModuleHomeworkModal, type TrainingModuleHomeworkRow } from "../
 import { MENTORSHIP_SESSION_STATUS_TONES } from "../../lib/statusTones";
 import { showToast } from "../../lib/toast";
 import { ModalShell } from "../../components/ModalShell";
-import { Pencil, Building2, CalendarClock, Paperclip, Presentation, ClipboardList, Loader2, User, Mail, MessageCircle, Linkedin } from "lucide-react";
+import { Pencil, Buildings as Building2, Calendar as CalendarClock, Paperclip, Presentation, ClipboardText as ClipboardList, CircleNotch as Loader2, User, Envelope as Mail, ChatCircle as MessageCircle, LinkedinLogo as Linkedin } from "@phosphor-icons/react";
 
 interface StartupBasic {
   id: string;
@@ -129,11 +129,11 @@ export default function AdminTrainingStartup() {
               <div className="min-w-0">
                 <p className="font-semibold text-primary">{trainer.name}</p>
                 <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-slate-400">
-                  {trainer.email && <span className="flex items-center gap-1"><Mail className="h-3 w-3" /> {trainer.email}</span>}
-                  {trainer.whatsapp && <span className="flex items-center gap-1"><MessageCircle className="h-3 w-3" /> {trainer.whatsapp}</span>}
+                  {trainer.email && <span className="flex items-center gap-1"><Mail className="h-4 w-4" /> {trainer.email}</span>}
+                  {trainer.whatsapp && <span className="flex items-center gap-1"><MessageCircle className="h-4 w-4" /> {trainer.whatsapp}</span>}
                   {trainer.linkedinUrl && (
                     <a href={trainer.linkedinUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-secondary hover:underline">
-                      <Linkedin className="h-3 w-3" /> LinkedIn
+                      <Linkedin className="h-4 w-4" /> LinkedIn
                     </a>
                   )}
                 </div>
@@ -159,7 +159,7 @@ export default function AdminTrainingStartup() {
                     <div className="text-sm font-semibold text-primary">Module {m.number} · {m.title}</div>
                     {h?.submissionFileUrl && (
                       <div className="mt-1 flex items-center gap-1 text-xs text-slate-400">
-                        <Paperclip className="h-3 w-3" /> Submitted: {h.submissionFileName ?? "file"}
+                        <Paperclip className="h-4 w-4" /> Submitted: {h.submissionFileName ?? "file"}
                       </div>
                     )}
                   </div>
@@ -169,7 +169,7 @@ export default function AdminTrainingStartup() {
                       onClick={() => setHomeworkModalModule({ moduleId: m.id, moduleNumber: m.number, moduleTitle: m.title })}
                       className="ost-btn-ghost !px-3 !py-1.5 text-xs"
                     >
-                      <Pencil className="h-3.5 w-3.5" /> Edit homework
+                      <Pencil className="h-4 w-4" /> Edit homework
                     </button>
                   </div>
                 </div>
@@ -196,7 +196,7 @@ export default function AdminTrainingStartup() {
                 <div key={s.id} className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 bg-offwhite px-4 py-3">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <Presentation className="h-3.5 w-3.5 text-secondary" />
+                      <Presentation className="h-4 w-4 text-secondary" />
                       <p className="text-sm font-semibold text-primary">{s.moduleTitle ? `${s.moduleTitle} · ` : ""}Session {s.number} · {s.title}</p>
                       <StatusBadge tone={MENTORSHIP_SESSION_STATUS_TONES[s.status]}>{s.status}</StatusBadge>
                       <StatusBadge tone={hasRecap ? "teal" : "gray"}>{hasRecap ? "Recap submitted" : "No recap yet"}</StatusBadge>
@@ -213,7 +213,7 @@ export default function AdminTrainingStartup() {
                     onClick={() => setNotesModalSession({ sessionId: s.id, sessionNumber: s.number, sessionTitle: s.title })}
                     className="ost-btn-ghost !shrink-0 !px-3 !py-1.5 text-xs"
                   >
-                    <ClipboardList className="h-3.5 w-3.5" /> Recap &amp; feedback
+                    <ClipboardList className="h-4 w-4" /> Recap &amp; feedback
                   </button>
                 </div>
               );

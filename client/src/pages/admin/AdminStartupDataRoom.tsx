@@ -5,7 +5,7 @@ import { AppShell } from "../../components/AppShell";
 import { BackLink, PageHeader } from "../../components/PageHeader";
 import { EmptyState } from "../../components/EmptyState";
 import { Skeleton, SkeletonText } from "../../components/Skeleton";
-import { Building2, ExternalLink, FolderLock } from "lucide-react";
+import { Buildings as Building2, ArrowSquareOut as ExternalLink, FolderLock } from "@phosphor-icons/react";
 
 interface StartupBasic {
   companyName: string;
@@ -58,7 +58,7 @@ export default function AdminStartupDataRoom() {
             <>
               <a href={startup.dataRoomLink} target="_blank" rel="noreferrer" className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 px-4 py-3 hover:border-secondary">
                 <span className="truncate text-sm font-semibold text-primary">{startup.dataRoomLink}</span>
-                <ExternalLink className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+                <ExternalLink className="h-4 w-4 shrink-0 text-slate-400" />
               </a>
               <p className="mt-2 text-xs text-slate-400">
                 {startup.dataRoomUpdatedAt

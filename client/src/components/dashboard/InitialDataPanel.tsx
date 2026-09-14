@@ -14,7 +14,7 @@ import {
   PATENT_APPLICATION_TYPE_OPTIONS, PATENT_STATUS_OPTIONS, GTM_STATUS_OPTIONS, CLIENT_TYPE_OPTIONS,
   PARTNER_TYPE_OPTIONS, INVOLVEMENT_OPTIONS, TRL_EXPLAINER_URL, type Option,
 } from "@shared/initialDataCatalog";
-import { Loader2, Plus, Trash2, ExternalLink } from "lucide-react";
+import { CircleNotch as Loader2, Plus, Trash as Trash2, ArrowSquareOut as ExternalLink } from "@phosphor-icons/react";
 
 /* ---------------- Types matching the GET response ---------------- */
 
@@ -122,7 +122,7 @@ function LinkRow({ label, url }: { label: string; url: string | null }) {
       <span className="text-xs text-slate-400">{label}</span>
       {url ? (
         <a href={url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm font-medium text-secondary hover:underline">
-          View <ExternalLink className="h-3 w-3" />
+          View <ExternalLink className="h-4 w-4" />
         </a>
       ) : <span className="text-sm text-slate-300">—</span>}
     </div>
@@ -202,11 +202,11 @@ function RepeatableList<T extends { id: string }>({
         <div key={row.id} className="flex items-start justify-between gap-2 rounded-lg border border-slate-100 px-3 py-2">
           <div className="min-w-0 flex-1 text-xs text-slate-600">{renderRow(row)}</div>
           <button aria-label="Delete" onClick={() => onDelete(row.id)} className="shrink-0 text-slate-300 hover:text-red-500">
-            <Trash2 className="h-3.5 w-3.5" />
+            <Trash2 className="h-4 w-4" />
           </button>
         </div>
       ))}
-      <button type="button" onClick={onAdd} className="ost-btn-ghost !px-2.5 !py-1 text-xs"><Plus className="h-3.5 w-3.5" /> {addLabel}</button>
+      <button type="button" onClick={onAdd} className="ost-btn-ghost !px-2.5 !py-1 text-xs"><Plus className="h-4 w-4" /> {addLabel}</button>
     </div>
   );
 }
@@ -456,7 +456,7 @@ export function InitialDataPanel({ apiConfig }: { apiConfig: InitialDataApiConfi
           title="8. Product"
           isOpen={expanded.has("product")}
           onToggle={() => toggle("product")}
-          hidden={<a href={TRL_EXPLAINER_URL} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm text-secondary hover:underline">What is a TRL level? <ExternalLink className="h-3.5 w-3.5" /></a>}
+          hidden={<a href={TRL_EXPLAINER_URL} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm text-secondary hover:underline">What is a TRL level? <ExternalLink className="h-4 w-4" /></a>}
         >
           <div>
             <label className="ost-label">Product Stage</label>

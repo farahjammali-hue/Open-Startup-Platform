@@ -5,7 +5,7 @@ import {
 } from "./StartupFormFields";
 import { setNavDirty } from "../lib/navGuard";
 import { STAGE_OPTIONS } from "../lib/stageLabels";
-import { Loader2 } from "lucide-react";
+import { CircleNotch as Loader2 } from "@phosphor-icons/react";
 
 /* ---------- option sets ---------- */
 

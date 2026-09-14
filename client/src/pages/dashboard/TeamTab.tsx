@@ -3,7 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { api } from "../../lib/utils";
 import { EmptyState } from "../../components/EmptyState";
 import { showToast } from "../../lib/toast";
-import { Plus, Loader2, Users } from "lucide-react";
+import { Plus, CircleNotch as Loader2, Users } from "@phosphor-icons/react";
 import type { TeamMemberRow } from "./types";
 
 export function TeamTab({ team }: { team: TeamMemberRow[] }) {
@@ -52,7 +52,7 @@ export function TeamTab({ team }: { team: TeamMemberRow[] }) {
           <div className="mb-4 flex items-center justify-between">
             <h2 className="ost-card-title">{group.title}</h2>
             {group.title === "Team members" && (
-              <button onClick={() => setAdding((a) => !a)} className="ost-btn-ghost !px-3 !py-1.5 text-xs"><Plus className="h-3.5 w-3.5" /> Add member</button>
+              <button onClick={() => setAdding((a) => !a)} className="ost-btn-ghost !px-3 !py-1.5 text-xs"><Plus className="h-4 w-4" /> Add member</button>
             )}
           </div>
           {group.title === "Team members" && adding && (
@@ -65,7 +65,7 @@ export function TeamTab({ team }: { team: TeamMemberRow[] }) {
                 <option value="advisor">Advisor</option>
                 <option value="founder">Founder</option>
               </select>
-              <button type="submit" className="ost-btn-primary !px-3 !py-1.5 text-xs" disabled={busy}>{busy && <Loader2 className="h-3.5 w-3.5 animate-spin" />} Save</button>
+              <button type="submit" className="ost-btn-primary !px-3 !py-1.5 text-xs" disabled={busy}>{busy && <Loader2 className="h-4 w-4 animate-spin" />} Save</button>
             </form>
           )}
           {group.rows.length === 0 ? (

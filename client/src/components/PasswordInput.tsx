@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeSlash as EyeOff } from "@phosphor-icons/react";
 
 /** Password field with a show/hide toggle. */
 export function PasswordInput({

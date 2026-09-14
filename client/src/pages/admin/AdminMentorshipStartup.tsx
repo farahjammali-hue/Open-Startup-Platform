@@ -12,7 +12,7 @@ import { StatusBadge } from "../../components/StatusBadge";
 import { MentorAssignment, type MentorOption } from "../../components/admin/MentorAssignment";
 import { MENTORSHIP_SESSION_STATUS_TONES } from "../../lib/statusTones";
 import { showToast } from "../../lib/toast";
-import { CalendarClock, Pencil, Trash2, Plus, Loader2, Building2, Upload, FileText, ClipboardList, Sparkles } from "lucide-react";
+import { Calendar as CalendarClock, Pencil, Trash as Trash2, Plus, CircleNotch as Loader2, Buildings as Building2, Upload, FileText, ClipboardText as ClipboardList, Sparkle as Sparkles } from "@phosphor-icons/react";
 
 interface Expert {
   id: string;
@@ -280,7 +280,7 @@ export default function AdminMentorshipStartup() {
 
         <div className="mt-8 flex items-center justify-between">
           <h2 className="text-sm font-bold uppercase tracking-wide text-slate-400">Sessions</h2>
-          <button onClick={() => setEditingSession("new")} className="ost-btn-primary !px-3 !py-1.5 text-xs"><Plus className="h-3.5 w-3.5" /> Add session</button>
+          <button onClick={() => setEditingSession("new")} className="ost-btn-primary !px-3 !py-1.5 text-xs"><Plus className="h-4 w-4" /> Add session</button>
         </div>
 
         {sessionsLoading ? (
@@ -319,13 +319,13 @@ export default function AdminMentorshipStartup() {
                       onClick={() => setNotesModalSession({ sessionId: s.id, sessionNumber: s.number, sessionTitle: s.title, hasTranscript: !!s.transcriptUrl })}
                       className="ost-btn-ghost !px-3 !py-1.5 text-xs"
                     >
-                      <ClipboardList className="h-3.5 w-3.5" /> Recap &amp; feedback
+                      <ClipboardList className="h-4 w-4" /> Recap &amp; feedback
                     </button>
                     <button aria-label={`Edit ${s.title}`} title="Edit" onClick={() => setEditingSession(s)} className="ost-btn-ghost !p-1.5">
-                      <Pencil className="h-3.5 w-3.5" />
+                      <Pencil className="h-4 w-4" />
                     </button>
                     <button aria-label={`Delete ${s.title}`} title="Delete" onClick={() => removeSession(s)} className="ost-btn-ghost !p-1.5 text-red-500">
-                      <Trash2 className="h-3.5 w-3.5" />
+                      <Trash2 className="h-4 w-4" />
                     </button>
                   </div>
                 </div>
@@ -365,7 +365,7 @@ export default function AdminMentorshipStartup() {
               disabled={savingVisibility}
               className="ost-btn-primary !px-3 !py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {savingVisibility && <Loader2 className="h-3.5 w-3.5 animate-spin" />} Save visibility
+              {savingVisibility && <Loader2 className="h-4 w-4 animate-spin" />} Save visibility
             </button>
           </div>
 
@@ -413,9 +413,9 @@ export default function AdminMentorshipStartup() {
               disabled={importing}
               className="ost-btn-ghost !px-3 !py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {importing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />} Import CSV
+              {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />} Import CSV
             </button>
-            <button onClick={() => setEditingExpert("new")} className="ost-btn-ghost !px-3 !py-1.5 text-xs"><Plus className="h-3.5 w-3.5" /> Add expert</button>
+            <button onClick={() => setEditingExpert("new")} className="ost-btn-ghost !px-3 !py-1.5 text-xs"><Plus className="h-4 w-4" /> Add expert</button>
           </div>
         </div>
 
@@ -447,10 +447,10 @@ export default function AdminMentorshipStartup() {
                       <td className="px-5 py-3 text-right">
                         <div className="flex justify-end gap-1">
                           <button aria-label={`Edit ${e.name}`} title="Edit" onClick={() => setEditingExpert(e)} className="ost-btn-ghost !p-1.5">
-                            <Pencil className="h-3.5 w-3.5" />
+                            <Pencil className="h-4 w-4" />
                           </button>
                           <button aria-label={`Delete ${e.name}`} title="Delete" onClick={() => removeExpert(e)} className="ost-btn-ghost !p-1.5 text-red-500">
-                            <Trash2 className="h-3.5 w-3.5" />
+                            <Trash2 className="h-4 w-4" />
                           </button>
                         </div>
                       </td>
@@ -643,7 +643,7 @@ function SessionNotesModal({
             title={hasTranscript ? "Generate or refresh the AI recap from this session's transcript" : "No transcript available for this session yet"}
             className="ost-btn-ghost !px-2.5 !py-1 text-xs disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+            {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
             {notes?.aiGeneratedAt ? "Regenerate" : "Generate"}
           </button>
         </div>
@@ -880,7 +880,7 @@ function SessionFormModal({
           placeholder="https://…"
         />
         <label className="ost-btn-ghost cursor-pointer whitespace-nowrap !px-3 !py-1.5 text-xs">
-          {uploadingMaterials ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />} Upload
+          {uploadingMaterials ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />} Upload
           <input
             type="file"
             accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
@@ -895,7 +895,7 @@ function SessionFormModal({
         </label>
       </div>
       {materialsFileName && (
-        <p className="mb-3 flex items-center gap-1 text-xs text-slate-400"><FileText className="h-3 w-3" /> Uploaded: {materialsFileName}</p>
+        <p className="mb-3 flex items-center gap-1 text-xs text-slate-400"><FileText className="h-4 w-4" /> Uploaded: {materialsFileName}</p>
       )}
       {!materialsFileName && <div className="mb-3" />}
 

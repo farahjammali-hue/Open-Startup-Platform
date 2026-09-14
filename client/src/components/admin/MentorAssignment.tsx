@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Loader2 } from "lucide-react";
+import { CircleNotch as Loader2 } from "@phosphor-icons/react";
 import { api } from "../../lib/utils";
 import { showToast } from "../../lib/toast";
 
@@ -63,7 +63,7 @@ export function MentorAssignment({
           disabled={saving || selected === (currentMentorId ?? "")}
           className="ost-btn-primary !px-3 !py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />} Save
+          {saving && <Loader2 className="h-4 w-4 animate-spin" />} Save
         </button>
       </div>
       {mentors.length === 0 && <p className="text-xs text-slate-400">No experts in the catalog yet, add one from the Mentorship admin page.</p>}

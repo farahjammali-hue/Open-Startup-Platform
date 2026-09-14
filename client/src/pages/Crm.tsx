@@ -4,7 +4,7 @@ import { BackLink, PageHeader } from "../components/PageHeader";
 import { EmptyState } from "../components/EmptyState";
 import { CrmPanel } from "../components/crm/CrmPanel";
 import { useKysStatus } from "../lib/kysStatus";
-import { Lock } from "lucide-react";
+import { Lock } from "@phosphor-icons/react";
 
 export default function Crm() {
   const [, navigate] = useLocation();

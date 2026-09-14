@@ -11,10 +11,7 @@ import { Skeleton } from "../components/Skeleton";
 import { useKysStatus } from "../lib/kysStatus";
 import { showToast } from "../lib/toast";
 import { MENTORSHIP_SESSION_STATUS_TONES, MENTORSHIP_SESSION_STATUS_ICONS } from "../lib/statusTones";
-import {
-  Lock, ChevronRight, Video, FileText, Link2, Loader2,
-  CalendarClock, User, Users, Paperclip,
-} from "lucide-react";
+import { Lock, CaretRight as ChevronRight, VideoCamera as Video, FileText, Link as Link2, CircleNotch as Loader2, Calendar as CalendarClock, User, Users, Paperclip } from "@phosphor-icons/react";
 
 interface MentorshipSessionNotes {
   teamMembersPresence: string | null;
@@ -175,7 +172,7 @@ function MentorTab({ mentor }: { mentor: ExpertProfile | null }) {
     <div className="ost-card max-w-xl p-8">
       <div className="flex items-center gap-4">
         <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-secondary/10 text-secondary">
-          <User className="h-7 w-7" />
+          <User className="h-6 w-6" />
         </div>
         <div className="min-w-0">
           <h2 className="ost-card-title">{mentor.name}</h2>
@@ -368,7 +365,7 @@ function SessionRecapCard({ session: s }: { session: MentorshipSession }) {
         />
         <div className="flex justify-end">
           <button type="button" onClick={saveComments} disabled={saving} className="ost-btn-primary !px-3 !py-1.5 text-xs disabled:opacity-50">
-            {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />} Save
+            {saving && <Loader2 className="h-4 w-4 animate-spin" />} Save
           </button>
         </div>
       </div>
@@ -386,7 +383,7 @@ function SessionRow({ session: s, onOpen }: { session: MentorshipSession; onOpen
       <div className="min-w-0 flex-1">
         <p className="font-semibold text-primary">Session {s.number} · {s.title}</p>
         <p className="mt-1.5 flex items-center gap-1 text-xs text-slate-400">
-          <CalendarClock className="h-3 w-3" /> {new Date(s.scheduledAt).toLocaleDateString(undefined, { dateStyle: "medium" })}
+          <CalendarClock className="h-4 w-4" /> {new Date(s.scheduledAt).toLocaleDateString(undefined, { dateStyle: "medium" })}
         </p>
       </div>
       <div className="flex shrink-0 items-center gap-3">
@@ -412,32 +409,32 @@ function SessionDetailModal({ session: s, onClose }: { session: MentorshipSessio
       <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-5">
         {s.status === "upcoming" && s.meetingLink && (
           <a href={s.meetingLink} target="_blank" rel="noreferrer" className="ost-btn-primary !px-3 !py-1.5 text-xs">
-            <Video className="h-3.5 w-3.5" /> Join
+            <Video className="h-4 w-4" /> Join
           </a>
         )}
         {s.status === "upcoming" && !s.meetingLink && (
           <a href={googleCalendarLink(s.title, s.scheduledAt, s.durationMinutes)} target="_blank" rel="noreferrer" className="ost-btn-ghost !px-3 !py-1.5 text-xs">
-            <Link2 className="h-3.5 w-3.5" /> Add to calendar
+            <Link2 className="h-4 w-4" /> Add to calendar
           </a>
         )}
         {s.status === "completed" && s.recordingUrl && (
           <a href={s.recordingUrl} target="_blank" rel="noreferrer" className="ost-btn-primary !px-3 !py-1.5 text-xs">
-            <Video className="h-3.5 w-3.5" /> Recording
+            <Video className="h-4 w-4" /> Recording
           </a>
         )}
         {s.status === "completed" && s.meetingLink && (
           <a href={s.meetingLink} target="_blank" rel="noreferrer" className="ost-btn-ghost !px-3 !py-1.5 text-xs">
-            <Video className="h-3.5 w-3.5" /> Meeting link
+            <Video className="h-4 w-4" /> Meeting link
           </a>
         )}
         {s.transcriptUrl && (
           <a href={s.transcriptUrl} target="_blank" rel="noreferrer" className="ost-btn-ghost !px-3 !py-1.5 text-xs">
-            <FileText className="h-3.5 w-3.5" /> Transcript
+            <FileText className="h-4 w-4" /> Transcript
           </a>
         )}
         {s.materialsUrl && (
           <a href={s.materialsUrl} target="_blank" rel="noreferrer" className="ost-btn-ghost !px-3 !py-1.5 text-xs">
-            <Paperclip className="h-3.5 w-3.5" /> Materials
+            <Paperclip className="h-4 w-4" /> Materials
           </a>
         )}
         {!s.meetingLink && !s.recordingUrl && !s.transcriptUrl && !s.materialsUrl && s.status === "completed" && (

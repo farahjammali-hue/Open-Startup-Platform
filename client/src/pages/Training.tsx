@@ -10,10 +10,7 @@ import { StatusBadge, type StatusTone } from "../components/StatusBadge";
 import { Skeleton } from "../components/Skeleton";
 import { useKysStatus } from "../lib/kysStatus";
 import { MENTORSHIP_SESSION_STATUS_TONES, MENTORSHIP_SESSION_STATUS_ICONS } from "../lib/statusTones";
-import {
-  Layers, Lock, ChevronRight, ChevronLeft, Presentation, Video, FileText, Link2,
-  CalendarClock, Clock, User, MessageCircle, Mail, Linkedin,
-} from "lucide-react";
+import { Stack as Layers, Lock, CaretRight as ChevronRight, CaretLeft as ChevronLeft, Presentation, VideoCamera as Video, FileText, Link as Link2, Calendar as CalendarClock, Clock, User, ChatCircle as MessageCircle, Envelope as Mail, LinkedinLogo as Linkedin } from "@phosphor-icons/react";
 
 interface TrainerProfile {
   id: string;
@@ -212,7 +209,7 @@ function TrainerTab({ trainer }: { trainer: TrainerProfile | null }) {
           <img src={trainer.pictureUrl} alt={trainer.name} className="h-16 w-16 shrink-0 rounded-full object-cover" />
         ) : (
           <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-secondary/10 text-secondary">
-            <User className="h-7 w-7" />
+            <User className="h-6 w-6" />
           </div>
         )}
         <div className="min-w-0">
@@ -231,17 +228,17 @@ function TrainerTab({ trainer }: { trainer: TrainerProfile | null }) {
             rel="noreferrer"
             className="ost-btn-primary !px-3 !py-1.5 text-xs"
           >
-            <MessageCircle className="h-3.5 w-3.5" /> WhatsApp
+            <MessageCircle className="h-4 w-4" /> WhatsApp
           </a>
         )}
         {trainer.email && (
           <a href={`mailto:${trainer.email}`} className="ost-btn-ghost !px-3 !py-1.5 text-xs">
-            <Mail className="h-3.5 w-3.5" /> Email
+            <Mail className="h-4 w-4" /> Email
           </a>
         )}
         {trainer.linkedinUrl && (
           <a href={trainer.linkedinUrl} target="_blank" rel="noreferrer" className="ost-btn-ghost !px-3 !py-1.5 text-xs">
-            <Linkedin className="h-3.5 w-3.5" /> LinkedIn
+            <Linkedin className="h-4 w-4" /> LinkedIn
           </a>
         )}
       </div>
@@ -269,12 +266,12 @@ function ModuleCard({ module: m, onOpen }: { module: TrainingModuleData; onOpen:
       <h3 className="mt-4 font-bold text-primary">Module {m.number} · {m.title}</h3>
       {m.description && <p className="mt-1 text-sm text-slate-500">{m.description}</p>}
       <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-400">
-        {m.durationLabel && <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {m.durationLabel}</span>}
+        {m.durationLabel && <span className="flex items-center gap-1"><Clock className="h-4 w-4" /> {m.durationLabel}</span>}
         {!locked && <span>{m.completedSessionsCount} of {m.totalSessionsCount} sessions completed</span>}
       </div>
       {!locked && (
         <span className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-secondary">
-          View <ChevronRight className="h-3.5 w-3.5" />
+          View <ChevronRight className="h-4 w-4" />
         </span>
       )}
     </button>
@@ -291,7 +288,7 @@ function SessionRow({ session: s, onOpen }: { session: TrainingSession; onOpen: 
       <div className="min-w-0 flex-1">
         <p className="font-semibold text-primary">Session {s.number} · {s.title}</p>
         <p className="mt-1.5 flex items-center gap-1 text-xs text-slate-400">
-          <CalendarClock className="h-3 w-3" /> {new Date(s.scheduledAt).toLocaleDateString(undefined, { dateStyle: "medium" })}
+          <CalendarClock className="h-4 w-4" /> {new Date(s.scheduledAt).toLocaleDateString(undefined, { dateStyle: "medium" })}
         </p>
       </div>
       <div className="flex shrink-0 items-center gap-3">
@@ -317,32 +314,32 @@ function SessionDetailModal({ session: s, onClose }: { session: TrainingSession;
       <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-5">
         {s.status === "upcoming" && s.meetingLink && (
           <a href={s.meetingLink} target="_blank" rel="noreferrer" className="ost-btn-primary !px-3 !py-1.5 text-xs">
-            <Video className="h-3.5 w-3.5" /> Join
+            <Video className="h-4 w-4" /> Join
           </a>
         )}
         {s.status === "upcoming" && !s.meetingLink && (
           <a href={googleCalendarLink(s.title, s.scheduledAt, s.durationMinutes)} target="_blank" rel="noreferrer" className="ost-btn-ghost !px-3 !py-1.5 text-xs">
-            <Link2 className="h-3.5 w-3.5" /> Add to calendar
+            <Link2 className="h-4 w-4" /> Add to calendar
           </a>
         )}
         {s.status === "completed" && s.recordingUrl && (
           <a href={s.recordingUrl} target="_blank" rel="noreferrer" className="ost-btn-primary !px-3 !py-1.5 text-xs">
-            <Video className="h-3.5 w-3.5" /> Recording
+            <Video className="h-4 w-4" /> Recording
           </a>
         )}
         {s.status === "completed" && s.meetingLink && (
           <a href={s.meetingLink} target="_blank" rel="noreferrer" className="ost-btn-ghost !px-3 !py-1.5 text-xs">
-            <Video className="h-3.5 w-3.5" /> Meeting link
+            <Video className="h-4 w-4" /> Meeting link
           </a>
         )}
         {s.presentationUrl && (
           <a href={s.presentationUrl} target="_blank" rel="noreferrer" className="ost-btn-ghost !px-3 !py-1.5 text-xs">
-            <Presentation className="h-3.5 w-3.5" /> Presentation
+            <Presentation className="h-4 w-4" /> Presentation
           </a>
         )}
         {s.transcriptUrl && (
           <a href={s.transcriptUrl} target="_blank" rel="noreferrer" className="ost-btn-ghost !px-3 !py-1.5 text-xs">
-            <FileText className="h-3.5 w-3.5" /> Transcript
+            <FileText className="h-4 w-4" /> Transcript
           </a>
         )}
         {!s.meetingLink && !s.recordingUrl && !s.presentationUrl && !s.transcriptUrl && s.status === "completed" && (

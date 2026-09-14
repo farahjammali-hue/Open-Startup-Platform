@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { showToast } from "../../lib/toast";
 import type { Contract } from "../../lib/kysStatus";
-import { ExternalLink, FileText, Loader2, Upload } from "lucide-react";
+import { ArrowSquareOut as ExternalLink, FileText, CircleNotch as Loader2, Upload } from "@phosphor-icons/react";
 
 export function ContractStep({ initial, onSigned }: { initial?: Contract | null; onSigned: () => void }) {
   const [file, setFile] = useState<File | null>(null);
@@ -46,7 +46,7 @@ export function ContractStep({ initial, onSigned }: { initial?: Contract | null;
           <span className="flex items-center gap-2">
             <FileText className="h-4 w-4 text-slate-400" /> {initial.fileName ?? "Uploaded contract"}
           </span>
-          <ExternalLink className="h-3.5 w-3.5 text-slate-400" />
+          <ExternalLink className="h-4 w-4 text-slate-400" />
         </a>
       )}
 

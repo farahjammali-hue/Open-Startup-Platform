@@ -5,7 +5,7 @@ import { BackLink, PageHeader } from "../../components/PageHeader";
 import { EmptyState } from "../../components/EmptyState";
 import { StatusBadge } from "../../components/StatusBadge";
 import { Skeleton } from "../../components/Skeleton";
-import { FolderLock, Building2, ExternalLink } from "lucide-react";
+import { FolderLock, Buildings as Building2, ArrowSquareOut as ExternalLink } from "@phosphor-icons/react";
 
 interface StartupRow {
   id: string;
@@ -74,7 +74,7 @@ export default function AdminDataRoom() {
                         {s.dataRoomLink ? (
                           <a href={s.dataRoomLink} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-secondary hover:underline">
                             <span className="max-w-xs truncate">{s.dataRoomLink}</span>
-                            <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+                            <ExternalLink className="h-4 w-4 shrink-0" />
                           </a>
                         ) : (
                           <span className="text-slate-400">—</span>

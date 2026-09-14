@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { api } from "../../lib/utils";
 import { AppShell } from "../../components/AppShell";
 import { PageHeader } from "../../components/PageHeader";
-import { Users, Rocket, Trash2, ArrowRight, FileSignature, LineChart, UsersRound, Presentation, FileText } from "lucide-react";
+import { Users, Rocket, Trash as Trash2, ArrowRight, Signature as FileSignature, ChartLine as LineChart, UsersThree as UsersRound, Presentation, FileText } from "@phosphor-icons/react";
 
 interface Stats {
   users: number; startups: number; pendingDeletions: number;
@@ -92,7 +92,7 @@ function CardSection({
                     isWarning ? "bg-white text-amber-600" : "bg-secondary/10 text-secondary"
                   }`}
                 >
-                  <Icon className="h-5 w-5" />
+                  <Icon className="h-6 w-6" />
                 </div>
                 <ArrowRight className={`h-4 w-4 ${isWarning ? "text-amber-300 group-hover:text-amber-600" : "text-slate-300 group-hover:text-secondary"}`} />
               </div>

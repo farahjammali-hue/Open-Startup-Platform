@@ -5,7 +5,7 @@ import { Logo } from "../components/Brand";
 import { StatusBadge } from "../components/StatusBadge";
 import { REVIEW_STATUS_TONES, REVIEW_STATUS_ICONS, type ReviewStatus } from "../lib/statusTones";
 import { CATEGORY_LABELS, type DocumentCategory } from "../lib/documentCategories";
-import { FileText, ExternalLink, FolderLock, Ban, Building2 } from "lucide-react";
+import { FileText, ArrowSquareOut as ExternalLink, FolderLock, Prohibit as Ban, Buildings as Building2 } from "@phosphor-icons/react";
 
 interface SharedDoc {
   id: string;
@@ -52,7 +52,7 @@ export default function PublicDataRoomShare() {
         {!isLoading && error && (
           <div className="ost-card flex flex-col items-center gap-3 p-10 text-center">
             <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-red-50 text-red-500">
-              <Ban className="h-7 w-7" />
+              <Ban className="h-6 w-6" />
             </div>
             <h1 className="text-lg font-extrabold text-primary">This link isn't available</h1>
             <p className="max-w-sm text-sm text-slate-500">
@@ -85,7 +85,7 @@ export default function PublicDataRoomShare() {
 
             {data.documents.length === 0 ? (
               <div className="ost-card flex flex-col items-center gap-3 p-10 text-center">
-                <FolderLock className="h-7 w-7 text-slate-300" />
+                <FolderLock className="h-6 w-6 text-slate-300" />
                 <p className="text-sm text-slate-500">No documents are available in this share anymore.</p>
               </div>
             ) : (
@@ -102,7 +102,7 @@ export default function PublicDataRoomShare() {
                     <div className="flex shrink-0 items-center gap-2">
                       <StatusBadge tone={REVIEW_STATUS_TONES[d.status]} icon={REVIEW_STATUS_ICONS[d.status]}>{d.status}</StatusBadge>
                       <a href={d.fileUrl} target="_blank" rel="noreferrer" className="ost-btn-ghost !px-2.5 !py-1.5 text-xs">
-                        <ExternalLink className="h-3.5 w-3.5" /> View
+                        <ExternalLink className="h-4 w-4" /> View
                       </a>
                     </div>
                   </div>

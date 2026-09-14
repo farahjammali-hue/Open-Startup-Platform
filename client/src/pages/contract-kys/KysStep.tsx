@@ -4,7 +4,7 @@ import { api } from "../../lib/utils";
 import { Field } from "../../components/fields";
 import { showToast } from "../../lib/toast";
 import { type KysDocument, type KysProfile } from "../../lib/kysStatus";
-import { AlertTriangle, FileText, Loader2 } from "lucide-react";
+import { Warning as AlertTriangle, FileText, CircleNotch as Loader2 } from "@phosphor-icons/react";
 
 type DocType = KysDocument["docType"];
 
@@ -333,7 +333,7 @@ function UploadRow({
         {error && <div className="mt-1 text-xs font-medium text-red-500">{error}</div>}
       </div>
       <label className="ost-btn-ghost cursor-pointer !px-3 !py-1.5 text-xs">
-        {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : doc ? "Replace" : "Upload"}
+        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : doc ? "Replace" : "Upload"}
         <input type="file" className="hidden" disabled={busy} onChange={handleChange} />
       </label>
     </div>

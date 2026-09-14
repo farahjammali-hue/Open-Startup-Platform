@@ -8,10 +8,7 @@ import { useKysStatus } from "../lib/kysStatus";
 import { showToast } from "../lib/toast";
 import { StatusBadge, TONE_CLASSES, type StatusTone } from "../components/StatusBadge";
 import { Skeleton } from "../components/Skeleton";
-import {
-  FileText, LayoutDashboard, FolderLock, Lock, Layers, Presentation, Handshake, GraduationCap,
-  AlertTriangle, CheckCircle2, ArrowRight, Video,
-} from "lucide-react";
+import { FileText, SquaresFour as LayoutDashboard, FolderLock, Lock, Stack as Layers, Presentation, Handshake, GraduationCap, Warning as AlertTriangle, CheckCircle as CheckCircle2, ArrowRight, VideoCamera as Video } from "@phosphor-icons/react";
 
 interface StartupProfile {
   companyName: string;
@@ -189,7 +186,7 @@ export default function Home() {
                 >
                   <div className="flex w-full items-center justify-between">
                     <t.icon className="h-4 w-4 text-secondary" />
-                    {locked && <Lock className="h-3.5 w-3.5 text-slate-400" />}
+                    {locked && <Lock className="h-4 w-4 text-slate-400" />}
                   </div>
                   <span className="text-sm font-bold text-primary">{t.title}</span>
                   <span className="ost-helper-text">{t.desc}</span>
@@ -232,7 +229,7 @@ function NextActionHero({
     <div className={`ost-card mt-8 flex flex-col items-start gap-5 border-l-4 p-8 sm:flex-row sm:items-center sm:justify-between ${BORDER_BY_TONE[tone]}`}>
       <div className="flex items-start gap-4">
         <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${TONE_CLASSES[tone]}`}>
-          <Icon className="h-5 w-5" />
+          <Icon className="h-6 w-6" />
         </div>
         <div>
           <h2 className="ost-card-title text-lg">{title}</h2>
@@ -269,7 +266,7 @@ function UpcomingRow({ item }: { item: UpcomingItem }) {
       </div>
       {item.joinUrl && (
         <a href={item.joinUrl} target="_blank" rel="noreferrer" className="ost-btn-ghost !px-3 !py-1.5 text-xs shrink-0">
-          <Video className="h-3.5 w-3.5" /> Join
+          <Video className="h-4 w-4" /> Join
         </a>
       )}
     </div>

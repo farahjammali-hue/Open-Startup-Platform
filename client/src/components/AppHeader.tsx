@@ -5,14 +5,7 @@ import { api } from "../lib/utils";
 import { confirmLeave } from "../lib/navGuard";
 import { Dropdown } from "./Dropdown";
 import { ThemeToggle } from "./ThemeToggle";
-import {
-  ChevronDown,
-  Plus,
-  Check,
-  Building2,
-  LogOut,
-  Settings,
-} from "lucide-react";
+import { CaretDown as ChevronDown, Plus, Check, Buildings as Building2, SignOut as LogOut, Gear as Settings } from "@phosphor-icons/react";
 
 interface StartupLite {
   id: string;

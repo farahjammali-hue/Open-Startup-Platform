@@ -7,7 +7,7 @@ import { BackLink, PageHeader } from "../components/PageHeader";
 import { StatusBadge } from "../components/StatusBadge";
 import { Skeleton } from "../components/Skeleton";
 import { BOOKING_STATUS_TONES, BOOKING_STATUS_ICONS, type BookingStatus } from "../lib/statusTones";
-import { Users, Link2, Loader2, CalendarClock } from "lucide-react";
+import { Users, Link as Link2, CircleNotch as Loader2, Calendar as CalendarClock } from "@phosphor-icons/react";
 
 interface Slot {
   id: string; hostName: string; topic: string | null; startsAt: string; endsAt: string; capacity: number; meetingLink: string | null; bookedCount: number;
@@ -71,9 +71,9 @@ export default function OfficeHours() {
                 <div key={s.id} className="ost-card p-6">
                   <p className="text-sm font-bold text-primary">{new Date(s.startsAt).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</p>
                   <p className="mt-1 text-sm text-slate-500">{s.hostName}{s.topic ? ` · ${s.topic}` : ""}</p>
-                  <p className="mb-4 mt-1 flex items-center gap-1.5 ost-helper-text"><Users className="h-3.5 w-3.5" /> {s.bookedCount}/{s.capacity} booked</p>
+                  <p className="mb-4 mt-1 flex items-center gap-1.5 ost-helper-text"><Users className="h-4 w-4" /> {s.bookedCount}/{s.capacity} booked</p>
                   <button onClick={() => book(s.id)} disabled={full || already || busySlot === s.id} className="ost-btn-primary w-full !py-2 text-xs disabled:cursor-not-allowed disabled:opacity-50">
-                    {busySlot === s.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                    {busySlot === s.id ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                     {already ? "Booked" : full ? "Full" : "Book"}
                   </button>
                 </div>
@@ -106,7 +106,7 @@ export default function OfficeHours() {
                   <div className="flex items-center gap-2">
                     <StatusBadge tone={BOOKING_STATUS_TONES[b.status]} icon={BOOKING_STATUS_ICONS[b.status]}>{b.status}</StatusBadge>
                     {b.status === "booked" && <button onClick={() => cancel(b.id)} className="ost-btn-ghost !px-2.5 !py-1.5 text-xs">Cancel</button>}
-                    {b.slot.meetingLink && b.status === "booked" && <a href={b.slot.meetingLink} target="_blank" rel="noreferrer" className="ost-btn-ghost !px-2.5 !py-1.5 text-xs"><Link2 className="h-3.5 w-3.5" /> Join</a>}
+                    {b.slot.meetingLink && b.status === "booked" && <a href={b.slot.meetingLink} target="_blank" rel="noreferrer" className="ost-btn-ghost !px-2.5 !py-1.5 text-xs"><Link2 className="h-4 w-4" /> Join</a>}
                   </div>
                 </div>
                 {b.recap && <p className="mt-3 rounded-lg bg-slate-50 px-4 py-3 text-sm text-slate-600">{b.recap}</p>}

@@ -5,11 +5,7 @@ import { api } from "../lib/utils";
 import { confirmLeave } from "../lib/navGuard";
 import { useKysStatus } from "../lib/kysStatus";
 import { showToast } from "../lib/toast";
-import {
-  LayoutDashboard, Rocket, Trash2, Users, Lock,
-  GraduationCap, Wrench, Wallet, Store, BookOpen, MessagesSquare,
-  FolderLock, Home as HomeIcon, FileText, Layers, Presentation, Handshake,
-} from "lucide-react";
+import { SquaresFour as LayoutDashboard, Rocket, Trash as Trash2, Users, Lock, GraduationCap, Wrench, Wallet, Storefront as Store, BookOpen, Chats as MessagesSquare, FolderLock, House as HomeIcon, FileText, Stack as Layers, Presentation, Handshake } from "@phosphor-icons/react";
 
 interface Item {
   label: string;
@@ -118,8 +114,8 @@ export function Sidebar() {
     if (it.soon) {
       return (
         <div key={it.label} className="flex cursor-not-allowed items-center justify-between rounded-lg px-3 py-2 text-sm font-medium text-white/30">
-          <span className="flex items-center gap-3"><Icon className="h-[18px] w-[18px]" /> {it.label}</span>
-          <Lock className="h-3 w-3" />
+          <span className="flex items-center gap-3"><Icon className="h-5 w-5" /> {it.label}</span>
+          <Lock className="h-4 w-4" />
         </div>
       );
     }
@@ -139,8 +135,8 @@ export function Sidebar() {
           active ? "" : "hover:bg-white/5 hover:!text-white"
         }`}
       >
-        <Icon className="h-[18px] w-[18px]" /> {it.label}
-        {it.lockedIf && <Lock className="ml-auto h-3 w-3" />}
+        <Icon className="h-5 w-5" /> {it.label}
+        {it.lockedIf && <Lock className="ml-auto h-4 w-4" />}
       </button>
     );
   }

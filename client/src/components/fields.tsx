@@ -1,5 +1,5 @@
 import { useState, type KeyboardEvent, type ReactNode } from "react";
-import { X } from "lucide-react";
+import { X } from "@phosphor-icons/react";
 
 /** Labeled form field wrapper: label + optional required marker + optional error message. */
 export function Field({
@@ -61,7 +61,7 @@ export function TagInput({
             onClick={() => onChange(value.filter((t) => t !== tag))}
             className="text-secondary-600 hover:text-primary"
           >
-            <X className="h-3 w-3" />
+            <X className="h-4 w-4" />
           </button>
         </span>
       ))}

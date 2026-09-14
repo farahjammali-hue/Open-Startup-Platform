@@ -4,7 +4,7 @@ import { api } from "../../lib/utils";
 import { downloadXlsx } from "../../lib/xlsx";
 import { Skeleton } from "../Skeleton";
 import { METRIC_SECTIONS, monthPeriodsForYear, QUARTER_END_MONTH_INDEX } from "@shared/metricsCatalog";
-import { Download } from "lucide-react";
+import { Download } from "@phosphor-icons/react";
 
 interface MetricEntry { id: string; period: string; values: Record<string, number | string> }
 

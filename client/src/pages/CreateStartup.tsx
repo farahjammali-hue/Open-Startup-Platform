@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/utils";
 import { AppShell } from "../components/AppShell";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, CircleNotch as Loader2 } from "@phosphor-icons/react";
 
 export default function CreateStartup() {
   const [, navigate] = useLocation();

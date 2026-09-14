@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Sun, Moon } from "lucide-react";
+import { Sun, Moon } from "@phosphor-icons/react";
 import { getStoredTheme, setTheme } from "../lib/theme";
 
 /** Light/dark toggle. Persists to localStorage; defaults to the OS preference until the user picks explicitly. */

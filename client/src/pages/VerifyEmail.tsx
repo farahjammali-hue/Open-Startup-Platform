@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../lib/auth";
 import { api } from "../lib/utils";
 import { BrandPanel, Logo } from "../components/Brand";
-import { MailCheck, Loader2, RefreshCw, LogOut } from "lucide-react";
+import { EnvelopeOpen as MailCheck, CircleNotch as Loader2, ArrowsClockwise as RefreshCw, SignOut as LogOut } from "@phosphor-icons/react";
 
 export default function VerifyEmail() {
   const { user, refresh, logout } = useAuth();
@@ -50,7 +50,7 @@ export default function VerifyEmail() {
           </div>
 
           <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-secondary/10">
-            <MailCheck className="h-7 w-7 text-secondary" />
+            <MailCheck className="h-6 w-6 text-secondary" />
           </div>
           <h2 className="mt-5 text-2xl font-extrabold text-primary">
             Verify your email

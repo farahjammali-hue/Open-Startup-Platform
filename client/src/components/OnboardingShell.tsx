@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { useAuth } from "../lib/auth";
 import { Logo } from "./Brand";
-import { Check, LogOut } from "lucide-react";
+import { Check, SignOut as LogOut } from "@phosphor-icons/react";
 
 const STEPS = ["Role", "Basics", "Survey"] as const;
 

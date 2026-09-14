@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { compressImage } from "../lib/image";
-import { Upload, Loader2, User as UserIcon } from "lucide-react";
+import { Upload, CircleNotch as Loader2, User as UserIcon } from "@phosphor-icons/react";
 
 /** Circular profile-photo picker. Stages a Blob + preview; uploaded on Save. */
 export function AvatarUpload({
@@ -38,7 +38,7 @@ export function AvatarUpload({
         {preview ? (
           <img src={preview} alt="Profile" className="h-full w-full object-cover" />
         ) : (
-          <UserIcon className="h-8 w-8 text-slate-300" />
+          <UserIcon className="h-6 w-6 text-slate-300" />
         )}
       </div>
       <div>

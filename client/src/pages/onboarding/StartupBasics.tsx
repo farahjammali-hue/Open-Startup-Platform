@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useLocation } from "wouter";
 import { api } from "../../lib/utils";
 import { OnboardingShell } from "../../components/OnboardingShell";
-import { Loader2 } from "lucide-react";
+import { CircleNotch as Loader2 } from "@phosphor-icons/react";
 
 export default function StartupBasics() {
   const [, navigate] = useLocation();

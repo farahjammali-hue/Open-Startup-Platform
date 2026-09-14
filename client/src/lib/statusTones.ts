@@ -1,4 +1,4 @@
-import { Clock, CheckCircle2, XCircle } from "lucide-react";
+import { Clock, CheckCircle as CheckCircle2, XCircle } from "@phosphor-icons/react";
 import type { StatusTone } from "../components/StatusBadge";
 import type { ReviewStatus } from "./kysStatus";
 

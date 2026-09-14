@@ -7,10 +7,7 @@ import { StatusBadge } from "../../components/StatusBadge";
 import { Skeleton, SkeletonText } from "../../components/Skeleton";
 import { STAGE_LABELS, type StartupStage } from "../../lib/stageLabels";
 import { REVIEW_STATUS_TONES, REVIEW_STATUS_ICONS } from "../../lib/statusTones";
-import {
-  Building2, Globe, MapPin, LineChart, FolderLock,
-  FileSignature, ShieldCheck, Layers, Handshake, ArrowRight,
-} from "lucide-react";
+import { Buildings as Building2, Globe, MapPin, ChartLine as LineChart, FolderLock, Signature as FileSignature, ShieldCheck, Stack as Layers, Handshake, ArrowRight } from "@phosphor-icons/react";
 
 interface ReviewEntity { status: "pending" | "approved" | "rejected"; reviewNote: string | null }
 
@@ -112,10 +109,10 @@ export default function AdminStartupDetail() {
           subtitle={
             <span className="flex flex-wrap items-center gap-4 text-sm">
               {owner && <span>{owner.name} · {owner.email}</span>}
-              {startup.location && <span className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5" /> {startup.location}</span>}
+              {startup.location && <span className="flex items-center gap-1"><MapPin className="h-4 w-4" /> {startup.location}</span>}
               {startup.website && (
                 <a href={startup.website} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-secondary hover:underline">
-                  <Globe className="h-3.5 w-3.5" /> {startup.website}
+                  <Globe className="h-4 w-4" /> {startup.website}
                 </a>
               )}
               {startup.stage && <span>{STAGE_LABELS[startup.stage as StartupStage] || startup.stage}</span>}
@@ -143,7 +140,7 @@ export default function AdminStartupDetail() {
               >
                 <div className="flex items-center justify-between">
                   <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-secondary/10 text-secondary">
-                    <Icon className="h-5 w-5" />
+                    <Icon className="h-6 w-6" />
                   </div>
                   <ArrowRight className="h-4 w-4 text-slate-300 group-hover:text-secondary" />
                 </div>

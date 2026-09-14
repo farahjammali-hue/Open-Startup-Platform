@@ -1,7 +1,7 @@
 import { AppShell } from "../components/AppShell";
 import { EmptyState } from "../components/EmptyState";
 import { BackLink, PageHeader } from "../components/PageHeader";
-import { FileText } from "lucide-react";
+import { FileText } from "@phosphor-icons/react";
 
 export default function OpenStartupSchool() {
   return (

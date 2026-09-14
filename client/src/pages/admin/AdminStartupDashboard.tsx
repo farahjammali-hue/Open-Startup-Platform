@@ -10,7 +10,7 @@ import { GOAL_STATUS_LABELS, GOAL_STATUS_TONES, type Goal } from "../dashboard/t
 import { MetricsKpiPanel } from "../../components/metrics/MetricsKpiPanel";
 import { QuarterlySummaryPanel } from "../../components/metrics/QuarterlySummaryPanel";
 import { InitialDataPanel, type InitialDataApiConfig } from "../../components/dashboard/InitialDataPanel";
-import { Building2, Target, Inbox, TrendingUp, PieChart } from "lucide-react";
+import { Buildings as Building2, Target, Tray as Inbox, ChartLineUp as TrendingUp, ChartPieSlice as PieChart } from "@phosphor-icons/react";
 
 interface Detail {
   startup: { id: string; companyName: string };

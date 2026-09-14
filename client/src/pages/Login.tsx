@@ -5,7 +5,7 @@ import { BrandPanel, Logo } from "../components/Brand";
 import { ReCaptcha } from "../components/ReCaptcha";
 import { PasswordInput } from "../components/PasswordInput";
 import { COUNTRIES } from "../lib/countries";
-import { Loader2, CheckCircle2 } from "lucide-react";
+import { CircleNotch as Loader2, CheckCircle as CheckCircle2 } from "@phosphor-icons/react";
 
 export default function Login() {
   const { login, register } = useAuth();

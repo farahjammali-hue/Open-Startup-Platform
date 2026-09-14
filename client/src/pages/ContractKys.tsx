@@ -8,7 +8,7 @@ import { useKysStatus } from "../lib/kysStatus";
 import { ContractStep } from "./contract-kys/ContractStep";
 import { KysStep } from "./contract-kys/KysStep";
 import { DoneStep } from "./contract-kys/DoneStep";
-import { Check } from "lucide-react";
+import { Check } from "@phosphor-icons/react";
 import { Skeleton } from "../components/Skeleton";
 
 type Step = "contract" | "kys" | "done";
@@ -104,7 +104,7 @@ function StepTab({ label, num, active, done, onClick }: { label: string; num: nu
       }`}
     >
       <span className={`flex h-5 w-5 items-center justify-center rounded-full text-xs font-bold ${done ? "bg-secondary text-white" : active ? "bg-secondary text-white" : "bg-slate-100 text-slate-400"}`}>
-        {done ? <Check className="h-3 w-3" /> : num}
+        {done ? <Check className="h-4 w-4" /> : num}
       </span>
       {label}
     </button>

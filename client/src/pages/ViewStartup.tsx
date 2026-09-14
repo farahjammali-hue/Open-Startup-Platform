@@ -7,16 +7,7 @@ import { Skeleton } from "../components/Skeleton";
 import { STAGE_LABELS, type StartupStage } from "../lib/stageLabels";
 import { MONTH_NAMES } from "../lib/months";
 import { formatMoney } from "../lib/format";
-import {
-  Pencil,
-  Globe,
-  MapPin,
-  Clock,
-  CheckCircle2,
-  XCircle,
-  Lock,
-  ExternalLink,
-} from "lucide-react";
+import { Pencil, Globe, MapPin, Clock, CheckCircle as CheckCircle2, XCircle, Lock, ArrowSquareOut as ExternalLink } from "@phosphor-icons/react";
 
 interface Startup {
   id: string;
@@ -192,7 +183,7 @@ export default function ViewStartup() {
                     v ? (
                       <a key={k} href={v} target="_blank" rel="noreferrer"
                         className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-primary hover:border-secondary hover:text-secondary">
-                        {LINK_LABEL[k] || k} <ExternalLink className="h-3.5 w-3.5" />
+                        {LINK_LABEL[k] || k} <ExternalLink className="h-4 w-4" />
                       </a>
                     ) : null,
                   )}
@@ -263,8 +254,8 @@ function LinkRow({ label, url, priv }: { label: string; url: string | null; priv
       <span className="w-56 shrink-0 font-medium text-slate-500">{label}</span>
       {url ? (
         <a href={url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-secondary hover:underline">
-          Open <ExternalLink className="h-3.5 w-3.5" />
-          {priv && <span className="ml-1 inline-flex items-center gap-1 text-xs text-slate-400"><Lock className="h-3 w-3" /> Private</span>}
+          Open <ExternalLink className="h-4 w-4" />
+          {priv && <span className="ml-1 inline-flex items-center gap-1 text-xs text-slate-400"><Lock className="h-4 w-4" /> Private</span>}
         </a>
       ) : (
         <span className="text-primary">—</span>

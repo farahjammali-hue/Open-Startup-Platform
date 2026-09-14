@@ -4,7 +4,7 @@ import { api } from "../../lib/utils";
 import { AppShell } from "../../components/AppShell";
 import { BackLink, PageHeader } from "../../components/PageHeader";
 import { SkeletonRows } from "../../components/Skeleton";
-import { Building2 } from "lucide-react";
+import { Buildings as Building2 } from "@phosphor-icons/react";
 
 interface StartupRow {
   id: string;

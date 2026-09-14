@@ -1,4 +1,4 @@
-import type { LucideIcon } from "lucide-react";
+import type { Icon } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
 
 export const TONE_CLASSES = {
@@ -12,10 +12,10 @@ export const TONE_CLASSES = {
 export type StatusTone = keyof typeof TONE_CLASSES;
 
 /** Small pill used for every status/state indicator (documents, sessions, goals, bookings). */
-export function StatusBadge({ tone, icon: Icon, children }: { tone: StatusTone; icon?: LucideIcon; children: ReactNode }) {
+export function StatusBadge({ tone, icon: Icon, children }: { tone: StatusTone; icon?: Icon; children: ReactNode }) {
   return (
     <span className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${TONE_CLASSES[tone]}`}>
-      {Icon && <Icon className="h-3 w-3" />} {children}
+      {Icon && <Icon className="h-4 w-4" />} {children}
     </span>
   );
 }

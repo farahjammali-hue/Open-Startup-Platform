@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { useAuth } from "../lib/auth";
 import { api } from "../lib/utils";
 import { Logo } from "../components/Brand";
-import { Rocket, Users, LineChart, Lock, Loader2, LogOut } from "lucide-react";
+import { Rocket, Users, ChartLine as LineChart, Lock, CircleNotch as Loader2, SignOut as LogOut } from "@phosphor-icons/react";
 
 const ROLES = [
   {
@@ -99,7 +99,7 @@ export default function RoleSelect() {
               >
                 {!r.available && (
                   <span className="absolute right-4 top-4 inline-flex items-center gap-1 rounded-full bg-slate-200 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                    <Lock className="h-3 w-3" /> Soon
+                    <Lock className="h-4 w-4" /> Soon
                   </span>
                 )}
                 <div

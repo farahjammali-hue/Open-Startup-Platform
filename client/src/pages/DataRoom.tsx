@@ -5,7 +5,7 @@ import { AppShell } from "../components/AppShell";
 import { BackLink, PageHeader, TabBar } from "../components/PageHeader";
 import { Skeleton } from "../components/Skeleton";
 import { showToast } from "../lib/toast";
-import { FolderLock, ExternalLink, Loader2, RefreshCw } from "lucide-react";
+import { FolderLock, ArrowSquareOut as ExternalLink, CircleNotch as Loader2, ArrowsClockwise as RefreshCw } from "@phosphor-icons/react";
 
 const TABS = [{ key: "submission", label: "Data room submission" }];
 

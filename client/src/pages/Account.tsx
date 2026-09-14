@@ -12,9 +12,7 @@ import { StatusBadge } from "../components/StatusBadge";
 import { COUNTRIES } from "../lib/countries";
 import { setNavDirty } from "../lib/navGuard";
 import { showToast } from "../lib/toast";
-import {
-  Loader2, Plus, Pencil, Check, Building2, Trash2, Clock, MapPin, Mail, RotateCcw,
-} from "lucide-react";
+import { CircleNotch as Loader2, Plus, Pencil, Check, Buildings as Building2, Trash as Trash2, Clock, MapPin, Envelope as Mail, ArrowCounterClockwise as RotateCcw } from "@phosphor-icons/react";
 
 interface StartupLite {
   id: string; companyName: string; website: string | null;
@@ -271,7 +269,7 @@ export default function Account() {
             Current: <span className="font-medium text-primary">{user?.email}</span>
             {user?.pendingEmail && (
               <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700">
-                <Clock className="h-3 w-3" /> Pending: {user.pendingEmail}
+                <Clock className="h-4 w-4" /> Pending: {user.pendingEmail}
               </span>
             )}
           </p>
@@ -345,12 +343,12 @@ export default function Account() {
                         <Building2 className="h-4 w-4 text-secondary" />
                       )}
                       <span className="font-bold text-primary">{s.companyName}</span>
-                      {isActive && <span className="ost-chip"><Check className="h-3 w-3" /> Viewing</span>}
+                      {isActive && <span className="ost-chip"><Check className="h-4 w-4" /> Viewing</span>}
                       {pending && <StatusBadge tone="amber" icon={Clock}>Deletion pending</StatusBadge>}
                     </div>
                     {s.location && (
                       <p className="mt-1.5 flex items-center gap-1 text-xs text-slate-400">
-                        <MapPin className="h-3 w-3" /> {s.location}
+                        <MapPin className="h-4 w-4" /> {s.location}
                       </p>
                     )}
                   </div>
@@ -359,17 +357,17 @@ export default function Account() {
                       <button onClick={() => activate(s.id)} className="ost-btn-ghost py-1.5 text-xs">View</button>
                     )}
                     <button onClick={() => navigate(`/startups/${s.id}/edit`)} className="ost-btn-ghost py-1.5 text-xs">
-                      <Pencil className="h-3.5 w-3.5" /> Edit
+                      <Pencil className="h-4 w-4" /> Edit
                     </button>
                     {pending ? (
                       <button onClick={() => cancelDeletion(s.id)}
                         className="inline-flex items-center gap-1.5 rounded-lg border border-secondary/40 px-3 py-1.5 text-xs font-semibold text-secondary transition hover:bg-secondary/10">
-                        <RotateCcw className="h-3.5 w-3.5" /> Cancel deletion
+                        <RotateCcw className="h-4 w-4" /> Cancel deletion
                       </button>
                     ) : (
                       <button onClick={() => setDelTarget(s)}
                         className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-500 transition hover:bg-red-50">
-                        <Trash2 className="h-3.5 w-3.5" /> Request deletion
+                        <Trash2 className="h-4 w-4" /> Request deletion
                       </button>
                     )}
                   </div>

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle as CheckCircle2 } from "@phosphor-icons/react";
 import { StatusBadge } from "./StatusBadge";
 
 describe("StatusBadge", () => {

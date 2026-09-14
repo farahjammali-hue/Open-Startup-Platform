@@ -5,7 +5,7 @@ import { showToast } from "../../lib/toast";
 import { Skeleton } from "../Skeleton";
 import { TabBar } from "../PageHeader";
 import { CRM_CATEGORIES, CRM_FIELDS, type CrmCategory, type CrmFieldDef } from "@shared/crmCatalog";
-import { Loader2, Plus, Trash2 } from "lucide-react";
+import { CircleNotch as Loader2, Plus, Trash as Trash2 } from "@phosphor-icons/react";
 
 interface CrmEntry {
   id: string;
@@ -219,7 +219,7 @@ export function CrmPanel({ apiBase }: { apiBase: string }) {
                         onClick={() => removeRow(row)}
                         className="ost-btn-ghost !p-1.5 text-red-500"
                       >
-                        <Trash2 className="h-3.5 w-3.5" />
+                        <Trash2 className="h-4 w-4" />
                       </button>
                     </td>
                   </tr>
@@ -230,7 +230,7 @@ export function CrmPanel({ apiBase }: { apiBase: string }) {
         )}
         <div className="border-t border-slate-100 p-4">
           <button onClick={addRow} className="ost-btn-ghost !px-3 !py-1.5 text-xs">
-            <Plus className="h-3.5 w-3.5" /> Add {activeLabel.replace(/s$/, "")}
+            <Plus className="h-4 w-4" /> Add {activeLabel.replace(/s$/, "")}
           </button>
         </div>
       </div>

@@ -9,7 +9,7 @@ import {
   DATA_ROOM_ITEMS, COMPANY_PROFILE_GROUPS,
   type MetricSection, type MetricDef,
 } from "@shared/metricsCatalog";
-import { Loader2, Plus, Trash2, ChevronDown, Table2, ListChecks, Download } from "lucide-react";
+import { CircleNotch as Loader2, Plus, Trash as Trash2, CaretDown as ChevronDown, Table as Table2, ListChecks, Download } from "@phosphor-icons/react";
 
 interface MetricEntry { id: string; period: string; values: Record<string, number | string> }
 interface MetricsProfile {
@@ -214,7 +214,7 @@ export function MetricsKpiPanel({ apiBase, startupName }: { apiBase: string; sta
                 viewMode === "simple" ? "bg-secondary text-white" : "text-slate-500 hover:text-primary"
               }`}
             >
-              <ListChecks className="h-3.5 w-3.5" /> Fill in by month
+              <ListChecks className="h-4 w-4" /> Fill in by month
             </button>
             <button
               onClick={() => setViewMode("table")}
@@ -222,7 +222,7 @@ export function MetricsKpiPanel({ apiBase, startupName }: { apiBase: string; sta
                 viewMode === "table" ? "bg-secondary text-white" : "text-slate-500 hover:text-primary"
               }`}
             >
-              <Table2 className="h-3.5 w-3.5" /> Full table
+              <Table2 className="h-4 w-4" /> Full table
             </button>
           </div>
           <button onClick={exportSheet} className="ost-btn-ghost !px-3 !py-2 text-sm">
@@ -574,7 +574,7 @@ export function AchievementsLog({ apiBase, achievements, onSaved }: { apiBase: s
               onClick={() => remove(a.id, a.details)}
               className="ost-btn-ghost !p-1.5 shrink-0 text-red-500"
             >
-              <Trash2 className="h-3.5 w-3.5" />
+              <Trash2 className="h-4 w-4" />
             </button>
           </div>
         ))}
@@ -595,7 +595,7 @@ export function AchievementsLog({ apiBase, achievements, onSaved }: { apiBase: s
             disabled={saving || !details.trim()}
             className="ost-btn-ghost !px-3 !py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />} Add
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Add
           </button>
         </div>
       </div>

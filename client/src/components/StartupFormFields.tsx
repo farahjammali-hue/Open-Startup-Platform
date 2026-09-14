@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Loader2, Lock, Globe, Upload, ImageIcon, FileText, ExternalLink } from "lucide-react";
+import { CircleNotch as Loader2, Lock, Globe, Upload, Image as ImageIcon, FileText, ArrowSquareOut as ExternalLink } from "@phosphor-icons/react";
 
 async function compressImage(file: File): Promise<Blob> {
   return new Promise((resolve, reject) => {
@@ -67,7 +67,7 @@ export function LogoUpload({
         {preview ? (
           <img src={preview} alt="Logo" className="h-full w-full object-contain" />
         ) : (
-          <ImageIcon className="h-8 w-8 text-slate-300" />
+          <ImageIcon className="h-6 w-6 text-slate-300" />
         )}
       </div>
       <div>
@@ -167,7 +167,7 @@ export function DeckUpload({
             rel="noreferrer"
             className="inline-flex items-center gap-1.5 text-sm text-secondary hover:underline"
           >
-            <FileText className="h-4 w-4" /> Current deck <ExternalLink className="h-3.5 w-3.5" />
+            <FileText className="h-4 w-4" /> Current deck <ExternalLink className="h-4 w-4" />
           </a>
         ) : (
           <span className="text-sm text-slate-400">No deck uploaded yet</span>

@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { ChevronDown } from "lucide-react";
+import { CaretDown as ChevronDown } from "@phosphor-icons/react";
 
 /** One of the 15 Initial Data cards: a visible face, and an optional "See more" hidden section. */
 export function InitialDataCard({

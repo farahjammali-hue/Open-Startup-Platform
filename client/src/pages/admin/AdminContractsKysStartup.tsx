@@ -10,7 +10,7 @@ import { StatusBadge } from "../../components/StatusBadge";
 import { ReviewActions, EventHistory, Detail, TRACK_LABEL, IRS_LABEL, DOC_LABEL, type EventRow } from "../../components/admin/reviewHelpers";
 import { REVIEW_STATUS_TONES, REVIEW_STATUS_ICONS, type ReviewStatus } from "../../lib/statusTones";
 import { showToast } from "../../lib/toast";
-import { Building2, FileSignature, ShieldCheck, ExternalLink } from "lucide-react";
+import { Buildings as Building2, Signature as FileSignature, ShieldCheck, ArrowSquareOut as ExternalLink } from "@phosphor-icons/react";
 
 interface StartupBasic { id: string; companyName: string }
 
@@ -144,7 +144,7 @@ function ContractReview({ contract, onReviewed }: { contract: ContractRow; onRev
 
       {contract.fileUrl && (
         <a href={contract.fileUrl} target="_blank" rel="noreferrer" className="ost-btn-ghost mb-4 inline-flex !px-3 !py-1.5 text-xs">
-          <ExternalLink className="h-3.5 w-3.5" /> View PDF
+          <ExternalLink className="h-4 w-4" /> View PDF
         </a>
       )}
 
@@ -237,7 +237,7 @@ function KysReview({ kys, onReviewed }: { kys: KysRow; onReviewed: () => void })
                 className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2 text-sm text-primary hover:border-secondary"
               >
                 <span>{DOC_LABEL[d.docType] || d.docType}<span className="ml-2 text-xs text-slate-400">{d.fileName}</span></span>
-                <ExternalLink className="h-3.5 w-3.5 text-slate-400" />
+                <ExternalLink className="h-4 w-4 text-slate-400" />
               </a>
             ))}
           </div>

@@ -3,7 +3,7 @@ import { api } from "../../lib/utils";
 import { AppShell } from "../../components/AppShell";
 import { BackLink, PageHeader } from "../../components/PageHeader";
 import { showToast } from "../../lib/toast";
-import { Sparkles, Send, Loader2, Bot, User } from "lucide-react";
+import { Sparkle as Sparkles, PaperPlaneTilt as Send, CircleNotch as Loader2, Robot as Bot, User } from "@phosphor-icons/react";
 
 interface ChatTurn {
   question: string;
@@ -83,13 +83,13 @@ export default function AdminAskAI() {
                 <div key={i} className="space-y-2">
                   <div className="flex items-start gap-2">
                     <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-secondary/10 text-secondary">
-                      <User className="h-3.5 w-3.5" />
+                      <User className="h-4 w-4" />
                     </div>
                     <p className="mt-1 text-sm font-semibold text-primary">{t.question}</p>
                   </div>
                   <div className="flex items-start gap-2">
                     <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-                      <Bot className="h-3.5 w-3.5" />
+                      <Bot className="h-4 w-4" />
                     </div>
                     <p className={`mt-1 text-sm ${t.unmatched ? "text-slate-400 italic" : "text-slate-600"}`}>{t.answer}</p>
                   </div>

@@ -7,7 +7,7 @@ import { EmptyState } from "../../components/EmptyState";
 import { SkeletonCards } from "../../components/Skeleton";
 import { ModalShell } from "../../components/ModalShell";
 import { showToast } from "../../lib/toast";
-import { Trash2, Check, X, Clock, Loader2, Building2 } from "lucide-react";
+import { Trash as Trash2, Check, X, Clock, CircleNotch as Loader2, Buildings as Building2 } from "@phosphor-icons/react";
 
 interface Req {
   id: string; companyName: string; deletionReason: string | null;
@@ -79,19 +79,19 @@ export default function AdminDeletionRequests() {
                     </p>
                   )}
                   <p className="mt-2 flex items-center gap-1 text-xs text-amber-600">
-                    <Clock className="h-3 w-3" />
+                    <Clock className="h-4 w-4" />
                     Requested {r.deletionRequestedAt ? new Date(r.deletionRequestedAt).toLocaleDateString() : ""}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
                   <button onClick={() => deny(r.id)} className="ost-btn-ghost py-2 text-xs">
-                    <X className="h-3.5 w-3.5" /> Deny
+                    <X className="h-4 w-4" /> Deny
                   </button>
                   <button
                     onClick={() => setConfirm(r)}
                     className="inline-flex items-center gap-1.5 rounded-lg bg-red-500 px-4 py-2 text-xs font-semibold text-white hover:bg-red-600"
                   >
-                    <Trash2 className="h-3.5 w-3.5" /> Approve & delete
+                    <Trash2 className="h-4 w-4" /> Approve & delete
                   </button>
                 </div>
               </div>

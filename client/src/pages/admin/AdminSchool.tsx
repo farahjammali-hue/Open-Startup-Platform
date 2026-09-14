@@ -7,7 +7,7 @@ import { EmptyState } from "../../components/EmptyState";
 import { SkeletonCards } from "../../components/Skeleton";
 import { ModalShell } from "../../components/ModalShell";
 import { showToast } from "../../lib/toast";
-import { GraduationCap, ExternalLink, ArrowUp, ArrowDown, Pencil, Trash2, Plus, Loader2 } from "lucide-react";
+import { GraduationCap, ArrowSquareOut as ExternalLink, ArrowUp, ArrowDown, Pencil, Trash as Trash2, Plus, CircleNotch as Loader2 } from "@phosphor-icons/react";
 
 type Module = "expertise" | "immersions" | "alumni";
 interface Training {
@@ -78,7 +78,7 @@ export default function AdminSchool() {
                       onClick={() => { setNewModule(key); setEditing("new"); }}
                       className="ost-btn-ghost !px-3 !py-1.5 text-xs"
                     >
-                      <Plus className="h-3.5 w-3.5" /> Add training
+                      <Plus className="h-4 w-4" /> Add training
                     </button>
                   </div>
                   {rows.length === 0 ? (
@@ -94,23 +94,23 @@ export default function AdminSchool() {
                               <span>{key === "alumni" ? "Unlocks at graduation" : `Unlocks month ${t.unlockMonth}`}</span>
                               {t.resourceUrl && (
                                 <a href={t.resourceUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-secondary hover:underline">
-                                  <ExternalLink className="h-3 w-3" /> Resource
+                                  <ExternalLink className="h-4 w-4" /> Resource
                                 </a>
                               )}
                             </div>
                           </div>
                           <div className="flex shrink-0 items-center gap-1">
                             <button aria-label="Move up" title="Move up" disabled={i === 0} onClick={() => move(t.id, "up")} className="ost-btn-ghost !p-1.5 disabled:opacity-30">
-                              <ArrowUp className="h-3.5 w-3.5" />
+                              <ArrowUp className="h-4 w-4" />
                             </button>
                             <button aria-label="Move down" title="Move down" disabled={i === rows.length - 1} onClick={() => move(t.id, "down")} className="ost-btn-ghost !p-1.5 disabled:opacity-30">
-                              <ArrowDown className="h-3.5 w-3.5" />
+                              <ArrowDown className="h-4 w-4" />
                             </button>
                             <button aria-label={`Edit ${t.title}`} title="Edit" onClick={() => setEditing(t)} className="ost-btn-ghost !p-1.5">
-                              <Pencil className="h-3.5 w-3.5" />
+                              <Pencil className="h-4 w-4" />
                             </button>
                             <button aria-label={`Delete ${t.title}`} title="Delete" onClick={() => remove(t)} className="ost-btn-ghost !p-1.5 text-red-500">
-                              <Trash2 className="h-3.5 w-3.5" />
+                              <Trash2 className="h-4 w-4" />
                             </button>
                           </div>
                         </div>

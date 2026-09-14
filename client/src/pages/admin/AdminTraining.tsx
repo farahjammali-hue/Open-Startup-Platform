@@ -9,9 +9,7 @@ import { ModalShell } from "../../components/ModalShell";
 import { StatusBadge } from "../../components/StatusBadge";
 import { MENTORSHIP_SESSION_STATUS_TONES } from "../../lib/statusTones";
 import { showToast } from "../../lib/toast";
-import {
-  Layers, Lock, Unlock, Pencil, Trash2, Plus, Loader2, ChevronDown, ChevronUp, User, Mail, MessageCircle, Linkedin, Camera,
-} from "lucide-react";
+import { Stack as Layers, Lock, LockOpen as Unlock, Pencil, Trash as Trash2, Plus, CircleNotch as Loader2, CaretDown as ChevronDown, CaretUp as ChevronUp, User, Envelope as Mail, ChatCircle as MessageCircle, LinkedinLogo as Linkedin, Camera } from "@phosphor-icons/react";
 
 type ModuleTrack = "seed" | "pre_seed" | "all";
 
@@ -153,7 +151,7 @@ export default function AdminTraining() {
 
         <div className="mt-8 flex items-center justify-between">
           <h2 className="text-sm font-bold uppercase tracking-wide text-slate-400">Trainers</h2>
-          <button onClick={() => setEditingTrainer("new")} className="ost-btn-ghost !px-3 !py-1.5 text-xs"><Plus className="h-3.5 w-3.5" /> Add trainer</button>
+          <button onClick={() => setEditingTrainer("new")} className="ost-btn-ghost !px-3 !py-1.5 text-xs"><Plus className="h-4 w-4" /> Add trainer</button>
         </div>
 
         {trainersLoading ? (
@@ -175,17 +173,17 @@ export default function AdminTraining() {
                 <div className="min-w-0 flex-1">
                   <p className="font-bold text-primary">{t.name}</p>
                   <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-400">
-                    {t.email && <span className="flex items-center gap-1"><Mail className="h-3 w-3" /> {t.email}</span>}
-                    {t.whatsapp && <span className="flex items-center gap-1"><MessageCircle className="h-3 w-3" /> {t.whatsapp}</span>}
-                    {t.linkedinUrl && <span className="flex items-center gap-1"><Linkedin className="h-3 w-3" /> LinkedIn</span>}
+                    {t.email && <span className="flex items-center gap-1"><Mail className="h-4 w-4" /> {t.email}</span>}
+                    {t.whatsapp && <span className="flex items-center gap-1"><MessageCircle className="h-4 w-4" /> {t.whatsapp}</span>}
+                    {t.linkedinUrl && <span className="flex items-center gap-1"><Linkedin className="h-4 w-4" /> LinkedIn</span>}
                   </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-1">
                   <button aria-label={`Edit ${t.name}`} title="Edit" onClick={() => setEditingTrainer(t)} className="ost-btn-ghost !p-1.5">
-                    <Pencil className="h-3.5 w-3.5" />
+                    <Pencil className="h-4 w-4" />
                   </button>
                   <button aria-label={`Delete ${t.name}`} title="Delete" onClick={() => removeTrainer(t)} className="ost-btn-ghost !p-1.5 text-red-500">
-                    <Trash2 className="h-3.5 w-3.5" />
+                    <Trash2 className="h-4 w-4" />
                   </button>
                 </div>
               </div>
@@ -195,7 +193,7 @@ export default function AdminTraining() {
 
         <div className="mt-10 flex items-center justify-between">
           <h2 className="text-sm font-bold uppercase tracking-wide text-slate-400">Modules</h2>
-          <button onClick={() => setEditingModule("new")} className="ost-btn-primary !px-3 !py-1.5 text-xs"><Plus className="h-3.5 w-3.5" /> Add module</button>
+          <button onClick={() => setEditingModule("new")} className="ost-btn-primary !px-3 !py-1.5 text-xs"><Plus className="h-4 w-4" /> Add module</button>
         </div>
 
         {isLoading ? (
@@ -233,13 +231,13 @@ export default function AdminTraining() {
                         className={`ost-btn-ghost !px-2.5 !py-1.5 text-xs ${m.unlocked ? "text-secondary" : ""}`}
                         title={m.unlocked ? "Lock this module" : "Unlock this module for everyone"}
                       >
-                        {m.unlocked ? <Unlock className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />} {m.unlocked ? "Unlocked" : "Locked"}
+                        {m.unlocked ? <Unlock className="h-4 w-4" /> : <Lock className="h-4 w-4" />} {m.unlocked ? "Unlocked" : "Locked"}
                       </button>
                       <button aria-label={`Edit ${m.title}`} title="Edit" onClick={() => setEditingModule(m)} className="ost-btn-ghost !p-1.5">
-                        <Pencil className="h-3.5 w-3.5" />
+                        <Pencil className="h-4 w-4" />
                       </button>
                       <button aria-label={`Delete ${m.title}`} title="Delete" onClick={() => removeModule(m)} className="ost-btn-ghost !p-1.5 text-red-500">
-                        <Trash2 className="h-3.5 w-3.5" />
+                        <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
                   </div>
@@ -249,7 +247,7 @@ export default function AdminTraining() {
                       <div className="mb-2 flex items-center justify-between">
                         <h4 className="text-xs font-bold uppercase tracking-wide text-slate-400">Sessions</h4>
                         <button onClick={() => setEditingSession({ moduleId: m.id, session: null })} className="ost-btn-ghost !px-2.5 !py-1 text-xs">
-                          <Plus className="h-3.5 w-3.5" /> Add session
+                          <Plus className="h-4 w-4" /> Add session
                         </button>
                       </div>
                       {m.sessions.length === 0 ? (
@@ -271,10 +269,10 @@ export default function AdminTraining() {
                             </div>
                             <div className="flex shrink-0 items-center gap-1">
                               <button aria-label={`Edit ${s.title}`} title="Edit" onClick={() => setEditingSession({ moduleId: m.id, session: s })} className="ost-btn-ghost !p-1.5">
-                                <Pencil className="h-3.5 w-3.5" />
+                                <Pencil className="h-4 w-4" />
                               </button>
                               <button aria-label={`Delete ${s.title}`} title="Delete" onClick={() => removeSession(s)} className="ost-btn-ghost !p-1.5 text-red-500">
-                                <Trash2 className="h-3.5 w-3.5" />
+                                <Trash2 className="h-4 w-4" />
                               </button>
                             </div>
                           </div>
@@ -691,7 +689,7 @@ function TrainerFormModal({
           </div>
         )}
         <label className="ost-btn-ghost cursor-pointer !px-3 !py-1.5 text-xs">
-          <Camera className="h-3.5 w-3.5" /> {trainer?.pictureUrl || picture ? "Change picture" : "Add picture"}
+          <Camera className="h-4 w-4" /> {trainer?.pictureUrl || picture ? "Change picture" : "Add picture"}
           <input type="file" accept="image/*" className="hidden" onChange={(e) => setPicture(e.target.files?.[0] ?? null)} />
         </label>
       </div>

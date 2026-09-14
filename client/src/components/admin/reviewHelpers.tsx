@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CheckCircle2, XCircle, Loader2, History } from "lucide-react";
+import { CheckCircle as CheckCircle2, XCircle, CircleNotch as Loader2, ClockCounterClockwise as History } from "@phosphor-icons/react";
 import type { ReviewStatus } from "../../lib/statusTones";
 
 export interface EventRow { id: string; action: string; note: string | null; createdAt: string }
@@ -40,14 +40,14 @@ export function ReviewActions({
           onClick={() => onReview("rejected", note)}
           className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 px-4 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-60"
         >
-          {reviewing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <XCircle className="h-3.5 w-3.5" />} Reject
+          {reviewing ? <Loader2 className="h-4 w-4 animate-spin" /> : <XCircle className="h-4 w-4" />} Reject
         </button>
         <button
           disabled={reviewing}
           onClick={() => onReview("approved", note)}
           className="inline-flex items-center gap-1.5 rounded-lg bg-secondary px-4 py-2 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-60"
         >
-          {reviewing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+          {reviewing ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
           {status === "pending" ? "Approve" : "Re-approve"}
         </button>
       </div>
@@ -60,7 +60,7 @@ export function EventHistory({ events }: { events: EventRow[] }) {
   return (
     <div className="mt-4">
       <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-slate-400">
-        <History className="h-3.5 w-3.5" /> History
+        <History className="h-4 w-4" /> History
       </div>
       <div className="space-y-1.5">
         {events.map((e) => (

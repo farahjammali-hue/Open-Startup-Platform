@@ -1,7 +1,7 @@
 import { StatusBadge } from "../../components/StatusBadge";
 import type { Contract, KysProfile, ReviewStatus } from "../../lib/kysStatus";
 import { REVIEW_STATUS_TONES, REVIEW_STATUS_ICONS } from "../../lib/statusTones";
-import { CheckCircle2, Download, FileText, XCircle } from "lucide-react";
+import { CheckCircle as CheckCircle2, Download, FileText, XCircle } from "@phosphor-icons/react";
 
 const STATUS_LABEL: Record<ReviewStatus, string> = { pending: "Pending review", approved: "Approved", rejected: "Changes requested" };
 
@@ -23,7 +23,7 @@ export function DoneStep({
   return (
     <div className="ost-card flex flex-col items-center gap-4 px-8 py-16 text-center">
       <div className={`flex h-16 w-16 items-center justify-center rounded-2xl text-2xl ${anyRejected ? "bg-red-50 text-red-500" : "bg-[rgba(92,212,94,0.16)] text-[#256b28]"}`}>
-        {anyRejected ? <XCircle className="h-8 w-8" /> : <CheckCircle2 className="h-8 w-8" />}
+        {anyRejected ? <XCircle className="h-6 w-6" /> : <CheckCircle2 className="h-6 w-6" />}
       </div>
       <div className="flex flex-col gap-2">
         <h2 className="ost-card-title text-xl">{anyRejected ? "Changes requested" : "Contract & KYS submitted"}</h2>
@@ -86,7 +86,7 @@ function StatusRow({
       )}
       {downloadUrl && (
         <a href={downloadUrl} target="_blank" rel="noreferrer" className="ost-btn-ghost mt-3 inline-flex !px-3 !py-1.5 text-xs">
-          <Download className="h-3.5 w-3.5" /> View signed contract
+          <Download className="h-4 w-4" /> View signed contract
         </a>
       )}
     </div>

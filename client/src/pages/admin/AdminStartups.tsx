@@ -7,7 +7,7 @@ import { BackLink, PageHeader } from "../../components/PageHeader";
 import { StatusBadge } from "../../components/StatusBadge";
 import { SkeletonRows } from "../../components/Skeleton";
 import { STAGE_LABELS, type StartupStage } from "../../lib/stageLabels";
-import { Building2, Clock } from "lucide-react";
+import { Buildings as Building2, Clock } from "@phosphor-icons/react";
 
 interface Row {
   id: string; companyName: string; website: string | null;
