@@ -693,7 +693,7 @@ export function InitialDataPanel({ apiConfig }: { apiConfig: InitialDataApiConfi
           <RepeatableList
             rows={data.clientStats}
             emptyText="No client types added yet."
-            addLabel="Add client type"
+            addLabel="Add clients by type"
             onAdd={() => setActiveModal("clientStat")}
             onDelete={(id) => deleteRow(`${sub}/client-stats`, id)}
             renderRow={(c) => (
@@ -735,7 +735,7 @@ export function InitialDataPanel({ apiConfig }: { apiConfig: InitialDataApiConfi
           <RepeatableList
             rows={data.partnerStats}
             emptyText="No partner types added yet."
-            addLabel="Add partner type"
+            addLabel="Add partners by type"
             onAdd={() => setActiveModal("partnerStat")}
             onDelete={(id) => deleteRow(`${sub}/partner-stats`, id)}
             renderRow={(p) => (
@@ -830,7 +830,7 @@ export function InitialDataPanel({ apiConfig }: { apiConfig: InitialDataApiConfi
       )}
       {activeModal === "clientStat" && (
         <AddModal
-          title="Add client type"
+          title="Add clients by type"
           fields={[
             { key: "clientType", label: "Type of client", type: "select", options: CLIENT_TYPE_OPTIONS },
             { key: "totalClients", label: "Total number of clients", type: "number" },
@@ -855,7 +855,7 @@ export function InitialDataPanel({ apiConfig }: { apiConfig: InitialDataApiConfi
       )}
       {activeModal === "partnerStat" && (
         <AddModal
-          title="Add partner type"
+          title="Add partners by type"
           fields={[
             { key: "partnerType", label: "Type of partner", type: "select", options: PARTNER_TYPE_OPTIONS },
             { key: "totalPartners", label: "Total number of partners", type: "number" },
