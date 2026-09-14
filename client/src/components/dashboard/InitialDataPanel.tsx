@@ -352,15 +352,10 @@ export function InitialDataPanel({ apiConfig }: { apiConfig: InitialDataApiConfi
           isOpen={expanded.has("profile")}
           onToggle={() => toggle("profile")}
           hidden={
-            <>
-              <Field label="Other countries">
-                <input className={`ost-input ${H10}`} value={s.countriesOfOperation ?? ""} onChange={(e) => set("countriesOfOperation", e.target.value)} placeholder="e.g. Kenya, Tanzania" />
-              </Field>
-              <div className="grid grid-cols-2 gap-4">
-                <Field label="Pitch deck link"><LinkInput value={s.deckUrl ?? ""} onChange={(v) => set("deckUrl", v)} /></Field>
-                <Field label="Data Room link"><LinkInput value={s.dataRoomLink ?? ""} onChange={(v) => set("dataRoomLink", v)} /></Field>
-              </div>
-            </>
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="Pitch deck link"><LinkInput value={s.deckUrl ?? ""} onChange={(v) => set("deckUrl", v)} /></Field>
+              <Field label="Data Room link"><LinkInput value={s.dataRoomLink ?? ""} onChange={(v) => set("dataRoomLink", v)} /></Field>
+            </div>
           }
         >
           <div className="grid grid-cols-2 gap-4">
@@ -377,6 +372,9 @@ export function InitialDataPanel({ apiConfig }: { apiConfig: InitialDataApiConfi
           <Field label="Headquarters">
             <input className={`ost-input ${H10}`} value={s.country ?? ""} onChange={(e) => set("country", e.target.value)} />
           </Field>
+          <Field label="Other countries of operation">
+            <input className={`ost-input ${H10}`} value={s.countriesOfOperation ?? ""} onChange={(e) => set("countriesOfOperation", e.target.value)} placeholder="e.g. Kenya, Tanzania" />
+          </Field>
           <Field label="Business model">
             <MultiPills options={BUSINESS_MODEL_OPTIONS} value={s.businessModelTypes ?? []} onChange={(v) => set("businessModelTypes", v)} />
           </Field>
@@ -384,12 +382,12 @@ export function InitialDataPanel({ apiConfig }: { apiConfig: InitialDataApiConfi
 
         {/* 2. Brief Description */}
         <InitialDataCard title="2. Brief Description" icon={NotePencil} completion={completionOf([!!s.coreBusinessOverview])} isOpen={false} onToggle={() => {}}>
-          <textarea className="ost-input min-h-[90px] w-full" value={s.coreBusinessOverview ?? ""} onChange={(e) => set("coreBusinessOverview", e.target.value)} placeholder="Mission, target market, and unique value proposition in 200 words or less." />
+          <textarea className="ost-input min-h-[90px] w-full" value={s.coreBusinessOverview ?? ""} onChange={(e) => set("coreBusinessOverview", e.target.value)} placeholder="What your startup does, the problem it solves, and who it's for, in 150 words or less." />
         </InitialDataCard>
 
         {/* 3. Unique Value Proposition */}
         <InitialDataCard title="3. Unique Value Proposition" icon={Lightbulb} completion={completionOf([!!s.uniqueValueProposition])} isOpen={false} onToggle={() => {}}>
-          <textarea className="ost-input min-h-[90px] w-full" value={s.uniqueValueProposition ?? ""} onChange={(e) => set("uniqueValueProposition", e.target.value)} />
+          <textarea className="ost-input min-h-[90px] w-full" value={s.uniqueValueProposition ?? ""} onChange={(e) => set("uniqueValueProposition", e.target.value)} placeholder="What sets your solution apart from competitors, in 50 words or less." />
         </InitialDataCard>
 
         {/* 4. Team */}
