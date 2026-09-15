@@ -124,17 +124,26 @@ but the database is exactly as it was. Check for lingering connections with:
     docker exec $PG_CONTAINER psql -U $PGU -d postgres -c \"select pid, usename, application_name from pg_stat_activity where datname = '${OLD_DB_NAME}';\"
   then re-run this script; it is safe to re-run from here."
 fi
-if ! sudo docker exec "$PG_CONTAINER" psql -U "$PGU" -d postgres -v ON_ERROR_STOP=1 -c \
+# A role cannot rename itself, and $PGU IS $OLD_DB_USER here — this database's
+# only superuser is the one being renamed. Postgres rejects that outright
+# ("session user cannot be renamed"), so the rename has to run from a
+# different session: create a throwaway superuser, rename through it, then
+# drop the throwaway from a session connected as the (now-renamed) real user.
+sudo docker exec "$PG_CONTAINER" psql -U "$PGU" -d postgres -v ON_ERROR_STOP=1 -c \
+  "CREATE ROLE ost_rename_helper LOGIN SUPERUSER;" \
+  || fail "could not create the temporary superuser needed to rename ${OLD_DB_USER}"
+if ! sudo docker exec "$PG_CONTAINER" psql -U ost_rename_helper -d postgres -v ON_ERROR_STOP=1 -c \
   "ALTER ROLE ${OLD_DB_USER} RENAME TO ${NEW_DB_USER};"; then
   fail "the database was renamed to ${NEW_DB_NAME} but renaming the role \
-${OLD_DB_USER} failed. Do NOT re-run this script — it would try to rename a \
-database that no longer has the old name. Instead, rename the role by hand:
-    docker exec $PG_CONTAINER psql -U $PGU -d postgres -c \"ALTER ROLE ${OLD_DB_USER} RENAME TO ${NEW_DB_USER};\"
-  then re-run this script; it detects the database is already renamed and
-  will simply attempt the role rename again (harmlessly, if it already
-  succeeded — ALTER ROLE on a role that no longer exists just fails loudly,
-  which is fine to ignore in that case)."
+${OLD_DB_USER} failed. The temporary role ost_rename_helper was created and \
+is still there — drop it once you've sorted this out:
+    docker exec $PG_CONTAINER psql -U ost_rename_helper -d postgres -c \"DROP ROLE ost_rename_helper;\"
+  Do NOT re-run this script — it would try to rename a database that no
+  longer has the old name."
 fi
+sudo docker exec "$PG_CONTAINER" psql -U "$NEW_DB_USER" -d postgres -v ON_ERROR_STOP=1 -c \
+  "DROP ROLE ost_rename_helper;" \
+  || note "WARNING: could not drop the temporary role ost_rename_helper — remove it by hand later, it is otherwise harmless"
 note "database and role renamed"
 
 # ---------------------------------------------------------------- copy the uploads volume
