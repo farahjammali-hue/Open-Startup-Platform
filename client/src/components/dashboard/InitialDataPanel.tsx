@@ -356,6 +356,7 @@ export function InitialDataPanel({ apiConfig, startupName }: { apiConfig: Initia
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [viewFounder, setViewFounder] = useState<TeamMemberRow | null>(null);
   const [viewShareholder, setViewShareholder] = useState<CapTableEntryRow | null>(null);
+  const [viewPartnerDetail, setViewPartnerDetail] = useState<PartnerDetailRow | null>(null);
   const [newPatent, setNewPatent] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -864,13 +865,9 @@ export function InitialDataPanel({ apiConfig, startupName }: { apiConfig: Initia
                 emptyText="No partner details added yet."
                 addLabel="Add partner detail"
                 onAdd={() => setActiveModal("partnerDetail")}
+                onRowClick={setViewPartnerDetail}
                 onDelete={(id) => deleteRow(`${sub}/partner-details`, id)}
-                renderRow={(p) => (
-                  <>
-                    <p className="font-semibold text-primary">{p.partnerName}</p>
-                    <p className="text-slate-400">{[p.scopeOfPartnership, p.nextSteps].filter(Boolean).join(" · ")}</p>
-                  </>
-                )}
+                renderRow={(p) => <p className="font-semibold text-primary">{p.partnerName}</p>}
               />
               <Field label="CRM of partners (link)"><LinkInput value={s.partnersCrmLink ?? ""} onChange={(v) => set("partnersCrmLink", v)} /></Field>
             </>
@@ -916,6 +913,16 @@ export function InitialDataPanel({ apiConfig, startupName }: { apiConfig: Initia
           rows={[
             { label: "Shareholder %", value: `${viewShareholder.percentage}%` },
             { label: "Current involvement", value: viewShareholder.currentInvolvement ? labelOf(INVOLVEMENT_OPTIONS, viewShareholder.currentInvolvement) : null },
+          ]}
+        />
+      )}
+      {viewPartnerDetail && (
+        <DetailModal
+          title={viewPartnerDetail.partnerName}
+          onClose={() => setViewPartnerDetail(null)}
+          rows={[
+            { label: "Scope of Partnership", value: viewPartnerDetail.scopeOfPartnership },
+            { label: "Next Steps", value: viewPartnerDetail.nextSteps },
           ]}
         />
       )}
