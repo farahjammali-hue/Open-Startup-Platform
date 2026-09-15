@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "../../lib/auth";
 import { api } from "../../lib/utils";
@@ -8,6 +9,7 @@ import { SkeletonText } from "../../components/Skeleton";
 
 export default function StartupSurvey() {
   const { refresh } = useAuth();
+  const [, navigate] = useLocation();
   const [serverError, setServerError] = useState<string | null>(null);
 
   // The startup was created in the basics step; load it so logo/deck uploads
@@ -45,6 +47,7 @@ export default function StartupSurvey() {
           startupId={me.id}
           submitLabel="Finish & go to dashboard"
           onSubmit={handleSubmit}
+          onBack={() => navigate("/onboarding/basics")}
           serverError={serverError}
         />
       )}

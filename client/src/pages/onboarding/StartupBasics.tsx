@@ -66,7 +66,15 @@ export default function StartupBasics() {
           </p>
         </div>
 
-        <div className="flex justify-end pt-2">
+        <div className="flex items-center justify-end gap-2 pt-2">
+          <button
+            type="button"
+            className="ost-btn-ghost"
+            onClick={() => navigate("/onboarding/role")}
+            disabled={busy}
+          >
+            Back
+          </button>
           <button type="submit" className="ost-btn-primary" disabled={busy}>
             {busy && <Loader2 className="h-4 w-4 animate-spin" />}
             Continue to survey

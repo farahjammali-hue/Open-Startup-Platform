@@ -49,6 +49,8 @@ export function StartupForm({
   submitLabel,
   onSubmit,
   onDiscard,
+  onBack,
+  backLabel = "Back",
   serverError,
   startupId,
 }: {
@@ -56,6 +58,10 @@ export function StartupForm({
   submitLabel: string;
   onSubmit: (payload: any) => Promise<void>;
   onDiscard?: () => void;
+  /** Distinct from onDiscard: a plain "go to the previous step" action (no
+   * confirmation, nothing to discard), for multi-step flows like onboarding. */
+  onBack?: () => void;
+  backLabel?: string;
   serverError?: string | null;
   startupId?: string;
 }) {
@@ -292,6 +298,11 @@ export function StartupForm({
       </Section>
 
       <div className="flex items-center justify-end gap-2 border-t border-slate-100 pt-6">
+        {onBack && (
+          <button type="button" onClick={onBack} className="ost-btn-ghost" disabled={busy}>
+            {backLabel}
+          </button>
+        )}
         {onDiscard && (
           <button
             type="button"

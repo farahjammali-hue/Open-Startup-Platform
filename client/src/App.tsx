@@ -118,11 +118,19 @@ export default function App() {
   }
 
   if (user.onboardingStatus === "needs_profile") {
-    if (location !== "/onboarding/basics" && location !== "/onboarding/survey") {
+    // /onboarding/role is included so the "Back" button on Basics can return
+    // there. Revisiting it is harmless: choosing "Startup" again just re-POSTs
+    // the same role and lands back on Basics.
+    if (
+      location !== "/onboarding/role" &&
+      location !== "/onboarding/basics" &&
+      location !== "/onboarding/survey"
+    ) {
       return <Redirect to="/onboarding/basics" />;
     }
     return (
       <Switch>
+        <Route path="/onboarding/role" component={RoleSelect} />
         <Route path="/onboarding/basics" component={StartupBasics} />
         <Route path="/onboarding/survey" component={StartupSurvey} />
       </Switch>
