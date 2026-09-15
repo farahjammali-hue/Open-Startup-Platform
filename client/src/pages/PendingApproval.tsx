@@ -27,10 +27,10 @@ export default function PendingApproval() {
         <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/10">
           <Clock className="h-8 w-8 text-secondary-300" />
         </div>
-        <h1 className="mt-6 text-3xl font-extrabold ost-page-title">
+        <h1 className="mt-6 text-3xl font-extrabold text-white">
           Your application is under review
         </h1>
-        <p className="mt-3 text-sm ost-page-subtext">
+        <p className="mt-3 max-w-[640px] text-sm leading-relaxed text-white/70">
           Thanks, {user?.name?.split(" ")[0]}. The Open Startup team has been
           notified and is reviewing your details. You'll get an email as soon
           as a decision is made, and you can then sign back in here.

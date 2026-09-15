@@ -69,10 +69,10 @@ export default function RoleSelect() {
         <p className="text-sm font-semibold uppercase tracking-wider text-secondary-300">
           Welcome, {user?.name?.split(" ")[0]}
         </p>
-        <h1 className="mt-1 text-3xl font-extrabold ost-page-title">
+        <h1 className="mt-1 text-3xl font-extrabold text-white">
           How will you be using the platform?
         </h1>
-        <p className="mt-2 max-w-xl text-sm ost-page-subtext">
+        <p className="mt-2 max-w-xl text-sm leading-relaxed text-white/70">
           Pick the role that fits you. You can only set this once for now —
           more roles are coming soon.
         </p>
