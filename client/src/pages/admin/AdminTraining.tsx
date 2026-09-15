@@ -556,16 +556,16 @@ function SessionFormModal({
             {trainers.map((t) => <option key={t.id} value={`trainer:${t.id}`}>{t.name}</option>)}
           </optgroup>
         )}
-        {catalogExperts.length > 0 && (
-          <optgroup label="From mentorship catalog">
-            {catalogExperts.map((e) => <option key={e.id} value={`expert:${e.id}`}>{e.name}</option>)}
-          </optgroup>
-        )}
+        {catalogExperts.map((e) => <option key={e.id} value={`expert:${e.id}`}>{e.name}</option>)}
       </select>
       <p className="mb-3 text-xs text-slate-400">Picking a catalog expert adds them to the Trainers directory automatically.</p>
 
-      <label className="ost-label">Expert(s)</label>
-      <input className="ost-input mb-3" value={experts} onChange={(e) => setExperts(e.target.value)} placeholder="e.g. Ivy Shultz & Farzin Samadani" />
+      {selectedValue === "" && (
+        <>
+          <label className="ost-label">Expert(s)</label>
+          <input className="ost-input mb-3" value={experts} onChange={(e) => setExperts(e.target.value)} placeholder="e.g. Ivy Shultz & Farzin Samadani" />
+        </>
+      )}
 
       <label className="ost-label">Trainer bio (optional, shown to founders)</label>
       <textarea className="ost-input mb-3 min-h-[50px]" value={trainerBio} onChange={(e) => setTrainerBio(e.target.value)} placeholder="Short bio describing the trainer's background" />
