@@ -470,6 +470,32 @@ export const storage = {
     return row;
   },
 
+  /**
+   * Testing-only super-admin action: permanently erases a user, their
+   * startup(s), and everything cascading from those (documents, sessions,
+   * KPI submissions, etc. — see `onDelete: "cascade"` on startups.userId in
+   * shared/schema.ts).
+   *
+   * Several tables record this user as an actor/reviewer/uploader without a
+   * cascade rule, on purpose — they're audit trails meant to survive a
+   * deletion. Those get cleared to null (not deleted) here first, so the
+   * user row itself can go: this is exactly what an earlier support incident
+   * had to do by hand, one FK-violation error at a time. Wrapped in one
+   * transaction so a mid-way failure leaves nothing half-deleted.
+   */
+  async permanentlyDeleteUser(id: string): Promise<void> {
+    await db.transaction(async (tx) => {
+      await tx.update(documents).set({ uploadedBy: null }).where(eq(documents.uploadedBy, id));
+      await tx.update(documentEvents).set({ actorId: null }).where(eq(documentEvents.actorId, id));
+      await tx.update(dataRoomShares).set({ createdBy: null }).where(eq(dataRoomShares.createdBy, id));
+      await tx.update(contracts).set({ reviewedBy: null }).where(eq(contracts.reviewedBy, id));
+      await tx.update(contractEvents).set({ actorId: null }).where(eq(contractEvents.actorId, id));
+      await tx.update(kysProfiles).set({ reviewedBy: null }).where(eq(kysProfiles.reviewedBy, id));
+      await tx.update(kysEvents).set({ actorId: null }).where(eq(kysEvents.actorId, id));
+      await tx.delete(users).where(eq(users.id, id));
+    });
+  },
+
   async deleteStartup(id: string): Promise<void> {
     await db.delete(startups).where(eq(startups.id, id));
   },

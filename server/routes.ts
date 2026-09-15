@@ -261,6 +261,16 @@ const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || "")
   .map((e) => e.trim().toLowerCase())
   .filter(Boolean);
 
+// Testing-only: who can permanently erase a user + their startup. Deliberately
+// separate from ADMIN_EMAILS and unset by default — this bypasses every
+// cascade-safety the app otherwise relies on, so it's scoped to as few people
+// as possible and meant to be temporary (remove SUPER_ADMIN_EMAILS from .env
+// once test-account cleanup is no longer needed day to day).
+const SUPER_ADMIN_EMAILS = (process.env.SUPER_ADMIN_EMAILS || "")
+  .split(",")
+  .map((e) => e.trim().toLowerCase())
+  .filter(Boolean);
+
 // Auto-promote configured emails to admin on login / session check.
 async function ensureAdmin(user: any) {
   if (ADMIN_EMAILS.includes(user.email) && user.role !== "admin") {
@@ -3077,6 +3087,27 @@ export function registerRoutes(app: Express) {
     if (!target) return res.status(404).json({ message: "Not found" });
     const updated = await storage.setUserActive(target.id, !target.isActive);
     res.json(toPublicUser(updated));
+  }));
+
+  // Testing-only, permanent, irreversible: erases a user and everything that
+  // cascades from their startup. Gated on SUPER_ADMIN_EMAILS specifically
+  // (not just admin role) since this is meant to stay usable by as few
+  // people as possible while test accounts are being cycled repeatedly.
+  app.delete("/api/admin/users/:id/permanent", requireAdmin, ah(async (req, res) => {
+    const caller = await storage.getUserById(req.session.userId!);
+    if (!caller || !SUPER_ADMIN_EMAILS.includes(caller.email)) {
+      return res.status(403).json({ message: "Only a super admin can permanently delete a user" });
+    }
+    if (req.params.id === req.session.userId) {
+      return res.status(400).json({ message: "You can't delete your own account" });
+    }
+    const target = await storage.getUserById(req.params.id);
+    if (!target) return res.status(404).json({ message: "Not found" });
+    if (target.role === "admin") {
+      return res.status(400).json({ message: "Refusing to delete another admin account this way" });
+    }
+    await storage.permanentlyDeleteUser(target.id);
+    res.json({ ok: true });
   }));
 
   /* ---------------- API error handler ----------------

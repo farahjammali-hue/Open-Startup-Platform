@@ -1,9 +1,11 @@
+import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../lib/utils";
 import { AppShell } from "../../components/AppShell";
 import { BackLink, PageHeader } from "../../components/PageHeader";
 import { SkeletonRows } from "../../components/Skeleton";
 import { showToast } from "../../lib/toast";
+import { useAuth } from "../../lib/auth";
 
 interface U {
   id: string; name: string; email: string; role: string | null;
@@ -15,10 +17,13 @@ const ROLE: Record<string, string> = {
 
 export default function AdminUsers() {
   const qc = useQueryClient();
+  const { user: me } = useAuth();
   const { data, isLoading } = useQuery<{ users: U[] }>({
     queryKey: ["admin-users"],
     queryFn: () => api("/api/admin/users"),
   });
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
   async function toggle(id: string) {
     try {
       await api(`/api/admin/users/${id}/toggle-active`, { method: "POST" });
@@ -27,6 +32,29 @@ export default function AdminUsers() {
       showToast(e.message || "Couldn't update this user");
     }
   }
+
+  // Testing-only super-admin action (server enforces who can actually use
+  // it — see SUPER_ADMIN_EMAILS). Permanent and irreversible: erases the
+  // user, their startup, and everything under it.
+  async function deleteForever(u: U) {
+    if (
+      !confirm(
+        `Permanently delete ${u.name} (${u.email}) and their startup? This cannot be undone.`,
+      )
+    ) {
+      return;
+    }
+    setDeletingId(u.id);
+    try {
+      await api(`/api/admin/users/${u.id}/permanent`, { method: "DELETE" });
+      qc.invalidateQueries({ queryKey: ["admin-users"] });
+    } catch (e: any) {
+      showToast(e.message || "Couldn't delete this user");
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
   const users = data?.users ?? [];
 
   return (
@@ -68,9 +96,21 @@ export default function AdminUsers() {
                       )}
                     </td>
                     <td className="px-5 py-3 text-right">
-                      <button onClick={() => toggle(u.id)} className="ost-btn-ghost py-1.5 text-xs">
-                        {u.isActive ? "Disable" : "Enable"}
-                      </button>
+                      <div className="flex justify-end gap-2">
+                        <button onClick={() => toggle(u.id)} className="ost-btn-ghost py-1.5 text-xs">
+                          {u.isActive ? "Disable" : "Enable"}
+                        </button>
+                        {u.id !== me?.id && u.role !== "admin" && (
+                          <button
+                            onClick={() => deleteForever(u)}
+                            disabled={deletingId === u.id}
+                            className="ost-btn-ghost py-1.5 text-xs text-red-500 disabled:cursor-not-allowed disabled:opacity-50"
+                            title="Permanently delete this user and their startup (testing only)"
+                          >
+                            {deletingId === u.id ? "Deleting…" : "Delete forever"}
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))
