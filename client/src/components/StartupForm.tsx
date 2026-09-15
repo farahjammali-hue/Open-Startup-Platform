@@ -5,6 +5,7 @@ import {
 } from "./StartupFormFields";
 import { setNavDirty } from "../lib/navGuard";
 import { STAGE_OPTIONS } from "../lib/stageLabels";
+import { COUNTRIES } from "../lib/countries";
 import { CircleNotch as Loader2 } from "@phosphor-icons/react";
 
 /* ---------- option sets ---------- */
@@ -256,12 +257,12 @@ export function StartupForm({
           <Counter value={shortDescription.length} max={300} />
         </Field>
         <Field label="Where are you located?" required error={errors.location}>
-          <input
-            className="ost-input"
-            value={location}
-            onChange={(e) => setLocation(e.target.value)}
-            placeholder="City"
-          />
+          <select className="ost-input" value={location} onChange={(e) => setLocation(e.target.value)}>
+            <option value="">Select country</option>
+            {COUNTRIES.map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
         </Field>
         <Field label="What markets are you in?" required error={errors.markets}>
           <TagInput value={markets} onChange={setMarkets} placeholder="Type a market and press Enter (more is better)" />
