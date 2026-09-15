@@ -115,7 +115,9 @@ export default function Login() {
               {error ||
                 (urlError === "google_unconfigured"
                   ? "Google login isn't set up yet."
-                  : "Google sign-in didn't complete. Try again.")}
+                  : urlError === "account_disabled"
+                    ? "This account is disabled. Contact the Open Startup team."
+                    : "Google sign-in didn't complete. Try again.")}
             </div>
           )}
 

@@ -272,7 +272,11 @@ const requireAdmin = async (req: Request, res: Response, next: NextFunction) => 
     return res.status(401).json({ message: "Not authenticated" });
   }
   const u = await storage.getUserById(req.session.userId);
-  if (!u || u.role !== "admin") {
+  if (!u || !u.isActive) {
+    req.session.destroy(() => {});
+    return res.status(403).json({ message: "This account is disabled" });
+  }
+  if (u.role !== "admin") {
     return res.status(403).json({ message: "Admin access only" });
   }
   next();
@@ -574,6 +578,10 @@ export function registerRoutes(app: Express) {
       req.session.destroy(() => {});
       return res.status(401).json({ message: "Not authenticated" });
     }
+    if (!user.isActive) {
+      req.session.destroy(() => {});
+      return res.status(403).json({ message: "This account is disabled" });
+    }
     const promoted = await ensureAdmin(user);
     res.json(toPublicUser(promoted));
   }));
@@ -641,6 +649,12 @@ export function registerRoutes(app: Express) {
     ah(async (req, res) => {
       const user = req.user as { id: string } | undefined;
       if (!user) return res.redirect(`${APP_URL}/login?error=google_failed`);
+      // The password path rejects disabled accounts; this one did not, so
+      // disabling someone left Google sign-in working for them.
+      const full = await storage.getUserById(user.id);
+      if (!full || !full.isActive) {
+        return res.redirect(`${APP_URL}/login?error=account_disabled`);
+      }
       req.session.userId = user.id;
       await storage.touchLogin(user.id);
       res.redirect(`${APP_URL}/`);

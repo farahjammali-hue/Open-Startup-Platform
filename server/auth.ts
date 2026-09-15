@@ -100,10 +100,30 @@ export function configureGoogleAuth(app: Express) {
   return true;
 }
 
-/** Gate any route that requires a logged-in user. */
-export const requireAuth: RequestHandler = (req, res, next) => {
-  if (!req.session.userId) {
-    return res.status(401).json({ message: "Not authenticated" });
+/**
+ * Gate any route that requires a logged-in user.
+ *
+ * Revalidates the account on every request rather than trusting the session
+ * alone. Sessions last 30 days, so a session-only check meant that disabling
+ * an account left that person with full access until their cookie expired.
+ * Costs one primary-key lookup per request.
+ */
+export const requireAuth: RequestHandler = async (req, res, next) => {
+  try {
+    if (!req.session.userId) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    const user = await storage.getUserById(req.session.userId);
+    if (!user) {
+      req.session.destroy(() => {});
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    if (!user.isActive) {
+      req.session.destroy(() => {});
+      return res.status(403).json({ message: "This account is disabled" });
+    }
+    next();
+  } catch (err) {
+    next(err);
   }
-  next();
 };
