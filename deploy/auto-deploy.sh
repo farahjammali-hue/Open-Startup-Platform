@@ -91,10 +91,14 @@ fi
 # Parsed with grep rather than jq, which is not installed on this host. The
 # check-runs payload lists one status/conclusion per run, so counting them is
 # sufficient for a pass/fail decision.
-TOTAL="$(printf '%s' "$RUNS" | grep -o '"total_count":[0-9]*' | head -1 | cut -d: -f2)"
+#
+# The whitespace classes matter: GitHub pretty-prints its JSON as
+# '"status": "completed"'. Matching '"status":"completed"' finds nothing, which
+# silently reads as "CI has not started yet" and means nothing ever deploys.
+TOTAL="$(printf '%s' "$RUNS" | grep -oE '"total_count":[[:space:]]*[0-9]+' | head -1 | grep -oE '[0-9]+')"
 TOTAL="${TOTAL:-0}"
-COMPLETED="$(printf '%s' "$RUNS" | grep -c '"status":"completed"' || true)"
-SUCCESS="$(printf '%s' "$RUNS" | grep -c '"conclusion":"success"' || true)"
+COMPLETED="$(printf '%s' "$RUNS" | grep -cE '"status":[[:space:]]*"completed"' || true)"
+SUCCESS="$(printf '%s' "$RUNS" | grep -cE '"conclusion":[[:space:]]*"success"' || true)"
 
 if [ "$TOTAL" -eq 0 ]; then
   log "no CI runs yet for ${TARGET:0:7}; waiting"
