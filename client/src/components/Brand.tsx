@@ -39,53 +39,18 @@ export function AuthHeader({ withSignOut = false }: { withSignOut?: boolean }) {
 }
 
 /**
- * Left-side panel: the "Building The Science Road" pitch-deck slide,
- * compacted to fit a tall narrow column instead of a wide short one. Colours
- * (#0A193D, #E6435B/#E03440, #FED148, #E7435C, #D0525E, #8BDAD1) are copied
- * exactly from the real source file (Desktop/Picture2.svg), not approximated
- * from a screenshot or substituted with the app's existing brand tokens —
- * several are close but not identical to those (e.g. this pink is #E6435B,
- * not the app's usual #FF3D82).
+ * Left-side panel: the real "Building The Science Road" pitch-deck slide
+ * (client/public/brand-panel.svg, copied verbatim from Desktop/Picture2.svg),
+ * rendered as-is and stretched to fill the tall narrow column.
  */
 export function BrandPanel() {
   return (
-    <div
-      className="relative hidden overflow-hidden lg:flex lg:w-[42%] lg:flex-col lg:p-10"
-      style={{ background: "#0A193D" }}
-    >
-      {/* Two large soft washes bleeding in from opposite corners, plus a
-          cluster of smaller circles top-right — all colours and opacities
-          copied from the real source file (Picture2.svg), not guessed from
-          the screenshot. Purely decorative, clipped by overflow-hidden. */}
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -right-40 -top-40 h-96 w-96 rounded-full" style={{ background: "#D0525E", opacity: 0.2 }} />
-        <div className="absolute -bottom-48 -left-48 h-[26rem] w-[26rem] rounded-full" style={{ background: "#8BDAD1", opacity: 0.2 }} />
-        <div className="absolute -right-16 top-16 h-48 w-48 rounded-full" style={{ background: "#E7435C", opacity: 0.26 }} />
-        <div className="absolute right-20 top-56 h-20 w-24 rounded-full" style={{ background: "#E7435C", opacity: 0.26 }} />
-        <div className="absolute right-6 top-80 h-14 w-14 rounded-full" style={{ background: "#E7435C", opacity: 0.26 }} />
-      </div>
-
-      <div className="relative z-10">
-        <Logo className="[&_*]:text-white" compact />
-      </div>
-
-      <div className="relative z-10 flex flex-1 flex-col justify-center gap-5 py-10">
-        <span
-          className="inline-block w-fit rounded-full px-4 py-2 text-[11px] font-extrabold uppercase tracking-wide text-white"
-          style={{ background: "#E6435B", border: "1px solid #E03440" }}
-        >
-          Fostering deep tech foundations in Africa
-        </span>
-        <h1 className="text-3xl font-extrabold uppercase leading-tight text-white sm:text-4xl">
-          Building
-          <br />
-          <span style={{ color: "#FED148" }}>The Science Road</span>
-        </h1>
-        <p className="max-w-xs text-sm leading-relaxed text-white/75">
-          Turning African science into ventures that solve the continent's,
-          and the world's, biggest challenges.
-        </p>
-      </div>
+    <div className="relative hidden overflow-hidden lg:flex lg:w-[42%]" style={{ background: "#0A193D" }}>
+      <img
+        src="/brand-panel.svg"
+        alt=""
+        className="h-full w-full object-cover"
+      />
     </div>
   );
 }
