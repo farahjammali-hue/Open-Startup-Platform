@@ -16,9 +16,9 @@
 
 set -Eeuo pipefail
 
-REPO_DIR="${REPO_DIR:-/home/ubuntu/ost-platform-test-new}"
-ENV_FILE="${ENV_FILE:-.env.test}"
-APP_CONTAINER="${APP_CONTAINER:-ost-platform-test}"
+REPO_DIR="${REPO_DIR:-/home/ubuntu/ost-platform}"
+ENV_FILE="${ENV_FILE:-.env}"
+APP_CONTAINER="${APP_CONTAINER:-ost-platform}"
 STATE_DIR="${STATE_DIR:-$HOME/.ost-autodeploy}"
 NOTIFY_TO="${NOTIFY_TO:-}"          # email address; blank disables email
 GITHUB_TOKEN="${GITHUB_TOKEN:-}"    # only needed if the repo becomes private
@@ -113,7 +113,7 @@ if [ "$SUCCESS" -lt "$TOTAL" ]; then
   if [ ! -f "$MARKER" ]; then
     touch "$MARKER"
     notify "Deploy skipped: CI failed on ${TARGET:0:7}" \
-"CI did not pass for commit $TARGET on main, so platform-test was not updated.
+"CI did not pass for commit $TARGET on main, so platform.open-startup.org was not updated.
 
 $SUCCESS of $TOTAL checks succeeded.
 
@@ -155,14 +155,14 @@ fi
 log "deploying ${TARGET:0:7}"
 if ./deploy/deploy.sh "$TARGET"; then
   log "deployed ${TARGET:0:7}"
-  notify "Deployed ${TARGET:0:7} to platform-test" \
-"platform-test.open-startup.org now runs $TARGET.
+  notify "Deployed ${TARGET:0:7} to platform.open-startup.org" \
+"platform.open-startup.org now runs $TARGET.
 
 https://github.com/$SLUG/commit/$TARGET"
 else
   log "deploy FAILED for ${TARGET:0:7}"
   notify "Deploy FAILED on ${TARGET:0:7}" \
-"Deploying $TARGET to platform-test failed. The script attempted to roll the
+"Deploying $TARGET to platform.open-startup.org failed. The script attempted to roll the
 code back to ${CURRENT:0:7}.
 
 Check: sudo journalctl -u ost-autodeploy --since '1 hour ago'

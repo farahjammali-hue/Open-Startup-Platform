@@ -1,4 +1,4 @@
-# Deploying the internal test environment — technical runbook
+# Deploying platform.open-startup.org — technical runbook
 
 This is the step-by-step command reference for whoever actually runs the
 deployment (you, or a developer you hand this to). For the plain-language
@@ -15,11 +15,12 @@ directory, and that Docker, Docker Compose, and CloudPanel are already set up
 Check off each of these (see the report's "Decisions & credentials needed"
 section for how to get each one):
 
-- [ ] DNS: `platform-test.open-startup.org` points at this VPS's IP address
-- [ ] You've picked a password for the Basic Auth gate (step 6)
+- [ ] DNS: `platform.open-startup.org` points at this VPS's IP address
+- [ ] Basic Auth is optional (step 7) — access control comes from the signup
+      approval flow now
 - [ ] You know which teammate emails should be admins (`ADMIN_EMAILS`)
-- [ ] You've decided whether to enable Google login / email / captcha for
-      testing, or leave them off (recommended default: off)
+- [ ] You've decided whether to enable Google login / email / captcha, or
+      leave them off for now
 - [ ] You've picked a password for the platform's own database
       (`POSTGRES_PASSWORD`); `openssl rand -hex 24` generates a good one
 
@@ -28,19 +29,19 @@ section for how to get each one):
 ## 1. Get the code onto the VPS
 
 ```bash
-git clone <your-repo-url> ost-platform-test
-cd ost-platform-test
+git clone <your-repo-url> ost-platform
+cd ost-platform
 ```
 
 (Or `rsync`/`scp` the project folder if it's not in git yet. Either way, end
-up with the project at some path like `/home/<user>/ost-platform-test`.)
+up with the project at some path like `/home/<user>/ost-platform`.)
 
 ## 2. The database
 
 Nothing to do here. `docker-compose.yml` runs PostgreSQL itself, in a
 container dedicated to this platform (`ost-platform-db`) with its own volume
 and its own superuser. It is created on first start from `POSTGRES_DB`,
-`POSTGRES_USER` and `POSTGRES_PASSWORD` in `.env.test` (step 3).
+`POSTGRES_USER` and `POSTGRES_PASSWORD` in `.env` (step 3).
 
 It shares nothing with any other service on this VPS. That is deliberate: the
 platform database previously lived inside the n8n Postgres container, where
@@ -51,7 +52,7 @@ It publishes no port, so it is reachable only from the private compose
 network. Not from the internet, and not from the host. To open a shell on it:
 
 ```bash
-docker exec -it ost-platform-db psql -U ost_test_user -d ost_platform_test
+docker exec -it ost-platform-db psql -U ost_platform_user -d ost_platform
 ```
 
 Those three `POSTGRES_*` values only take effect the first time the volume is
@@ -61,8 +62,8 @@ existing database; you have to `ALTER USER` inside it.
 ## 3. Configure the environment
 
 ```bash
-cp deploy/.env.test.example .env.test
-nano .env.test   # fill in POSTGRES_PASSWORD, DATABASE_URL (same password),
+cp deploy/.env.example .env
+nano .env   # fill in POSTGRES_PASSWORD, DATABASE_URL (same password),
                   # SESSION_SECRET, and ADMIN_EMAILS at minimum
 ```
 
@@ -75,7 +76,7 @@ openssl rand -hex 32
 ## 4. Build the image
 
 ```bash
-docker compose --env-file .env.test -f deploy/docker-compose.yml build
+docker compose --env-file .env -f deploy/docker-compose.yml build
 ```
 
 ## 5. Create the database schema (one-time, or after a schema change)
@@ -84,16 +85,16 @@ The production image intentionally excludes dev tools (like drizzle-kit) and
 `server/migrate.mjs`, so schema work runs from the earlier "build" stage
 instead. These are plain `docker run` commands rather than compose, so they join the
 deployment's private network explicitly. The database must already be running
-(`docker compose --env-file .env.test -f deploy/docker-compose.yml up -d db`).
+(`docker compose --env-file .env -f deploy/docker-compose.yml up -d db`).
 
 ```bash
-docker build -f deploy/Dockerfile --target build -t ost-test-migrate .
-docker run --rm --env-file .env.test \
+docker build -f deploy/Dockerfile --target build -t ost-platform-migrate .
+docker run --rm --env-file .env \
   --network ost_platform_internal \
-  ost-test-migrate npm run db:push
-docker run --rm --env-file .env.test \
+  ost-platform-migrate npm run db:push
+docker run --rm --env-file .env \
   --network ost_platform_internal \
-  ost-test-migrate npm run db:migrate
+  ost-platform-migrate npm run db:migrate
 ```
 
 `db:push` creates all tables (including the `session` table) from
@@ -106,16 +107,16 @@ Optional: seed the built-in Open Startup School catalogue and starter office
 hours slots:
 
 ```bash
-docker run --rm --env-file .env.test \
+docker run --rm --env-file .env \
   --network ost_platform_internal \
-  ost-test-migrate npm run db:seed
+  ost-platform-migrate npm run db:seed
 ```
 
 ## 6. Start the app
 
 ```bash
-docker compose --env-file .env.test -f deploy/docker-compose.yml up -d
-docker compose --env-file .env.test -f deploy/docker-compose.yml logs -f app   # watch it boot; Ctrl+C to stop watching
+docker compose --env-file .env -f deploy/docker-compose.yml up -d
+docker compose --env-file .env -f deploy/docker-compose.yml logs -f app   # watch it boot; Ctrl+C to stop watching
 ```
 
 You should see `OST All-in-One running at http://localhost:5000` in the logs.
@@ -127,14 +128,18 @@ yet. That's expected; CloudPanel handles the public side next.
 1. **Sites → Add Site → Reverse Proxy** (not "Node.js" — we're managing the
    app ourselves via Docker Compose, so a plain reverse proxy is simplest and
    least likely to conflict with anything CloudPanel auto-manages).
-2. Domain: `platform-test.open-startup.org`
+2. Domain: `platform.open-startup.org`
 3. Reverse proxy target: `http://127.0.0.1:5100`
 4. Save, then go to the site's **SSL/HTTPS** tab → enable **Let's Encrypt** →
    issue the certificate. CloudPanel handles the Nginx config and renewal.
-5. **Basic Auth** (restrict to teammates only): in the site's settings, find
-   **Basic Auth** (sometimes under a "Security" or "Tools" tab depending on
-   your CloudPanel version) → enable it → set a username/password. Share that
-   password with teammates out-of-band (Slack DM, not email).
+5. **Basic Auth** (optional): a shared password gate in front of the whole
+   site. Access control now comes from the signup approval flow instead (new
+   accounts can't do anything until an admin approves them), so this is no
+   longer required — only turn it on if you want an extra layer in front of
+   the login page itself. In the site's settings, find **Basic Auth**
+   (sometimes under a "Security" or "Tools" tab depending on your CloudPanel
+   version) → enable it → set a username/password. Share that password with
+   teammates out-of-band (Slack DM, not email).
 
    If your CloudPanel version doesn't expose a Basic Auth toggle, the
    equivalent manual step is adding to the site's Nginx vhost (CloudPanel
@@ -142,8 +147,8 @@ yet. That's expected; CloudPanel handles the public side next.
 
    ```nginx
    location / {
-       auth_basic           "Internal testing";
-       auth_basic_user_file /etc/nginx/.htpasswd-platform-test;
+       auth_basic           "Open Startup Platform";
+       auth_basic_user_file /etc/nginx/.htpasswd-platform;
        proxy_pass           http://127.0.0.1:5100;
        proxy_set_header     Host $host;
        proxy_set_header     X-Real-IP $remote_addr;
@@ -154,17 +159,17 @@ yet. That's expected; CloudPanel handles the public side next.
 
    Generate the password file once:
    ```bash
-   sudo htpasswd -c /etc/nginx/.htpasswd-platform-test teamuser
+   sudo htpasswd -c /etc/nginx/.htpasswd-platform teamuser
    ```
 
-6. Visit `https://platform-test.open-startup.org` — you should hit the Basic
-   Auth prompt first, then the app's own login screen after that.
+6. Visit `https://platform.open-startup.org` — you should reach the app's
+   login screen (or the Basic Auth prompt first, if you turned that on).
 
 ## 8. Smoke test
 
-- [ ] Basic Auth prompt appears before anything else loads
-- [ ] Sign up a new test account — if SMTP isn't configured, the verification
-      link appears in `docker compose --env-file .env.test -f deploy/docker-compose.yml logs app`
+- [ ] If Basic Auth is on, its prompt appears before anything else loads
+- [ ] Sign up a test account — if SMTP isn't configured, the verification
+      link appears in `docker compose --env-file .env -f deploy/docker-compose.yml logs app`
 - [ ] One of the `ADMIN_EMAILS` accounts sees the admin dashboard after login
 - [ ] Upload a small file (e.g. a logo) somewhere and confirm it appears —
       confirms the uploads volume is writable
@@ -181,7 +186,7 @@ three ways to do it and you should run exactly ONE, because each creates its
 own calendar entry:
 
 **1. Emailed iCalendar invites (recommended).** Set `CALENDAR_INVITES=ics` in
-`.env.test` and make sure the SMTP settings are filled in. An update or
+`.env` and make sure the SMTP settings are filled in. An update or
 cancellation goes out whenever the session changes.
 
 Who receives it depends on the session type. A Mentorship session belongs to
@@ -220,7 +225,7 @@ container. If you ever do, existing sessions will appear to shift.
 ## Redeploying after a code change
 
 ```bash
-cd /home/ubuntu/ost-platform-test-new && ./deploy/deploy.sh
+cd /home/ubuntu/ost-platform && ./deploy/deploy.sh
 ```
 
 That is the whole thing. The script dumps the database, pulls `origin/main`,
@@ -254,10 +259,10 @@ lifecycle.
 `deploy/migrate-to-own-db.sh` performs the cutover:
 
 ```bash
-cd /home/ubuntu/ost-platform-test-new && ./deploy/migrate-to-own-db.sh
+cd /home/ubuntu/ost-platform && ./deploy/migrate-to-own-db.sh
 ```
 
-It pauses auto-deploy, backs up `.env.test` and the old database, starts the
+It pauses auto-deploy, backs up `.env` and the old database, starts the
 new container, copies the data, then **compares every table's row count and
 stops if any differ**. Only once they match does it repoint `DATABASE_URL`
 and restart the app.
@@ -265,8 +270,8 @@ and restart the app.
 The old database is read, never modified, so undoing it is restoring one file:
 
 ```bash
-cp ~/ost-db-cutover/env.test.<timestamp>.bak .env.test
-sudo docker compose --env-file .env.test -f deploy/docker-compose.yml up -d --force-recreate app
+cp ~/ost-db-cutover/env.test.<timestamp>.bak .env
+sudo docker compose --env-file .env -f deploy/docker-compose.yml up -d --force-recreate app
 ```
 
 The script prints the exact path when it finishes. Leave the old database in
@@ -339,7 +344,7 @@ A quiet log is normal: the script prints nothing when `main` has not moved.
 Run one check by hand and watch what it decides:
 
 ```bash
-NOTIFY_TO= /home/ubuntu/ost-platform-test-new/deploy/auto-deploy.sh
+NOTIFY_TO= /home/ubuntu/ost-platform/deploy/auto-deploy.sh
 ```
 
 With `main` already deployed it exits silently, which confirms the wiring
@@ -355,21 +360,21 @@ sites, or production data:
 
 ```bash
 # Stop and remove the app container
-docker compose --env-file .env.test -f deploy/docker-compose.yml down
+docker compose --env-file .env -f deploy/docker-compose.yml down
 
 # Also delete the uploaded-files volume (only if you want test uploads gone too)
-docker volume rm ost_platform_test_uploads
+docker volume rm ost_platform_uploads
 
-# Drop the test database (run as Postgres superuser)
-# DROP DATABASE ost_platform_test;
-# DROP USER ost_test_user;
+# Drop the database (run as Postgres superuser)
+# DROP DATABASE ost_platform;
+# DROP USER ost_platform_user;
 ```
 
-Then in CloudPanel: delete the `platform-test.open-startup.org` site (this
+Then in CloudPanel: delete the `platform.open-startup.org` site (this
 also removes its Nginx config and Let's Encrypt certificate).
 
 To pause without deleting anything (e.g. overnight), just:
 ```bash
-docker compose --env-file .env.test -f deploy/docker-compose.yml stop
+docker compose --env-file .env -f deploy/docker-compose.yml stop
 ```
-and restart later with `docker compose --env-file .env.test -f deploy/docker-compose.yml start`.
+and restart later with `docker compose --env-file .env -f deploy/docker-compose.yml start`.

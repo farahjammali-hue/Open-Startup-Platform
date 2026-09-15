@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Deploy the platform-test environment from whatever is on origin/main.
+# Deploy the platform.open-startup.org environment from whatever is on origin/main.
 #
 # Safe to run by hand or from the auto-deploy timer. It backs up the database
 # first, applies migrations only when they changed, waits for the container to
@@ -15,12 +15,12 @@
 
 set -Eeuo pipefail
 
-REPO_DIR="${REPO_DIR:-/home/ubuntu/ost-platform-test-new}"
-ENV_FILE="${ENV_FILE:-.env.test}"
+REPO_DIR="${REPO_DIR:-/home/ubuntu/ost-platform}"
+ENV_FILE="${ENV_FILE:-.env}"
 COMPOSE_FILE="${COMPOSE_FILE:-deploy/docker-compose.yml}"
-APP_CONTAINER="${APP_CONTAINER:-ost-platform-test}"
+APP_CONTAINER="${APP_CONTAINER:-ost-platform}"
 PG_CONTAINER="${PG_CONTAINER:-ost-platform-db}"
-DB_NAME="${DB_NAME:-ost_platform_test}"
+DB_NAME="${DB_NAME:-ost_platform}"
 # Network the compose stack creates. Migration containers are one-off
 # `docker run`s, so they need to join it explicitly to reach the database.
 DOCKER_NETWORK="${DOCKER_NETWORK:-ost_platform_internal}"
@@ -47,7 +47,7 @@ CURRENT="$(git rev-parse HEAD)"
 
 if [ "$TARGET" = "$CURRENT" ] && [ "${FORCE:-0}" != "1" ]; then
   log "already at ${CURRENT:0:7}, nothing to do"
-  log "(FORCE=1 ./deploy/deploy.sh to rebuild anyway, e.g. after editing .env.test)"
+  log "(FORCE=1 ./deploy/deploy.sh to rebuild anyway, e.g. after editing .env)"
   exit 0
 fi
 
@@ -103,13 +103,13 @@ rollback() {
 # ---------------------------------------------------------------- migrate
 if [ "$NEEDS_MIGRATION" = "1" ]; then
   log "building migration image"
-  sudo docker build -q -f deploy/Dockerfile --target build -t ost-test-migrate . >/dev/null \
+  sudo docker build -q -f deploy/Dockerfile --target build -t ost-platform-migrate . >/dev/null \
     || { rollback; fail "migration image build failed"; }
 
   log "applying migrations"
   # migrate.mjs sends its whole script as one statement, so Postgres wraps it
   # in an implicit transaction: a failure here applies nothing.
-  sudo docker run --rm --env-file "$ENV_FILE" --network "$DOCKER_NETWORK" ost-test-migrate npm run db:migrate \
+  sudo docker run --rm --env-file "$ENV_FILE" --network "$DOCKER_NETWORK" ost-platform-migrate npm run db:migrate \
     || { rollback; fail "migration failed (nothing applied)"; }
 else
   log "no schema changes, skipping migration"

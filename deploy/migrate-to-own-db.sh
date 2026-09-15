@@ -1,16 +1,19 @@
 #!/usr/bin/env bash
 #
-# One-time cutover: move the platform database out of the shared n8n Postgres
-# container and into its own (ost-platform-db).
+# ONE-TIME cutover, already run in production: it moved the platform database
+# out of the shared n8n Postgres container and into its own (ost-platform-db).
+# Kept for reference and disaster recovery, not meant to run again — the exit
+# check below makes re-running it a no-op if DATABASE_URL already points at
+# the dedicated container.
 #
 #   ./deploy/migrate-to-own-db.sh
 #
 # Safe to abort at any point before the final step. The old database is only
-# read, never modified, so rolling back is a one-line edit to .env.test.
+# read, never modified, so rolling back is a one-line edit to .env.
 #
 # What it does, in order:
 #   1. pauses auto-deploy so nothing rebuilds mid-cutover
-#   2. backs up .env.test and the old database
+#   2. backs up .env and the old database
 #   3. starts the new Postgres container (empty)
 #   4. copies the data across
 #   5. compares every table's row count, and STOPS if anything differs
@@ -19,10 +22,10 @@
 
 set -Eeuo pipefail
 
-REPO_DIR="${REPO_DIR:-/home/ubuntu/ost-platform-test-new}"
-ENV_FILE="${ENV_FILE:-.env.test}"
+REPO_DIR="${REPO_DIR:-/home/ubuntu/ost-platform}"
+ENV_FILE="${ENV_FILE:-.env}"
 COMPOSE_FILE="${COMPOSE_FILE:-deploy/docker-compose.yml}"
-APP_CONTAINER="${APP_CONTAINER:-ost-platform-test}"
+APP_CONTAINER="${APP_CONTAINER:-ost-platform}"
 NEW_PG="${NEW_PG:-ost-platform-db}"
 WORK_DIR="${WORK_DIR:-$HOME/ost-db-cutover}"
 HEALTH_TIMEOUT="${HEALTH_TIMEOUT:-180}"
