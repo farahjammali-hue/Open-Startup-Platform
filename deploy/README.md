@@ -20,8 +20,8 @@ section for how to get each one):
 - [ ] You know which teammate emails should be admins (`ADMIN_EMAILS`)
 - [ ] You've decided whether to enable Google login / email / captcha for
       testing, or leave them off (recommended default: off)
-- [ ] You know the Postgres container's name and the Docker network it runs
-      on (see step 2) — both are required in `.env.test`
+- [ ] You've picked a password for the platform's own database
+      (`POSTGRES_PASSWORD`); `openssl rand -hex 24` generates a good one
 
 ---
 
@@ -35,45 +35,34 @@ cd ost-platform-test
 (Or `rsync`/`scp` the project folder if it's not in git yet. Either way, end
 up with the project at some path like `/home/<user>/ost-platform-test`.)
 
-## 2. Create an isolated test database
+## 2. The database
 
-Connect to the VPS's existing Postgres as a superuser (e.g. `sudo -u postgres
-psql`) and run:
+Nothing to do here. `docker-compose.yml` runs PostgreSQL itself, in a
+container dedicated to this platform (`ost-platform-db`) with its own volume
+and its own superuser. It is created on first start from `POSTGRES_DB`,
+`POSTGRES_USER` and `POSTGRES_PASSWORD` in `.env.test` (step 3).
 
-```sql
-CREATE DATABASE ost_platform_test;
-CREATE USER ost_test_user WITH ENCRYPTED PASSWORD 'REPLACE_WITH_A_PASSWORD';
-GRANT ALL PRIVILEGES ON DATABASE ost_platform_test TO ost_test_user;
-\c ost_platform_test
-GRANT ALL ON SCHEMA public TO ost_test_user;
-```
+It shares nothing with any other service on this VPS. That is deliberate: the
+platform database previously lived inside the n8n Postgres container, where
+n8n's superuser could read every row of it, including cap tables and KYS
+documents.
 
-This database is completely separate from anything production uses — nothing
-here can touch real user data.
-
-On this VPS, Postgres runs as a Docker CONTAINER, not on the host. The app
-reaches it by container hostname over a shared Docker network, so
-`host.docker.internal` does not apply. Collect both values now:
+It publishes no port, so it is reachable only from the private compose
+network. Not from the internet, and not from the host. To open a shell on it:
 
 ```bash
-docker ps                                      # the Postgres container's name
-docker inspect <postgres-container> --format "{{json .NetworkSettings.Networks}}"
+docker exec -it ost-platform-db psql -U ost_test_user -d ost_platform_test
 ```
 
-The container name goes in `DATABASE_URL`; the network name goes in
-`POSTGRES_DOCKER_NETWORK`. Both are set in step 3.
-
-If your Postgres instead runs directly on the host, use
-`host.docker.internal` in `DATABASE_URL`, add
-`extra_hosts: ["host.docker.internal:host-gateway"]` back to the app service,
-and remove the `networks:` blocks from docker-compose.yml. You may also need
-to allow TCP connections from the Docker bridge range in `pg_hba.conf`.
+Those three `POSTGRES_*` values only take effect the first time the volume is
+created. Changing `POSTGRES_PASSWORD` later does NOT change the password in an
+existing database; you have to `ALTER USER` inside it.
 
 ## 3. Configure the environment
 
 ```bash
 cp deploy/.env.test.example .env.test
-nano .env.test   # fill in DATABASE_URL (with the password from step 2),
+nano .env.test   # fill in POSTGRES_PASSWORD, DATABASE_URL (same password),
                   # SESSION_SECRET, and ADMIN_EMAILS at minimum
 ```
 
@@ -93,18 +82,17 @@ docker compose --env-file .env.test -f deploy/docker-compose.yml build
 
 The production image intentionally excludes dev tools (like drizzle-kit) and
 `server/migrate.mjs`, so schema work runs from the earlier "build" stage
-instead. Load the network name into your shell first, since these are plain
-`docker run` commands and don't read `.env.test` for it:
+instead. These are plain `docker run` commands rather than compose, so they join the
+deployment's private network explicitly. The database must already be running
+(`docker compose --env-file .env.test -f deploy/docker-compose.yml up -d db`).
 
 ```bash
-export $(grep '^POSTGRES_DOCKER_NETWORK=' .env.test | xargs)
-
 docker build -f deploy/Dockerfile --target build -t ost-test-migrate .
 docker run --rm --env-file .env.test \
-  --network "$POSTGRES_DOCKER_NETWORK" \
+  --network ost_platform_internal \
   ost-test-migrate npm run db:push
 docker run --rm --env-file .env.test \
-  --network "$POSTGRES_DOCKER_NETWORK" \
+  --network ost_platform_internal \
   ost-test-migrate npm run db:migrate
 ```
 
@@ -119,7 +107,7 @@ hours slots:
 
 ```bash
 docker run --rm --env-file .env.test \
-  --network "$POSTGRES_DOCKER_NETWORK" \
+  --network ost_platform_internal \
   ost-test-migrate npm run db:seed
 ```
 
@@ -253,6 +241,36 @@ To deploy a specific commit rather than the tip of `main`:
 ```bash
 ./deploy/deploy.sh <sha>
 ```
+
+---
+
+## Moving off the shared n8n database (one time)
+
+Earlier deployments kept the platform's tables inside the n8n Postgres
+container. That gave n8n's superuser read access to everything here, including
+cap tables and KYS documents, and tied the two services to one container's
+lifecycle.
+
+`deploy/migrate-to-own-db.sh` performs the cutover:
+
+```bash
+cd /home/ubuntu/ost-platform-test-new && ./deploy/migrate-to-own-db.sh
+```
+
+It pauses auto-deploy, backs up `.env.test` and the old database, starts the
+new container, copies the data, then **compares every table's row count and
+stops if any differ**. Only once they match does it repoint `DATABASE_URL`
+and restart the app.
+
+The old database is read, never modified, so undoing it is restoring one file:
+
+```bash
+cp ~/ost-db-cutover/env.test.<timestamp>.bak .env.test
+sudo docker compose --env-file .env.test -f deploy/docker-compose.yml up -d --force-recreate app
+```
+
+The script prints the exact path when it finishes. Leave the old database in
+place for a week before dropping it.
 
 ---
 

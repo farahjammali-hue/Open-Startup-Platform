@@ -1,18 +1,45 @@
 # Internal test deployment for platform-test.open-startup.org.
 #
-# Run from the REPO ROOT. The --env-file flag is REQUIRED, not optional:
-# compose needs it to substitute POSTGRES_DOCKER_NETWORK below. Without it,
-# compose fails before it starts anything.
+# Run from the REPO ROOT:
 #
 #   docker compose --env-file .env.test -f deploy/docker-compose.yml up -d --build
 #
-# This runs one isolated application container. It does not create or change
-# PostgreSQL: it joins the existing Docker network only to reach the Postgres
-# container already running on this VPS, using the dedicated
-# ost_platform_test database and ost_test_user role. Nothing here touches n8n,
-# CloudPanel's own containers, or any other existing service.
+# Two containers on a private network: the app, and its own PostgreSQL.
+#
+# The database used to live inside the n8n Postgres container. That worked, but
+# n8n's superuser could read every row of platform data (cap tables, KYS
+# documents, founder details) and the two shared a container lifecycle. They are
+# now fully separate and share nothing.
+#
+# Neither container publishes a database port, so Postgres is reachable only
+# from this compose network: not from the internet, and not even from the host.
 
 services:
+  db:
+    # Same major version as the data came from. Restoring a dump into an older
+    # major fails, so do not lower this without re-testing the restore.
+    image: postgres:16
+    container_name: ost-platform-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB in .env.test}
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in .env.test}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.test}
+    volumes:
+      - ost_platform_db:/var/lib/postgresql/data
+    networks:
+      - ost_internal
+    # Deliberately no `ports:`. Adding one would expose the database to the
+    # host and, depending on the bind address, to the internet. Reach it with
+    # `docker exec ost-platform-db psql ...` instead.
+    healthcheck:
+      # $$ escapes for compose, so the container's own shell expands these.
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
   app:
     build:
       context: ..
@@ -23,6 +50,11 @@ services:
       - ../.env.test           # you create this from deploy/.env.test.example — never commit it
     environment:
       NODE_ENV: production
+    depends_on:
+      # Without this the app can start first, fail to connect, and restart-loop
+      # until Postgres finishes initialising.
+      db:
+        condition: service_healthy
     ports:
       # Bound to 127.0.0.1 only, so the app is NOT reachable from the public
       # internet directly. CloudPanel's Nginx (on the host) reverse-proxies to
@@ -35,10 +67,7 @@ services:
       # volume used by other Docker services on this VPS.
       - ost_platform_test_uploads:/app/uploads
     networks:
-      # Postgres runs as a Docker container here, NOT on the host, so the app
-      # reaches it by container hostname over a shared Docker network. There is
-      # deliberately no host.docker.internal extra_host: it does not apply.
-      - existing_postgres_network
+      - ost_internal
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:5000/api/auth/me', r => process.exit(r.statusCode < 500 ? 0 : 1)).on('error', () => process.exit(1))"]
       interval: 30s
@@ -49,12 +78,13 @@ services:
 volumes:
   ost_platform_test_uploads:
     name: ost_platform_test_uploads
+  # Database files. Removing this volume destroys the database, so
+  # `docker compose down -v` is not a safe way to restart things.
+  ost_platform_db:
+    name: ost_platform_db
 
 networks:
-  # Pre-existing network owned by whoever runs the Postgres container. Compose
-  # attaches to it and never creates or deletes it. Set the name in .env.test;
-  # find it with:
-  #   docker inspect -f '{{range $$k,$$v := .NetworkSettings.Networks}}{{$$k}}{{"\n"}}{{end}}' <postgres-container>
-  existing_postgres_network:
-    external: true
-    name: ${POSTGRES_DOCKER_NETWORK:?Set POSTGRES_DOCKER_NETWORK in .env.test}
+  # Private to this deployment. Named explicitly so the one-off migration
+  # containers can join it with a predictable `--network ost_platform_internal`.
+  ost_internal:
+    name: ost_platform_internal

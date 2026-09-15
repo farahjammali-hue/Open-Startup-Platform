@@ -19,8 +19,11 @@ REPO_DIR="${REPO_DIR:-/home/ubuntu/ost-platform-test-new}"
 ENV_FILE="${ENV_FILE:-.env.test}"
 COMPOSE_FILE="${COMPOSE_FILE:-deploy/docker-compose.yml}"
 APP_CONTAINER="${APP_CONTAINER:-ost-platform-test}"
-PG_CONTAINER="${PG_CONTAINER:-n8n-postgres}"
+PG_CONTAINER="${PG_CONTAINER:-ost-platform-db}"
 DB_NAME="${DB_NAME:-ost_platform_test}"
+# Network the compose stack creates. Migration containers are one-off
+# `docker run`s, so they need to join it explicitly to reach the database.
+DOCKER_NETWORK="${DOCKER_NETWORK:-ost_platform_internal}"
 BACKUP_DIR="${BACKUP_DIR:-$HOME/ost-backups}"
 BACKUP_KEEP="${BACKUP_KEEP:-20}"
 HEALTH_TIMEOUT="${HEALTH_TIMEOUT:-180}"
@@ -99,9 +102,6 @@ rollback() {
 
 # ---------------------------------------------------------------- migrate
 if [ "$NEEDS_MIGRATION" = "1" ]; then
-  NETWORK="$(grep -E '^POSTGRES_DOCKER_NETWORK=' "$ENV_FILE" | cut -d= -f2-)"
-  [ -n "$NETWORK" ] || { rollback; fail "POSTGRES_DOCKER_NETWORK not set in $ENV_FILE"; }
-
   log "building migration image"
   sudo docker build -q -f deploy/Dockerfile --target build -t ost-test-migrate . >/dev/null \
     || { rollback; fail "migration image build failed"; }
@@ -109,7 +109,7 @@ if [ "$NEEDS_MIGRATION" = "1" ]; then
   log "applying migrations"
   # migrate.mjs sends its whole script as one statement, so Postgres wraps it
   # in an implicit transaction: a failure here applies nothing.
-  sudo docker run --rm --env-file "$ENV_FILE" --network "$NETWORK" ost-test-migrate npm run db:migrate \
+  sudo docker run --rm --env-file "$ENV_FILE" --network "$DOCKER_NETWORK" ost-test-migrate npm run db:migrate \
     || { rollback; fail "migration failed (nothing applied)"; }
 else
   log "no schema changes, skipping migration"
