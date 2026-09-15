@@ -1,3 +1,6 @@
+import { useAuth } from "../lib/auth";
+import { SignOut as LogOut } from "@phosphor-icons/react";
+
 /** OST wordmark + reusable brand bits, matching "The Science Road" prototype. */
 export function Logo({ className = "", compact = false }: { className?: string; compact?: boolean }) {
   return (
@@ -10,6 +13,28 @@ export function Logo({ className = "", compact = false }: { className?: string; 
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * Light header for the pre-app screens that DON'T use BrandPanel (role
+ * select, pending approval, onboarding) so they match the same off-white/
+ * white-header look the rest of the app uses once a startup is inside it.
+ */
+export function AuthHeader({ withSignOut = false }: { withSignOut?: boolean }) {
+  const { logout } = useAuth();
+  return (
+    <header className="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-4">
+      <Logo />
+      {withSignOut && (
+        <button
+          onClick={() => logout()}
+          className="flex items-center gap-2 text-sm font-medium text-slate-400 hover:text-primary"
+        >
+          <LogOut className="h-4 w-4" /> Sign out
+        </button>
+      )}
+    </header>
   );
 }
 

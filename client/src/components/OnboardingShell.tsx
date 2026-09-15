@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
-import { useAuth } from "../lib/auth";
-import { Logo } from "./Brand";
-import { Check, SignOut as LogOut } from "@phosphor-icons/react";
+import { AuthHeader } from "./Brand";
+import { Check } from "@phosphor-icons/react";
 
 const STEPS = ["Role", "Basics", "Survey"] as const;
 
@@ -16,18 +15,9 @@ export function OnboardingShell({
   subtitle?: string;
   children: ReactNode;
 }) {
-  const { logout } = useAuth();
   return (
-    <div className="ost-canvas min-h-screen">
-      <header className="flex items-center justify-between border-b border-white/10 px-6 py-4">
-        <Logo className="[&_*]:text-white" />
-        <button
-          onClick={() => logout()}
-          className="flex items-center gap-2 text-sm font-medium text-white/60 hover:text-white"
-        >
-          <LogOut className="h-4 w-4" /> Sign out
-        </button>
-      </header>
+    <div className="ost-shell-bg min-h-screen">
+      <AuthHeader withSignOut />
 
       <main className="mx-auto max-w-3xl px-6 py-10">
         {/* Stepper */}
@@ -43,20 +33,20 @@ export function OnboardingShell({
                     done
                       ? "bg-secondary text-white"
                       : active
-                        ? "border-2 border-secondary text-secondary-300"
-                        : "bg-white/10 text-white/40"
+                        ? "border-2 border-secondary text-secondary"
+                        : "bg-slate-100 text-slate-400"
                   }`}
                 >
                   {done ? <Check className="h-4 w-4" /> : n}
                 </span>
                 <span
                   className={`text-sm font-semibold ${
-                    active ? "text-white" : "text-white/40"
+                    active ? "text-primary" : "text-slate-400"
                   }`}
                 >
                   {label}
                 </span>
-                {n < 3 && <span className="mx-1 h-px w-6 bg-white/15" />}
+                {n < 3 && <span className="mx-1 h-px w-6 bg-slate-200" />}
               </li>
             );
           })}

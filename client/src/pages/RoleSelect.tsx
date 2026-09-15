@@ -2,8 +2,8 @@ import { useState } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "../lib/auth";
 import { api } from "../lib/utils";
-import { Logo } from "../components/Brand";
-import { Rocket, Users, ChartLine as LineChart, Lock, CircleNotch as Loader2, SignOut as LogOut } from "@phosphor-icons/react";
+import { AuthHeader } from "../components/Brand";
+import { Rocket, Users, ChartLine as LineChart, Lock, CircleNotch as Loader2 } from "@phosphor-icons/react";
 
 const ROLES = [
   {
@@ -30,7 +30,7 @@ const ROLES = [
 ] as const;
 
 export default function RoleSelect() {
-  const { user, refresh, logout } = useAuth();
+  const { user, refresh } = useAuth();
   const [, navigate] = useLocation();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -54,25 +54,15 @@ export default function RoleSelect() {
   }
 
   return (
-    <div className="ost-canvas min-h-screen">
-      <header className="flex items-center justify-between border-b border-white/10 px-6 py-4">
-        <Logo className="[&_*]:text-white" />
-        <button
-          onClick={() => logout()}
-          className="flex items-center gap-2 text-sm font-medium text-white/60 hover:text-white"
-        >
-          <LogOut className="h-4 w-4" /> Sign out
-        </button>
-      </header>
+    <div className="ost-shell-bg min-h-screen">
+      <AuthHeader withSignOut />
 
       <main className="mx-auto max-w-4xl px-6 py-12">
-        <p className="text-sm font-semibold uppercase tracking-wider text-secondary-300">
-          Welcome, {user?.name?.split(" ")[0]}
-        </p>
-        <h1 className="mt-1 text-3xl font-extrabold text-white">
+        <span className="ost-eyebrow">Welcome, {user?.name?.split(" ")[0]}</span>
+        <h1 className="mt-1 ost-page-title">
           How will you be using the platform?
         </h1>
-        <p className="mt-2 max-w-xl text-sm leading-relaxed text-white/70">
+        <p className="mt-2 ost-page-subtext">
           Pick the role that fits you. You can only set this once for now —
           more roles are coming soon.
         </p>

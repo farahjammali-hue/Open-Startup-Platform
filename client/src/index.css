@@ -149,9 +149,10 @@ body {
     background: var(--bg-app);
   }
 
-  /* Retained for the standalone auth-style screens (Login, RoleSelect) that
-     still use the original dark "Science Road" hero treatment; the app
-     shell itself now uses .ost-shell-bg above instead. */
+  /* Retained only for the public (unauthenticated) data room share page,
+     which still uses the original dark "Science Road" hero treatment.
+     Login, RoleSelect, VerifyEmail, and onboarding now use .ost-shell-bg
+     above instead, matching the rest of the app once a startup is in it. */
   .ost-canvas {
     background:
       linear-gradient(180deg, rgba(255, 61, 130, 0.28) 0%, rgba(255, 61, 130, 0.1) 5%, transparent 16%),
