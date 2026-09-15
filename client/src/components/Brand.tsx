@@ -13,48 +13,19 @@ export function Logo({ className = "", compact = false }: { className?: string; 
   );
 }
 
-/** Left-side decorative panel echoing the website's hero gradient. */
+/** Left-side panel: a plain navy field with the logo centered. Deliberately
+ * minimal — no gradient, glow, copy, or stats — per an explicit request to
+ * simplify it. */
 export function BrandPanel() {
   return (
     <div
-      className="relative hidden overflow-hidden lg:flex lg:w-[42%] lg:flex-col lg:justify-between lg:p-12"
-      style={{ background: "linear-gradient(160deg, #0A193D, #16265a)" }}
+      className="hidden lg:flex lg:w-[42%] lg:items-center lg:justify-center"
+      style={{ background: "#1d2853" }}
     >
-      <div
-        className="pointer-events-none absolute inset-0 opacity-60"
-        style={{
-          background:
-            "radial-gradient(circle at 20% 20%, rgba(255,61,130,0.35), transparent 45%), radial-gradient(circle at 85% 75%, rgba(98,221,209,0.25), transparent 40%)",
-        }}
-      />
-      <RoadGlow
-        viewBox="0 0 600 500"
-        path="M20,460 C120,420 100,320 220,300 C340,280 360,380 480,340 C540,320 560,280 590,220"
-        className="pointer-events-none absolute inset-0 opacity-70"
-      />
-      <div className="relative z-10">
-        <Logo className="[&_*]:text-white" />
-      </div>
-      <div className="relative z-10 space-y-6">
-        <span className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-secondary-300">
-          A new journey has begun
-        </span>
-        <h1 className="text-4xl font-extrabold leading-tight text-white">
-          Fostering innovation across Africa and beyond.
-        </h1>
-        <p className="max-w-md text-sm leading-relaxed text-white/70">
-          One platform for the whole program: onboarding, mentorship, data
-          rooms, and progress, kept live and in real time.
-        </p>
-        <div className="flex flex-wrap gap-x-8 gap-y-4 pt-4 text-white">
-          <Stat value="+1000" label="Startups supported" />
-          <Stat value="+20" label="Countries served" />
-          <Stat value="10 yrs" label="Of building" />
-        </div>
-      </div>
-      <div className="relative z-10 text-xs text-white/40">
-        © {new Date().getFullYear()} Open Startup International
-      </div>
+      {/* Logo is shared at a small (26px) size everywhere else it's used
+          (sidebar, headers), so it's scaled up just in this one spot rather
+          than resizing the shared component itself. */}
+      <Logo className="scale-150 [&_*]:text-white" />
     </div>
   );
 }
@@ -87,15 +58,6 @@ export function RoadGlow({
       <path d={path} fill="none" stroke={`url(#${gid})`} strokeWidth="3" strokeLinecap="round" filter={`url(#${gid}-blur)`} opacity="0.9" />
       <path d={path} fill="none" stroke={`url(#${gid})`} strokeWidth="1.3" strokeLinecap="round" opacity="0.85" />
     </svg>
-  );
-}
-
-function Stat({ value, label }: { value: string; label: string }) {
-  return (
-    <div>
-      <div className="text-2xl font-extrabold text-secondary-300">{value}</div>
-      <div className="text-xs text-white/60">{label}</div>
-    </div>
   );
 }
 

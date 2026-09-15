@@ -96,7 +96,7 @@ export default function Login() {
           </h2>
           <p className="mt-1 text-sm" style={{ color: "var(--text-2)" }}>
             {mode === "login"
-              ? "Sign in to your Open Startup workspace."
+              ? "Sign in with one of the options below."
               : "Join the Open Startup platform."}
           </p>
 
