@@ -1,5 +1,5 @@
 <svg viewBox="-10 -7 200 197" xmlns="http://www.w3.org/2000/svg">
-  <!-- Just the emblem, not the wordmark -- extracted from
+  <!-- Just the emblem, not the wordmark. Extracted from
        client/public/logos/logo-offwhite.svg (paths shared 1:1 with that
        file, so this and the wordmark logo never need to be updated in sync
        by hand: if the mark ever changes there, copy the same 6 paths here).
