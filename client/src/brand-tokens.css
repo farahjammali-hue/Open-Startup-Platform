@@ -122,29 +122,6 @@
   --shadow-md: 0 6px 20px rgba(10,25,61,.10);   /* popovers/menus */
 }
 
-/* ---------- DARK THEME (full app-wide flip — never a dark shell + light cards) ---------- */
-:root[data-theme="dark"] {
-  --bg-app:        var(--navy-deep);
-  --bg-subtle:     #101a33;
-  --surface:       var(--navy);
-  --surface-2:     #122043;
-  --border:        #223056;
-  --border-strong: #2E3E68;
-
-  --text-1:        #F4F2EC;         /* off-white text on navy, per guidelines */
-  --text-2:        #A9B2C7;
-  --text-3:        #6C7893;
-
-  --action:        var(--white);    /* on dark, primary action inverts to white */
-  --action-hover:  #EDE9E0;
-  --action-text:   var(--navy);
-  --focus-ring:    var(--turquoise);
-
-  --success-bg: #133020; --info-bg: #0E2E2C; --warning-bg: #33290A; --danger-bg: #331420;
-  --shadow-sm: 0 1px 2px rgba(0,0,0,.30);
-  --shadow-md: 0 8px 24px rgba(0,0,0,.45);
-}
-
 /* ============================================================
    ADJUSTMENT 2 — scoping.
    The variables and @font-face above are pure definitions: importing them

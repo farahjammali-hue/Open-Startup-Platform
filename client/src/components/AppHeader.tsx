@@ -4,7 +4,6 @@ import { useAuth } from "../lib/auth";
 import { api } from "../lib/utils";
 import { confirmLeave } from "../lib/navGuard";
 import { Dropdown } from "./Dropdown";
-import { ThemeToggle } from "./ThemeToggle";
 import { CaretDown as ChevronDown, Check, Buildings as Building2, SignOut as LogOut, Gear as Settings } from "@phosphor-icons/react";
 
 interface StartupLite {
@@ -99,7 +98,6 @@ export function AppHeader() {
       </div>
 
       <div className="flex items-center gap-3">
-      <ThemeToggle />
       <Dropdown
         align="right"
         width="w-52"

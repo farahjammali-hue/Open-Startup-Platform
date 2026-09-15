@@ -1,13 +1,12 @@
 /**
  * Shimmering placeholder blocks, swapped in wherever a page previously showed plain "Loading..." text.
  * Pass tone="dark" when placing directly on the app's off-white shell canvas (outside a white ost-card) —
- * a touch darker than the "light" (on-card) tone so it still reads against the canvas. In .dark mode both
- * the canvas and cards go dark navy, so both tones use the same light shimmer there regardless.
+ * a touch darker than the "light" (on-card) tone so it still reads against the canvas.
  */
 export function Skeleton({ className = "", tone = "light" }: { className?: string; tone?: "light" | "dark" }) {
   return (
     <div
-      className={`animate-pulse rounded-md dark:bg-white/10 ${tone === "dark" ? "bg-slate-300/70" : "bg-slate-200"} ${className}`}
+      className={`animate-pulse rounded-md ${tone === "dark" ? "bg-slate-300/70" : "bg-slate-200"} ${className}`}
     />
   );
 }

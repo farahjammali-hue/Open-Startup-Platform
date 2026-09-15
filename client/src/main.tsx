@@ -4,10 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { IconContext } from "@phosphor-icons/react";
 import App from "./App";
 import { AuthProvider } from "./lib/auth";
-import { initTheme } from "./lib/theme";
 import "./index.css";
-
-initTheme();
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } },
