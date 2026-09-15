@@ -980,6 +980,16 @@ ALTER TABLE mentorship_session_notes ADD COLUMN IF NOT EXISTS action_items_for_o
 -- Signup approval: a new applicant is held in "pending_approval" (after
 -- filling in their profile, before "complete") until an admin approves them.
 ALTER TYPE onboarding_status ADD VALUE IF NOT EXISTS 'pending_approval';
+
+-- Card 12 (Competition): main_competitors free text replaced by a repeatable
+-- competitor + details list. The old column stays, unused.
+CREATE TABLE IF NOT EXISTS startup_competitors (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  startup_id uuid NOT NULL REFERENCES startups(id) ON DELETE CASCADE,
+  name text NOT NULL,
+  details text,
+  created_at timestamp NOT NULL DEFAULT now()
+);
 `;
 
 try {

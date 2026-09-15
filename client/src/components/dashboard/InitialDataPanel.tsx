@@ -79,6 +79,7 @@ interface PatentRow {
   publicationNumber: string | null; status: string | null; nextAction: string | null;
 }
 interface TargetMarketRow { id: string; market: string; status: string }
+interface CompetitorRow { id: string; name: string; details: string | null }
 interface ClientStatRow { id: string; clientType: string; totalClients: number | null; majorClientNames: string | null; retentionRate: number | null }
 interface ClientDetailRow { id: string; clientName: string; scopeOfWork: string | null; dealValue: number | null }
 interface PartnerStatRow { id: string; partnerType: string; totalPartners: number | null; majorPartnerNames: string | null; retentionRate: number | null }
@@ -91,6 +92,7 @@ interface ProfileResponse {
   fundingRounds: FundingRoundRow[];
   patents: PatentRow[];
   targetMarkets: TargetMarketRow[];
+  competitors: CompetitorRow[];
   clientStats: ClientStatRow[];
   clientDetails: ClientDetailRow[];
   partnerStats: PartnerStatRow[];
@@ -258,6 +260,66 @@ function RepeatableList<T extends { id: string }>({
       {onAdd && (
         <button type="button" onClick={onAdd} className="ost-btn-ghost !px-2.5 !py-1 text-xs"><Plus className="h-4 w-4" /> {addLabel}</button>
       )}
+    </div>
+  );
+}
+
+/** Competitor + details, listed one under another, with its own inline add form (no modal). */
+function CompetitorsSection({
+  sub, competitors, addRow, deleteRow,
+}: {
+  sub: string;
+  competitors: CompetitorRow[];
+  addRow: (base: string, values: Record<string, string>) => Promise<void>;
+  deleteRow: (base: string, id: string) => Promise<void>;
+}) {
+  const [name, setName] = useState("");
+  const [details, setDetails] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function add() {
+    if (!name.trim()) return;
+    setSaving(true);
+    try {
+      await addRow(`${sub}/competitors`, { name, details });
+      setName("");
+      setDetails("");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div>
+      <RepeatableList
+        rows={competitors}
+        emptyText="No competitors added yet."
+        onDelete={(id) => deleteRow(`${sub}/competitors`, id)}
+        renderRow={(c) => (
+          <>
+            <p className="font-semibold text-primary">{c.name}</p>
+            {c.details && <p className="text-slate-400">{c.details}</p>}
+          </>
+        )}
+      />
+      <div className="mt-3 space-y-3">
+        <div>
+          <FieldLabel>Competitor</FieldLabel>
+          <input className={`ost-input ${H10}`} value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Competitor A" />
+        </div>
+        <div>
+          <FieldLabel>Details</FieldLabel>
+          <input className={`ost-input ${H10}`} value={details} onChange={(e) => setDetails(e.target.value)} placeholder="What sets them apart, funding, etc." />
+        </div>
+        <button
+          type="button"
+          onClick={add}
+          disabled={saving || !name.trim()}
+          className="ost-btn-ghost !px-2.5 !py-1 text-xs disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Add competitor
+        </button>
+      </div>
     </div>
   );
 }
@@ -430,7 +492,7 @@ export function InitialDataPanel({ apiConfig, startupName }: { apiConfig: Initia
     data.targetMarkets.forEach((m, i) => push("11. Go To Market", `Target Market ${i + 1}`, `${m.market} · ${labelOf(GTM_STATUS_OPTIONS, m.status)}`));
     push("11. Go To Market", "Go To Market strategy (link)", s.goToMarketStrategyLink ?? "");
 
-    push("12. Competition", "Main Competitors", s.mainCompetitors ?? "");
+    data.competitors.forEach((c, i) => push("12. Competition", `Competitor ${i + 1}`, [c.name, c.details].filter(Boolean).join(" · ")));
     push("12. Competition", "Overview", s.competitionOverview ?? "");
 
     data.clientStats.forEach((c, i) => push("13. Clients", `Client Type ${i + 1}`, [labelOf(CLIENT_TYPE_OPTIONS, c.clientType), c.totalClients != null ? `${c.totalClients} clients` : null, c.majorClientNames, c.retentionRate != null ? `${c.retentionRate}% retention` : null].filter(Boolean).join(" · ")));
@@ -739,9 +801,9 @@ export function InitialDataPanel({ apiConfig, startupName }: { apiConfig: Initia
         </InitialDataCard>
 
         {/* 12. Competition */}
-        <InitialDataCard title="12. Competition" icon={Binoculars} completion={completionOf([!!s.mainCompetitors, !!s.competitionOverview])} isOpen={false} onToggle={() => {}}>
+        <InitialDataCard title="12. Competition" icon={Binoculars} completion={completionOf([data.competitors.length > 0, !!s.competitionOverview])} isOpen={false} onToggle={() => {}}>
           <Field label="Main Competitors">
-            <input className={`ost-input ${H10}`} value={s.mainCompetitors ?? ""} onChange={(e) => set("mainCompetitors", e.target.value)} placeholder="e.g. Competitor A, Competitor B" />
+            <CompetitorsSection sub={sub} competitors={data.competitors} addRow={addRow} deleteRow={deleteRow} />
           </Field>
           <textarea className="ost-input min-h-[90px] w-full" value={s.competitionOverview ?? ""} onChange={(e) => set("competitionOverview", e.target.value)} />
         </InitialDataCard>

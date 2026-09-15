@@ -56,6 +56,7 @@ import {
   fundingRoundSchema,
   patentSchema,
   targetMarketSchema,
+  competitorSchema,
   clientStatSchema,
   clientDetailSchema,
   partnerStatSchema,
@@ -1635,20 +1636,21 @@ export function registerRoutes(app: Express) {
 
   /* ---------------- Initial Data: combined read (founder + admin) ---------------- */
   async function loadProfileExtras(startupId: string) {
-    const [teamMembers, capTableEntries, fundingRounds, patents, targetMarkets, clientStats, clientDetails, partnerStats, partnerDetails, achievements] =
+    const [teamMembers, capTableEntries, fundingRounds, patents, targetMarkets, competitors, clientStats, clientDetails, partnerStats, partnerDetails, achievements] =
       await Promise.all([
         storage.listTeamMembers(startupId),
         storage.listCapTableEntries(startupId),
         storage.listFundingRounds(startupId),
         storage.listPatents(startupId),
         storage.listTargetMarkets(startupId),
+        storage.listCompetitors(startupId),
         storage.listClientStats(startupId),
         storage.listClientDetails(startupId),
         storage.listPartnerStats(startupId),
         storage.listPartnerDetails(startupId),
         storage.listAchievements(startupId),
       ]);
-    return { teamMembers, capTableEntries, fundingRounds, patents, targetMarkets, clientStats, clientDetails, partnerStats, partnerDetails, achievements };
+    return { teamMembers, capTableEntries, fundingRounds, patents, targetMarkets, competitors, clientStats, clientDetails, partnerStats, partnerDetails, achievements };
   }
 
   app.get("/api/startup-profile", requireAuth, ah(async (req, res) => {
@@ -1706,6 +1708,7 @@ export function registerRoutes(app: Express) {
   initialDataSubResource("funding-rounds", fundingRoundSchema, storage.createFundingRound.bind(storage), storage.getOwnedFundingRound.bind(storage), storage.deleteFundingRound.bind(storage));
   initialDataSubResource("patents", patentSchema, storage.createPatent.bind(storage), storage.getOwnedPatent.bind(storage), storage.deletePatent.bind(storage));
   initialDataSubResource("target-markets", targetMarketSchema, storage.createTargetMarket.bind(storage), storage.getOwnedTargetMarket.bind(storage), storage.deleteTargetMarket.bind(storage));
+  initialDataSubResource("competitors", competitorSchema, storage.createCompetitor.bind(storage), storage.getOwnedCompetitor.bind(storage), storage.deleteCompetitor.bind(storage));
   initialDataSubResource("client-stats", clientStatSchema, storage.createClientStat.bind(storage), storage.getOwnedClientStat.bind(storage), storage.deleteClientStat.bind(storage));
   initialDataSubResource("client-details", clientDetailSchema, storage.createClientDetail.bind(storage), storage.getOwnedClientDetail.bind(storage), storage.deleteClientDetail.bind(storage));
   initialDataSubResource("partner-stats", partnerStatSchema, storage.createPartnerStat.bind(storage), storage.getOwnedPartnerStat.bind(storage), storage.deletePartnerStat.bind(storage));

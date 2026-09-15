@@ -36,6 +36,7 @@ import {
   startupFundingRounds,
   startupPatents,
   startupTargetMarkets,
+  startupCompetitors,
   startupClientStats,
   startupClientDetails,
   startupPartnerStats,
@@ -76,6 +77,7 @@ import {
   type StartupFundingRound,
   type StartupPatent,
   type StartupTargetMarket,
+  type StartupCompetitor,
   type StartupClientStat,
   type StartupClientDetail,
   type StartupPartnerStat,
@@ -1391,6 +1393,21 @@ export const storage = {
   },
   async deleteTargetMarket(id: string): Promise<void> {
     await db.delete(startupTargetMarkets).where(eq(startupTargetMarkets.id, id));
+  },
+
+  async listCompetitors(startupId: string): Promise<StartupCompetitor[]> {
+    return db.select().from(startupCompetitors).where(eq(startupCompetitors.startupId, startupId)).orderBy(asc(startupCompetitors.createdAt));
+  },
+  async createCompetitor(startupId: string, data: { name: string; details?: string | null }): Promise<StartupCompetitor> {
+    const [row] = await db.insert(startupCompetitors).values({ ...data, startupId }).returning();
+    return row;
+  },
+  async getOwnedCompetitor(id: string, startupId: string): Promise<StartupCompetitor | undefined> {
+    const [row] = await db.select().from(startupCompetitors).where(and(eq(startupCompetitors.id, id), eq(startupCompetitors.startupId, startupId)));
+    return row;
+  },
+  async deleteCompetitor(id: string): Promise<void> {
+    await db.delete(startupCompetitors).where(eq(startupCompetitors.id, id));
   },
 
   async listClientStats(startupId: string): Promise<StartupClientStat[]> {

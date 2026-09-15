@@ -1061,6 +1061,18 @@ export const startupTargetMarkets = pgTable("startup_target_markets", {
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
+// Card 12 (Competition) — replaces the old single mainCompetitors text field
+// with a repeatable competitor + details list, kept in place unused below.
+export const startupCompetitors = pgTable("startup_competitors", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  startupId: uuid("startup_id")
+    .references(() => startups.id, { onDelete: "cascade" })
+    .notNull(),
+  name: text("name").notNull(),
+  details: text("details"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
 export const startupClientStats = pgTable("startup_client_stats", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   startupId: uuid("startup_id")
@@ -1426,6 +1438,11 @@ export const targetMarketSchema = z.object({
   status: z.enum(GTM_STATUS_VALUES),
 });
 
+export const competitorSchema = z.object({
+  name: z.string().min(1, "Competitor name is required").max(200),
+  details: z.string().max(1000).optional().or(z.literal("")),
+});
+
 export const clientStatSchema = z.object({
   clientType: z.enum(CLIENT_TYPE_VALUES),
   totalClients: z.number().int().nonnegative().optional(),
@@ -1717,6 +1734,7 @@ export type StartupCrmEntry = typeof startupCrmEntries.$inferSelect;
 export type StartupFundingRound = typeof startupFundingRounds.$inferSelect;
 export type StartupPatent = typeof startupPatents.$inferSelect;
 export type StartupTargetMarket = typeof startupTargetMarkets.$inferSelect;
+export type StartupCompetitor = typeof startupCompetitors.$inferSelect;
 export type StartupClientStat = typeof startupClientStats.$inferSelect;
 export type StartupClientDetail = typeof startupClientDetails.$inferSelect;
 export type StartupPartnerStat = typeof startupPartnerStats.$inferSelect;
@@ -1756,6 +1774,7 @@ export type StartupTechTrackInput = z.infer<typeof startupTechTrackSchema>;
 export type FundingRoundInput = z.infer<typeof fundingRoundSchema>;
 export type PatentInput = z.infer<typeof patentSchema>;
 export type TargetMarketInput = z.infer<typeof targetMarketSchema>;
+export type CompetitorInput = z.infer<typeof competitorSchema>;
 export type ClientStatInput = z.infer<typeof clientStatSchema>;
 export type ClientDetailInput = z.infer<typeof clientDetailSchema>;
 export type PartnerStatInput = z.infer<typeof partnerStatSchema>;
