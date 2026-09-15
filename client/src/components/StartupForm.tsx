@@ -122,8 +122,7 @@ export function StartupForm({
     if (!location.trim()) e.location = "Required";
     if (markets.length === 0) e.markets = "Add at least one market";
     if (!stage) e.stage = "Select a stage";
-    if (!website.trim()) e.website = "Required";
-    else if (!isValidUrl(website)) e.website = "Enter a valid URL (include https://)";
+    if (website.trim() && !isValidUrl(website)) e.website = "Enter a valid URL (include https://)";
     if (!linkedin.trim()) e.linkedin = "LinkedIn URL is required";
     else if (!isValidUrl(linkedin)) e.linkedin = "Enter a valid URL";
     if (!deckUrl.trim() && !deckFile) e.deckUrl = "A pitch deck (PDF) is required";
@@ -275,7 +274,7 @@ export function StartupForm({
       {/* Links */}
       <Section title="Links">
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Website" required error={errors.website}>
+          <Field label="Website" error={errors.website}>
             <LinkInput value={website} onChange={setWebsite} />
           </Field>
           <Field label="LinkedIn" required error={errors.linkedin}>

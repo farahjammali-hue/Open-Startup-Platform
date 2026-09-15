@@ -1145,7 +1145,7 @@ export const selectRoleSchema = z.object({
 
 export const startupBasicsSchema = z.object({
   companyName: z.string().min(1, "Company name is required"),
-  website: z.string().url("Enter a valid URL (include https://)"),
+  website: z.string().url("Enter a valid URL (include https://)").optional().or(z.literal("")),
 });
 
 // Account management
@@ -1188,13 +1188,13 @@ export const startupSurveySchema = z
       ["idea", "prototype", "mvp", "early_revenue", "growth", "scale"],
       { errorMap: () => ({ message: "Select a stage" }) },
     ),
-    website: z.string().url("A valid website URL is required"),
     deckUrl: z.string().min(1, "A deck link is required"),
 
     // links: linkedin required, rest optional
     links: z.record(z.string()).default({}),
 
     // optional
+    website: z.string().url("Enter a valid URL (include https://)").optional().or(z.literal("")),
     productVideoUrl: optionalUrl,
     productVideoPrivate: z.boolean().optional(),
     teamVideoUrl: optionalUrl,
