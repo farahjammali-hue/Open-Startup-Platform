@@ -5,9 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Open Startup Platform · The Science Road</title>
 
-    <!-- Favicon. One source PNG covers browser tabs, bookmarks, and the
-         iOS/Android "add to home screen" icon — no separate .ico needed for
-         any browser still in real use. -->
+    <!-- Favicon. The SVG is just the brand emblem (not the globe+paper-plane
+         mark below), and switches between the navy and off-white brand
+         colours via prefers-color-scheme, so the tab icon reads correctly in
+         both light and dark browser chrome. The PNG is a fallback for the
+         few browsers without SVG favicon support, and covers the
+         iOS/Android "add to home screen" icon, which needs a raster image
+         regardless. -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" type="image/png" href="/ost-logo.png" />
     <link rel="apple-touch-icon" href="/ost-logo.png" />
 
