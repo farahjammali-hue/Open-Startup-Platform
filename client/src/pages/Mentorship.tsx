@@ -15,8 +15,11 @@ import { Lock, CaretRight as ChevronRight, VideoCamera as Video, FileText, Link 
 
 interface MentorshipSessionNotes {
   teamMembersPresence: string | null;
-  pointsDiscussed: string | null;
-  actionItems: string | null;
+  progressHighlights: string | null;
+  mentorComments: string | null;
+  needsHighlighted: string | null;
+  nextMeetingCheckIns: string | null;
+  actionItemsForOst: string | null;
   aiGeneratedAt: string | null;
   founderComments: string | null;
 }
@@ -322,8 +325,11 @@ function SessionRecapCard({ session: s }: { session: MentorshipSession }) {
 
   const recapRows: [string, string | null][] = [
     ["Team members presence", n.teamMembersPresence],
-    ["Points discussed", n.pointsDiscussed],
-    ["Action items", n.actionItems],
+    ["Progress / highlights", n.progressHighlights],
+    ["Mentor comments", n.mentorComments],
+    ["Needs highlighted", n.needsHighlighted],
+    ["To check next meeting", n.nextMeetingCheckIns],
+    ["Action items for OST", n.actionItemsForOst],
   ];
 
   return (

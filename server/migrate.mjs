@@ -966,6 +966,16 @@ CREATE TABLE IF NOT EXISTS startup_partner_details (
   next_steps text,
   created_at timestamp NOT NULL DEFAULT now()
 );
+
+-- Mentorship AI recap restructured to match the OST team's own pre/post-session
+-- recap prompt (progress highlights, mentor comments, needs highlighted, next
+-- meeting check-ins, action items for OST). points_discussed and the
+-- what_is_going_well/not columns are superseded and left in place, unused.
+ALTER TABLE mentorship_session_notes ADD COLUMN IF NOT EXISTS progress_highlights text;
+ALTER TABLE mentorship_session_notes ADD COLUMN IF NOT EXISTS mentor_comments text;
+ALTER TABLE mentorship_session_notes ADD COLUMN IF NOT EXISTS needs_highlighted text;
+ALTER TABLE mentorship_session_notes ADD COLUMN IF NOT EXISTS next_meeting_check_ins text;
+ALTER TABLE mentorship_session_notes ADD COLUMN IF NOT EXISTS action_items_for_ost text;
 `;
 
 try {

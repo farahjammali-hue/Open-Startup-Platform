@@ -21,8 +21,11 @@ export function vttToPlainText(vtt: string): string {
 
 export interface SessionRecap {
   teamMembersPresence: string;
-  pointsDiscussed: string;
-  actionItems: string;
+  progressHighlights: string;
+  mentorComments: string;
+  needsHighlighted: string;
+  nextMeetingCheckIns: string;
+  actionItemsForOst: string;
 }
 
 /** Truncated to stay well within a reasonable token budget for a single session's transcript. */
@@ -34,18 +37,36 @@ export async function generateSessionRecap(transcriptText: string): Promise<Sess
   const transcript = transcriptText.slice(0, MAX_TRANSCRIPT_CHARS);
   const message = await client.messages.create({
     model: "claude-sonnet-5",
-    max_tokens: 1024,
+    max_tokens: 1536,
     messages: [
       {
         role: "user",
-        content: `You are summarizing a call transcript from a startup accelerator program (a mentorship or training session between a startup and their mentor/trainer). Read the transcript and produce a short recap.
+        content: `Please analyze the meeting transcript and extract the key points using the following structure. Focus only on relevant information discussed.
+
+For each section, provide concise bullet points (use "\\n" between bullets within a section).
+
+1. Progress / Highlights (Startup Updates)
+Summarize factual updates shared by the startup, including: milestones achieved; partnerships, pilots, customers, or funding updates; product development progress; any measurable outcomes or traction.
+
+2. Mentor Comments
+Capture strategic guidance, recommendations, or feedback provided by the mentor during the meeting.
+
+3. Needs Highlighted (Action Points / Risks / Follow-ups)
+Identify clear needs expressed by the startup or risks discussed, including: support required; introductions needed; blockers or challenges; follow-up topics.
+
+4. To Check in the Next Meeting
+List specific items that should be reviewed or revisited during the next check-in.
+
+5. Action Items for OST
+List concrete actions the OST team committed to (introductions, documents, connections, support, etc.).
+
+Also identify who appears to have attended, based on speaker names in the transcript.
 
 Respond with ONLY a JSON object, no markdown fences, no commentary, in exactly this shape:
-{"teamMembersPresence": "...", "pointsDiscussed": "...", "actionItems": "..."}
+{"teamMembersPresence": "...", "progressHighlights": "...", "mentorComments": "...", "needsHighlighted": "...", "nextMeetingCheckIns": "...", "actionItemsForOst": "..."}
 
-- teamMembersPresence: who appears to have attended, based on speaker names in the transcript. One line, comma-separated. If names aren't identifiable, say "Not clear from the transcript".
-- pointsDiscussed: 2-4 sentences summarizing the main topics discussed.
-- actionItems: concrete next steps or action items mentioned or implied, as a short list (use "\\n" between items). If none were discussed, say "None noted".
+- teamMembersPresence: one line, comma-separated. If names aren't identifiable, say "Not clear from the transcript".
+- For each of the 5 sections, if nothing relevant was discussed, say "None noted".
 
 Transcript:
 """
@@ -68,7 +89,10 @@ ${transcript}
 
   return {
     teamMembersPresence: parsed.teamMembersPresence || "Not clear from the transcript",
-    pointsDiscussed: parsed.pointsDiscussed || "",
-    actionItems: parsed.actionItems || "None noted",
+    progressHighlights: parsed.progressHighlights || "None noted",
+    mentorComments: parsed.mentorComments || "None noted",
+    needsHighlighted: parsed.needsHighlighted || "None noted",
+    nextMeetingCheckIns: parsed.nextMeetingCheckIns || "None noted",
+    actionItemsForOst: parsed.actionItemsForOst || "None noted",
   };
 }

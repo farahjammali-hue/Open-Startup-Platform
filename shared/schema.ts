@@ -713,12 +713,21 @@ export const mentorshipSessionNotes = pgTable("mentorship_session_notes", {
     .references(() => startups.id, { onDelete: "cascade" })
     .notNull(),
   // AI-generated from the session's Zoom transcript once one is available
-  // (see server/ai.ts) — no longer filled in by hand by anyone.
+  // (see server/ai.ts) — no longer filled in by hand by anyone. Matches the
+  // OST team's own pre/post-session recap prompt structure. pointsDiscussed,
+  // whatIsGoingWell and whatIsNotGoingWell are superseded by the five fields
+  // below and left in place, unused, per the project's non-destructive
+  // migration convention.
   teamMembersPresence: text("team_members_presence"),
   pointsDiscussed: text("points_discussed"),
   whatIsGoingWell: text("what_is_going_well"),
   whatIsNotGoingWell: text("what_is_not_going_well"),
   actionItems: text("action_items"),
+  progressHighlights: text("progress_highlights"),
+  mentorComments: text("mentor_comments"),
+  needsHighlighted: text("needs_highlighted"),
+  nextMeetingCheckIns: text("next_meeting_check_ins"),
+  actionItemsForOst: text("action_items_for_ost"),
   aiGeneratedAt: timestamp("ai_generated_at"),
   // The startup's own free-text notes, editable any time from scheduling
   // onward — independent of the AI recap above.

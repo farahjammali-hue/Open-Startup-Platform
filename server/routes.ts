@@ -1955,8 +1955,11 @@ export function registerRoutes(app: Express) {
     const recap = await generateSessionRecap(vttToPlainText(vtt));
     return storage.upsertMentorshipSessionNotes(sessionId, startupId, {
       teamMembersPresence: recap.teamMembersPresence,
-      pointsDiscussed: recap.pointsDiscussed,
-      actionItems: recap.actionItems,
+      progressHighlights: recap.progressHighlights,
+      mentorComments: recap.mentorComments,
+      needsHighlighted: recap.needsHighlighted,
+      nextMeetingCheckIns: recap.nextMeetingCheckIns,
+      actionItemsForOst: recap.actionItemsForOst,
       aiGeneratedAt: new Date(),
     });
   }

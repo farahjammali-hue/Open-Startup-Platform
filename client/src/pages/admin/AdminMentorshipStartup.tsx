@@ -82,8 +82,11 @@ interface StartupBasic {
 interface MentorshipSessionNoteRow {
   sessionId: string;
   teamMembersPresence: string | null;
-  pointsDiscussed: string | null;
-  actionItems: string | null;
+  progressHighlights: string | null;
+  mentorComments: string | null;
+  needsHighlighted: string | null;
+  nextMeetingCheckIns: string | null;
+  actionItemsForOst: string | null;
   aiGeneratedAt: string | null;
   founderComments: string | null;
   mentorRating: number | null;
@@ -590,8 +593,11 @@ function SessionNotesModal({
 
   const recapRows: [string, string | null][] = [
     ["Team members presence", notes?.teamMembersPresence ?? null],
-    ["Points discussed", notes?.pointsDiscussed ?? null],
-    ["Action items", notes?.actionItems ?? null],
+    ["Progress / highlights", notes?.progressHighlights ?? null],
+    ["Mentor comments", notes?.mentorComments ?? null],
+    ["Needs highlighted", notes?.needsHighlighted ?? null],
+    ["To check next meeting", notes?.nextMeetingCheckIns ?? null],
+    ["Action items for OST", notes?.actionItemsForOst ?? null],
   ];
 
   async function generateRecap() {

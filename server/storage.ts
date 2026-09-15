@@ -1587,6 +1587,11 @@ export const storage = {
       whatIsGoingWell: null,
       whatIsNotGoingWell: null,
       actionItems: null,
+      progressHighlights: null,
+      mentorComments: null,
+      needsHighlighted: null,
+      nextMeetingCheckIns: null,
+      actionItemsForOst: null,
       mentorRating: null,
       mentorFeedback: null,
     };
@@ -1736,6 +1741,11 @@ export const storage = {
       whatIsGoingWell?: string | null;
       whatIsNotGoingWell?: string | null;
       actionItems?: string | null;
+      progressHighlights?: string | null;
+      mentorComments?: string | null;
+      needsHighlighted?: string | null;
+      nextMeetingCheckIns?: string | null;
+      actionItemsForOst?: string | null;
       aiGeneratedAt?: Date | null;
       founderComments?: string | null;
       mentorRating?: number | null;
