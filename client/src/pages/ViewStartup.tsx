@@ -7,7 +7,7 @@ import { Skeleton } from "../components/Skeleton";
 import { STAGE_LABELS, type StartupStage } from "../lib/stageLabels";
 import { MONTH_NAMES } from "../lib/months";
 import { formatMoney } from "../lib/format";
-import { Pencil, Globe, MapPin, Clock, CheckCircle as CheckCircle2, XCircle, Lock, ArrowSquareOut as ExternalLink } from "@phosphor-icons/react";
+import { Pencil, Globe, MapPin, Clock, CheckCircle as CheckCircle2, XCircle, ArrowSquareOut as ExternalLink } from "@phosphor-icons/react";
 
 interface Startup {
   id: string;
@@ -26,10 +26,6 @@ interface Startup {
   startedMonth: number | null;
   startedYear: number | null;
   links: Record<string, string> | null;
-  productVideoUrl: string | null;
-  productVideoPrivate: boolean | null;
-  teamVideoUrl: string | null;
-  teamVideoPrivate: boolean | null;
   deckUrl: string | null;
   isRaising: boolean | null;
   amountRaised: number | null;
@@ -192,9 +188,7 @@ export default function ViewStartup() {
             )}
 
             {/* Media */}
-            <ViewSection title="Videos & deck">
-              <LinkRow label="Product video" url={s.productVideoUrl} priv={s.productVideoPrivate} />
-              <LinkRow label="Team video" url={s.teamVideoUrl} priv={s.teamVideoPrivate} />
+            <ViewSection title="Pitch deck">
               <LinkRow label="Pitch deck" url={s.deckUrl} />
             </ViewSection>
 
@@ -248,14 +242,13 @@ function Item({ label, value, long }: { label: string; value: string | null; lon
   return <Pair label={label}>{value}</Pair>;
 }
 
-function LinkRow({ label, url, priv }: { label: string; url: string | null; priv?: boolean | null }) {
+function LinkRow({ label, url }: { label: string; url: string | null }) {
   return (
     <div className="flex flex-wrap items-center gap-2 text-sm">
       <span className="w-56 shrink-0 font-medium text-slate-500">{label}</span>
       {url ? (
         <a href={url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-secondary hover:underline">
           Open <ExternalLink className="h-4 w-4" />
-          {priv && <span className="ml-1 inline-flex items-center gap-1 text-xs text-slate-400"><Lock className="h-4 w-4" /> Private</span>}
         </a>
       ) : (
         <span className="text-primary">—</span>

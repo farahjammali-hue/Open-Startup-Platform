@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { CircleNotch as Loader2, Lock, Globe, Upload, Image as ImageIcon, FileText, ArrowSquareOut as ExternalLink, Check } from "@phosphor-icons/react";
+import { CircleNotch as Loader2, Globe, Upload, Image as ImageIcon, FileText, ArrowSquareOut as ExternalLink, Check } from "@phosphor-icons/react";
 
 async function compressImage(file: File): Promise<Blob> {
   return new Promise((resolve, reject) => {
@@ -312,50 +312,6 @@ export function MultiPills({
         })}
       </div>
       <p className="mt-1.5 text-xs text-slate-400">Multiple choice</p>
-    </div>
-  );
-}
-
-export function VideoRow({
-  label,
-  hint,
-  url,
-  onUrl,
-  isPrivate,
-  onPrivate,
-}: {
-  label: string;
-  hint: string;
-  url: string;
-  onUrl: (v: string) => void;
-  isPrivate: boolean;
-  onPrivate: (v: boolean) => void;
-}) {
-  return (
-    <div>
-      <label className="ost-label">{label}</label>
-      <div className="flex items-center gap-2">
-        <input
-          type="url"
-          className="ost-input"
-          value={url}
-          onChange={(e) => onUrl(e.target.value)}
-          placeholder="YouTube / Vimeo URL"
-        />
-        <button
-          type="button"
-          onClick={() => onPrivate(!isPrivate)}
-          title={isPrivate ? "Private" : "Public"}
-          className={`flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-lg border transition ${
-            isPrivate
-              ? "border-secondary bg-secondary/10 text-secondary"
-              : "border-slate-200 text-slate-400 hover:border-secondary"
-          }`}
-        >
-          <Lock className="h-4 w-4" />
-        </button>
-      </div>
-      <p className="mt-1 text-xs text-slate-400">{hint}</p>
     </div>
   );
 }

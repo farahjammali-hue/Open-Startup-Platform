@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { TagInput, Field } from "./fields";
 import {
-  LogoUpload, DeckUpload, Section, Counter, LinkInput, Pills, VideoRow,
+  LogoUpload, DeckUpload, Section, Counter, LinkInput, Pills,
 } from "./StartupFormFields";
 import { setNavDirty } from "../lib/navGuard";
 import { STAGE_OPTIONS } from "../lib/stageLabels";
@@ -31,10 +31,6 @@ export interface StartupFormInitial {
   stage?: string | null;
   website?: string | null;
   links?: Record<string, string> | null;
-  productVideoUrl?: string | null;
-  productVideoPrivate?: boolean | null;
-  teamVideoUrl?: string | null;
-  teamVideoPrivate?: boolean | null;
   deckUrl?: string | null;
   logoUrl?: string | null;
 }
@@ -73,10 +69,6 @@ export function StartupForm({
   const [website, setWebsite] = useState(initial.website || "");
   const [linkedin, setLinkedin] = useState(initLinks.linkedin || "");
   const [links, setLinks] = useState<Record<string, string>>(initLinks);
-  const [productVideoUrl, setProductVideoUrl] = useState(initial.productVideoUrl || "");
-  const [productVideoPrivate, setProductVideoPrivate] = useState(!!initial.productVideoPrivate);
-  const [teamVideoUrl, setTeamVideoUrl] = useState(initial.teamVideoUrl || "");
-  const [teamVideoPrivate, setTeamVideoPrivate] = useState(!!initial.teamVideoPrivate);
   const [deckUrl, setDeckUrl] = useState(initial.deckUrl || "");
 
   const [logoPreview, setLogoPreview] = useState<string | null>(initial.logoUrl || null);
@@ -90,8 +82,7 @@ export function StartupForm({
   // ---- unsaved-changes tracking ----
   const snapshot = JSON.stringify({
     companyName, shortDescription, location, markets, stage,
-    website, linkedin, links, productVideoUrl, productVideoPrivate, teamVideoUrl,
-    teamVideoPrivate, deckUrl,
+    website, linkedin, links, deckUrl,
   });
   const baselineRef = useRef<string | null>(null);
   if (baselineRef.current === null) baselineRef.current = snapshot;
@@ -152,10 +143,6 @@ export function StartupForm({
       stage,
       website,
       links: cleanedLinks,
-      productVideoUrl,
-      productVideoPrivate,
-      teamVideoUrl,
-      teamVideoPrivate,
       deckUrl,
     };
     setBusy(true);
@@ -292,24 +279,8 @@ export function StartupForm({
         </div>
       </Section>
 
-      {/* Videos & deck */}
-      <Section title="Videos & deck" hint="Keep videos to ~1 minute. Use the lock to keep a video private.">
-        <VideoRow
-          label="Product video"
-          hint="Demonstrate the product/prototype in 1 minute or less."
-          url={productVideoUrl}
-          onUrl={setProductVideoUrl}
-          isPrivate={productVideoPrivate}
-          onPrivate={setProductVideoPrivate}
-        />
-        <VideoRow
-          label="Team video"
-          hint="Founders / team introduction in 1 minute or less."
-          url={teamVideoUrl}
-          onUrl={setTeamVideoUrl}
-          isPrivate={teamVideoPrivate}
-          onPrivate={setTeamVideoPrivate}
-        />
+      {/* Deck */}
+      <Section title="Pitch deck">
         <Field label="Pitch deck" required error={errors.deckUrl}>
           <DeckUpload
             existingUrl={deckUrl}
