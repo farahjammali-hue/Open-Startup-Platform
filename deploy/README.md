@@ -274,6 +274,28 @@ place for a week before dropping it.
 
 ---
 
+## Signup approval
+
+Anyone who signs up (email/password or Google) still creates an account
+immediately, but cannot use the platform until an admin approves them.
+
+The flow: sign up → verify email → pick a role → fill in startup basics →
+**held pending approval**. That last screen is a dead end for the applicant —
+no further onboarding step, nothing else to click — until an admin acts from
+**Admin → Signup Approvals**. Every admin gets an email the moment someone
+reaches that point, and the applicant gets one back once a decision is made.
+
+Rejecting disables the account (`isActive = false`) rather than deleting it,
+so there is a record of the decision. This is enforced through `requireAuth`,
+which already re-checks `isActive` on every request, so nothing new had to be
+added to keep a rejected account out.
+
+This does not touch existing accounts: `onboardingStatus` only reaches
+`pending_approval` through the signup flow, so anyone already `complete` is
+unaffected.
+
+---
+
 ## Automatic deployment
 
 A systemd timer checks `origin/main` every five minutes and deploys it when

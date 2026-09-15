@@ -69,6 +69,8 @@ import {
   sendEmailChangeVerification,
   sendPasswordChangedNotice,
   sendSessionInvite,
+  sendApplicationNotice,
+  sendApplicationDecision,
 } from "./mailer";
 import { buildSessionIcs } from "./calendar";
 import {
@@ -808,8 +810,28 @@ export function registerRoutes(app: Express) {
     const active = await storage.resolveActiveStartup(user);
     if (!active) return res.status(400).json({ message: "Create a startup first" });
     const startup = await storage.updateStartup(active.id, surveyToColumns(parsed.data));
-    await storage.markOnboardingComplete(user.id);
+    // Held for admin review rather than let straight in — see the
+    // pending_approval gate in App.tsx and the /api/admin/approvals routes.
+    await storage.markPendingApproval(user.id);
     res.json(startup);
+
+    // Best-effort, after responding: a mail hiccup must not fail the
+    // submission the applicant is waiting on.
+    void (async () => {
+      try {
+        const admins = await storage.listAdminEmails();
+        await sendApplicationNotice({
+          admins,
+          applicantName: user.name,
+          applicantEmail: user.email,
+          role: user.role ?? "startup",
+          startupName: startup.companyName,
+          reviewUrl: `${APP_URL}/admin/approvals`,
+        });
+      } catch (error) {
+        console.error("[applications] admin notice failed:", error);
+      }
+    })();
   }));
 
   /* ---------------- Startups (multi) ---------------- */
@@ -3002,6 +3024,41 @@ export function registerRoutes(app: Express) {
     if (!startup) return res.status(404).json({ message: "Not found" });
     await storage.cancelStartupDeletion(startup.id);
     res.json({ ok: true });
+  }));
+
+  /* ---------------- Admin: signup approvals ---------------- */
+  app.get("/api/admin/approvals", requireAdmin, ah(async (_req, res) => {
+    res.json({ applications: await storage.listPendingApprovals() });
+  }));
+
+  app.post("/api/admin/approvals/:id/approve", requireAdmin, ah(async (req, res) => {
+    const target = await storage.getUserById(req.params.id);
+    if (!target || target.onboardingStatus !== "pending_approval") {
+      return res.status(404).json({ message: "Not found" });
+    }
+    const user = await storage.approveUser(target.id);
+    res.json(toPublicUser(user));
+    void sendApplicationDecision({
+      to: user.email,
+      name: user.name,
+      approved: true,
+      loginUrl: `${APP_URL}/login`,
+    }).catch((error) => console.error("[applications] decision email failed:", error));
+  }));
+
+  app.post("/api/admin/approvals/:id/reject", requireAdmin, ah(async (req, res) => {
+    const target = await storage.getUserById(req.params.id);
+    if (!target || target.onboardingStatus !== "pending_approval") {
+      return res.status(404).json({ message: "Not found" });
+    }
+    const user = await storage.rejectUser(target.id);
+    res.json(toPublicUser(user));
+    void sendApplicationDecision({
+      to: user.email,
+      name: user.name,
+      approved: false,
+      loginUrl: `${APP_URL}/login`,
+    }).catch((error) => console.error("[applications] decision email failed:", error));
   }));
 
   app.get("/api/admin/users", requireAdmin, ah(async (_req, res) => {

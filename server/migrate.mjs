@@ -976,6 +976,10 @@ ALTER TABLE mentorship_session_notes ADD COLUMN IF NOT EXISTS mentor_comments te
 ALTER TABLE mentorship_session_notes ADD COLUMN IF NOT EXISTS needs_highlighted text;
 ALTER TABLE mentorship_session_notes ADD COLUMN IF NOT EXISTS next_meeting_check_ins text;
 ALTER TABLE mentorship_session_notes ADD COLUMN IF NOT EXISTS action_items_for_ost text;
+
+-- Signup approval: a new applicant is held in "pending_approval" (after
+-- filling in their profile, before "complete") until an admin approves them.
+ALTER TYPE onboarding_status ADD VALUE IF NOT EXISTS 'pending_approval';
 `;
 
 try {

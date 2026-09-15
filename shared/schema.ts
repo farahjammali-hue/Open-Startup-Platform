@@ -88,6 +88,10 @@ export const customerBaseEnum = pgEnum("customer_base", [
 export const onboardingStatusEnum = pgEnum("onboarding_status", [
   "needs_role",
   "needs_profile",
+  // Profile submitted, waiting for an admin to approve or reject the
+  // application. Blocks every route until resolved — see markPendingApproval /
+  // approveUser / rejectUser in storage.ts.
+  "pending_approval",
   "complete",
 ]);
 

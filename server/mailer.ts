@@ -268,3 +268,132 @@ export async function sendSessionInvite(opts: {
   }
   return sent;
 }
+
+/* ---------------- Signup approval ---------------- */
+
+/**
+ * Notify every active admin that a new applicant is waiting for review.
+ * Best-effort: logs and moves on if SMTP isn't configured, and a failure for
+ * one admin doesn't stop the others from being told.
+ */
+export async function sendApplicationNotice(opts: {
+  admins: { email: string; name: string | null }[];
+  applicantName: string;
+  applicantEmail: string;
+  role: string;
+  startupName: string | null;
+  reviewUrl: string;
+}): Promise<number> {
+  if (!opts.admins.length) return 0;
+  const subject = `New ${opts.role} application: ${opts.applicantName}`;
+
+  if (!transporter) {
+    console.log("\n==================== NEW APPLICATION ====================");
+    console.log(`  ${opts.applicantName} <${opts.applicantEmail}> — ${opts.role}${opts.startupName ? ` (${opts.startupName})` : ""}`);
+    console.log(`  Review: ${opts.reviewUrl}`);
+    console.log("  (SMTP not configured — no email was sent.)");
+    console.log("===========================================================\n");
+    return 0;
+  }
+
+  const html = `
+  <div style="font-family:Montserrat,Arial,sans-serif;max-width:520px;margin:0 auto;color:${BRAND}">
+    <div style="background:${BRAND};border-radius:14px 14px 0 0;padding:28px 32px;color:#fff">
+      <div style="font-size:20px;font-weight:800">Open Startup</div>
+      <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:${ACCENT}">Platform</div>
+    </div>
+    <div style="border:1px solid #eef0f6;border-top:0;border-radius:0 0 14px 14px;padding:32px">
+      <h1 style="font-size:20px;margin:0 0 12px">New application to review</h1>
+      <table style="font-size:14px;color:#475569;line-height:1.8;margin:16px 0">
+        <tr><td style="padding-right:12px;color:#94a3b8">Name</td><td><strong>${opts.applicantName}</strong></td></tr>
+        <tr><td style="padding-right:12px;color:#94a3b8">Email</td><td>${opts.applicantEmail}</td></tr>
+        <tr><td style="padding-right:12px;color:#94a3b8">Role</td><td>${opts.role}</td></tr>
+        ${opts.startupName ? `<tr><td style="padding-right:12px;color:#94a3b8">Startup</td><td>${opts.startupName}</td></tr>` : ""}
+      </table>
+      <p style="margin:24px 0">
+        <a href="${opts.reviewUrl}" style="background:${BRAND};color:#fff;text-decoration:none;padding:12px 22px;border-radius:10px;font-weight:700;font-size:14px;display:inline-block">
+          Review application
+        </a>
+      </p>
+      <p style="font-size:12px;color:#94a3b8">They cannot access the platform until you approve or reject them.</p>
+    </div>
+  </div>`;
+
+  let sent = 0;
+  for (const admin of opts.admins) {
+    try {
+      await transporter.sendMail({
+        from: `"Open Startup" <${FROM}>`,
+        to: admin.email,
+        subject,
+        html,
+        text: `New ${opts.role} application from ${opts.applicantName} (${opts.applicantEmail}). Review: ${opts.reviewUrl}`,
+      });
+      sent += 1;
+    } catch (error) {
+      console.error(`[mailer] application notice to ${admin.email} failed:`, error);
+    }
+  }
+  return sent;
+}
+
+/** Tell the applicant the outcome of their review. */
+export async function sendApplicationDecision(opts: {
+  to: string;
+  name: string | null;
+  approved: boolean;
+  loginUrl: string;
+}): Promise<boolean> {
+  const subject = opts.approved ? "You're approved — welcome to Open Startup" : "About your Open Startup application";
+
+  if (!transporter) {
+    console.log("\n==================== APPLICATION DECISION ====================");
+    console.log(`  To: ${opts.to} — ${opts.approved ? "APPROVED" : "REJECTED"}`);
+    console.log("  (SMTP not configured — no email was sent.)");
+    console.log("================================================================\n");
+    return false;
+  }
+
+  const body = opts.approved
+    ? `<p style="font-size:14px;line-height:1.6;color:#475569">
+         Hi ${opts.name || "there"}, good news: your application has been approved.
+         You can now sign in and use the platform.
+       </p>
+       <p style="margin:24px 0">
+         <a href="${opts.loginUrl}" style="background:${BRAND};color:#fff;text-decoration:none;padding:12px 22px;border-radius:10px;font-weight:700;font-size:14px;display:inline-block">
+           Sign in
+         </a>
+       </p>`
+    : `<p style="font-size:14px;line-height:1.6;color:#475569">
+         Hi ${opts.name || "there"}, thanks for applying to Open Startup. After
+         review, we won't be moving forward with your application at this time.
+       </p>`;
+
+  const html = `
+  <div style="font-family:Montserrat,Arial,sans-serif;max-width:520px;margin:0 auto;color:${BRAND}">
+    <div style="background:${BRAND};border-radius:14px 14px 0 0;padding:28px 32px;color:#fff">
+      <div style="font-size:20px;font-weight:800">Open Startup</div>
+      <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:${ACCENT}">Platform</div>
+    </div>
+    <div style="border:1px solid #eef0f6;border-top:0;border-radius:0 0 14px 14px;padding:32px">
+      <h1 style="font-size:20px;margin:0 0 12px">${opts.approved ? "You're approved" : "Application update"}</h1>
+      ${body}
+    </div>
+  </div>`;
+
+  try {
+    await transporter.sendMail({
+      from: `"Open Startup" <${FROM}>`,
+      to: opts.to,
+      subject,
+      html,
+      text: opts.approved
+        ? `Your application has been approved. Sign in: ${opts.loginUrl}`
+        : "Thanks for applying to Open Startup. We won't be moving forward with your application at this time.",
+    });
+    return true;
+  } catch (error) {
+    console.error(`[mailer] application decision to ${opts.to} failed:`, error);
+    return false;
+  }
+}

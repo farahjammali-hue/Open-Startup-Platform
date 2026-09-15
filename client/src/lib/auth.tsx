@@ -8,7 +8,7 @@ import {
 import { api } from "./utils";
 
 export type Role = "startup" | "mentor" | "investor" | "admin";
-export type OnboardingStatus = "needs_role" | "needs_profile" | "complete";
+export type OnboardingStatus = "needs_role" | "needs_profile" | "pending_approval" | "complete";
 
 export interface RegisterInput {
   firstName: string;

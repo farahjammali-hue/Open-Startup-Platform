@@ -245,6 +245,76 @@ export const storage = {
     return row;
   },
 
+  /** Profile submitted; holds the account until an admin reviews it. */
+  async markPendingApproval(userId: string): Promise<User> {
+    const [row] = await db
+      .update(users)
+      .set({ onboardingStatus: "pending_approval" })
+      .where(eq(users.id, userId))
+      .returning();
+    return row;
+  },
+
+  /** Applicants waiting on an admin decision, oldest first. */
+  async listPendingApprovals(): Promise<
+    { id: string; name: string; email: string; role: string | null; createdAt: Date; startup: { id: string; companyName: string } | null }[]
+  > {
+    const rows = await db
+      .select({
+        id: users.id,
+        name: users.name,
+        email: users.email,
+        role: users.role,
+        createdAt: users.createdAt,
+        startupId: startups.id,
+        startupName: startups.companyName,
+      })
+      .from(users)
+      .leftJoin(startups, eq(startups.userId, users.id))
+      .where(eq(users.onboardingStatus, "pending_approval"))
+      .orderBy(asc(users.createdAt));
+    return rows.map((r) => ({
+      id: r.id,
+      name: r.name,
+      email: r.email,
+      role: r.role,
+      createdAt: r.createdAt,
+      startup: r.startupId ? { id: r.startupId, companyName: r.startupName! } : null,
+    }));
+  },
+
+  /** Admits the applicant: they can now use the platform normally. */
+  async approveUser(userId: string): Promise<User> {
+    const [row] = await db
+      .update(users)
+      .set({ onboardingStatus: "complete" })
+      .where(eq(users.id, userId))
+      .returning();
+    return row;
+  },
+
+  /**
+   * Rejects the applicant. Disables the account rather than deleting it, so
+   * there's a record of the decision, and requireAuth's isActive check (which
+   * every route already goes through) is what actually keeps them out.
+   */
+  async rejectUser(userId: string): Promise<User> {
+    const [row] = await db
+      .update(users)
+      .set({ isActive: false })
+      .where(eq(users.id, userId))
+      .returning();
+    return row;
+  },
+
+  /** Active, verified admins — used to notify about new applications. */
+  async listAdminEmails(): Promise<{ email: string; name: string | null }[]> {
+    return db
+      .select({ email: users.email, name: users.name })
+      .from(users)
+      .where(and(eq(users.role, "admin"), eq(users.isActive, true), eq(users.emailVerified, true)));
+  },
+
   async setActiveStartup(userId: string, startupId: string): Promise<User> {
     const [row] = await db
       .update(users)

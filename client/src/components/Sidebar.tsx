@@ -5,7 +5,7 @@ import { api } from "../lib/utils";
 import { confirmLeave } from "../lib/navGuard";
 import { useKysStatus } from "../lib/kysStatus";
 import { showToast } from "../lib/toast";
-import { SquaresFour as LayoutDashboard, Rocket, Trash as Trash2, Users, Lock, Wrench, Wallet, Storefront as Store, BookOpen, Chats as MessagesSquare, FolderLock, House as HomeIcon, FileText, Stack as Layers, Presentation, Handshake } from "@phosphor-icons/react";
+import { SquaresFour as LayoutDashboard, Rocket, Trash as Trash2, Users, UserCheck, Lock, Wrench, Wallet, Storefront as Store, BookOpen, Chats as MessagesSquare, FolderLock, House as HomeIcon, FileText, Stack as Layers, Presentation, Handshake } from "@phosphor-icons/react";
 
 interface Item {
   label: string;
@@ -28,6 +28,7 @@ const ADMIN_GROUPS: { label: string; items: Item[] }[] = [
     items: [
       { label: "Startups", to: "/admin/startups", icon: Rocket },
       { label: "Users", to: "/admin/users", icon: Users },
+      { label: "Signup Approvals", to: "/admin/approvals", icon: UserCheck },
       { label: "Deletion Requests", to: "/admin/deletion-requests", icon: Trash2 },
     ],
   },

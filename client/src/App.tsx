@@ -3,6 +3,7 @@ import { useAuth } from "./lib/auth";
 import { Logo } from "./components/Brand";
 import Login from "./pages/Login";
 import RoleSelect from "./pages/RoleSelect";
+import PendingApproval from "./pages/PendingApproval";
 import StartupBasics from "./pages/onboarding/StartupBasics";
 import StartupSurvey from "./pages/onboarding/StartupSurvey";
 import Home from "./pages/Home";
@@ -27,6 +28,7 @@ import AdminStartupDetail from "./pages/admin/AdminStartupDetail";
 import AdminStartupDashboard from "./pages/admin/AdminStartupDashboard";
 import AdminStartupDataRoom from "./pages/admin/AdminStartupDataRoom";
 import AdminDeletionRequests from "./pages/admin/AdminDeletionRequests";
+import AdminApprovals from "./pages/admin/AdminApprovals";
 import AdminUsers from "./pages/admin/AdminUsers";
 import AdminContractsKys from "./pages/admin/AdminContractsKys";
 import AdminContractsKysStartup from "./pages/admin/AdminContractsKysStartup";
@@ -85,6 +87,7 @@ export default function App() {
         <Route path="/admin/startups/:id/dashboard" component={AdminStartupDashboard} />
         <Route path="/admin/startups/:id/data-room" component={AdminStartupDataRoom} />
         <Route path="/admin/deletion-requests" component={AdminDeletionRequests} />
+        <Route path="/admin/approvals" component={AdminApprovals} />
         <Route path="/admin/users" component={AdminUsers} />
         <Route path="/admin/contracts-kys" component={AdminContractsKys} />
         <Route path="/admin/contracts-kys/:startupId" component={AdminContractsKysStartup} />
@@ -106,6 +109,12 @@ export default function App() {
   if (user.onboardingStatus === "needs_role") {
     if (location !== "/onboarding/role") return <Redirect to="/onboarding/role" />;
     return <RoleSelect />;
+  }
+
+  // Profile submitted, waiting on an admin decision. Blocks every other
+  // route — there is nowhere else to redirect to while pending.
+  if (user.onboardingStatus === "pending_approval") {
+    return <PendingApproval />;
   }
 
   if (user.onboardingStatus === "needs_profile") {
