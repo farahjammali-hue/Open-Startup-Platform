@@ -144,7 +144,7 @@ export function CrmPanel({ apiBase }: { apiBase: string }) {
       />
 
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-slate-400">Update anytime. Everything saves together.</p>
+        <p className="text-sm text-slate-400">Track your relationships in one place.</p>
         <button
           onClick={saveAll}
           disabled={!hasUnsaved || saving}
