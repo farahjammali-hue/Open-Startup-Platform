@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { api } from "../../lib/utils";
 import { AppShell } from "../../components/AppShell";
 import { PageHeader } from "../../components/PageHeader";
-import { Users, Rocket, Trash as Trash2, ArrowRight, Signature as FileSignature, ChartLine as LineChart, UsersThree as UsersRound, Presentation, FileText } from "@phosphor-icons/react";
+import { Users, Rocket, Trash as Trash2, ArrowRight, Signature as FileSignature, ChartLine as LineChart, UsersThree as UsersRound, Presentation } from "@phosphor-icons/react";
 
 interface Stats {
   users: number; startups: number; pendingDeletions: number;
@@ -39,10 +39,10 @@ export default function AdminDashboard() {
     { label: "Startups", value: data?.startups, icon: Rocket, to: "/admin/startups" },
   ];
 
+  // Open Startup School is hidden from this dashboard for now; route/page stay intact.
   const program: CardDef[] = [
     { label: "Upcoming mentorship sessions", value: data?.upcomingMentorshipSessions, icon: UsersRound, to: "/admin/mentorship" },
     { label: "Upcoming training sessions", value: data?.upcomingTrainingSessions, icon: Presentation, to: "/admin/training" },
-    { label: "Open Startup School Docs", value: data?.schoolDocs, icon: FileText, to: "/admin/school" },
   ];
 
   return (

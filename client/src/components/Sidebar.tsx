@@ -5,7 +5,7 @@ import { api } from "../lib/utils";
 import { confirmLeave } from "../lib/navGuard";
 import { useKysStatus } from "../lib/kysStatus";
 import { showToast } from "../lib/toast";
-import { SquaresFour as LayoutDashboard, Rocket, Trash as Trash2, Users, Lock, GraduationCap, Wrench, Wallet, Storefront as Store, BookOpen, Chats as MessagesSquare, FolderLock, House as HomeIcon, FileText, Stack as Layers, Presentation, Handshake } from "@phosphor-icons/react";
+import { SquaresFour as LayoutDashboard, Rocket, Trash as Trash2, Users, Lock, Wrench, Wallet, Storefront as Store, BookOpen, Chats as MessagesSquare, FolderLock, House as HomeIcon, FileText, Stack as Layers, Presentation, Handshake } from "@phosphor-icons/react";
 
 interface Item {
   label: string;
@@ -38,10 +38,10 @@ const ADMIN_GROUPS: { label: string; items: Item[] }[] = [
       // are authored once and targeted to many), so it lives here rather
       // than as a per-startup-only module.
       { label: "Training", to: "/admin/training", icon: Presentation },
-      { label: "Open Startup School", to: "/admin/school", icon: GraduationCap },
       // Contracts & KYS, Data Room, Mentorship, and CRM are hidden from the
       // nav — each is reachable per-startup from its module card on
-      // /admin/startups/:id; routes/pages stay intact.
+      // /admin/startups/:id; routes/pages stay intact. Open Startup School
+      // is hidden too; route/page stay intact.
     ],
   },
   {
@@ -90,11 +90,10 @@ export function Sidebar() {
         { label: "Mentorship", to: "/mentorship", icon: Layers, lockedIf: !kysSubmitted },
         { label: "Training", to: "/training", icon: Presentation, lockedIf: !kysSubmitted },
         { label: "CRM", to: "/crm", icon: Handshake, lockedIf: !kysSubmitted },
-        // KPI Visualizations and Office Hours are hidden from the nav for
-        // now while they get more development; routes/pages stay intact.
+        // KPI Visualizations, Office Hours, and Open Startup School are
+        // hidden from the nav for now; routes/pages stay intact.
       ],
     },
-    { label: "Learning", items: [{ label: "Open Startup School", to: "/school", icon: GraduationCap }] },
   ];
 
   const groups = isAdmin ? ADMIN_GROUPS : STARTUP_GROUPS;

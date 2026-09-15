@@ -8,7 +8,7 @@ import { useKysStatus } from "../lib/kysStatus";
 import { showToast } from "../lib/toast";
 import { StatusBadge, TONE_CLASSES, type StatusTone } from "../components/StatusBadge";
 import { Skeleton } from "../components/Skeleton";
-import { FileText, SquaresFour as LayoutDashboard, FolderLock, Lock, Stack as Layers, Presentation, Handshake, GraduationCap, Warning as AlertTriangle, CheckCircle as CheckCircle2, ArrowRight, VideoCamera as Video } from "@phosphor-icons/react";
+import { FileText, SquaresFour as LayoutDashboard, FolderLock, Lock, Stack as Layers, Presentation, Handshake, Warning as AlertTriangle, CheckCircle as CheckCircle2, ArrowRight, VideoCamera as Video } from "@phosphor-icons/react";
 
 interface StartupProfile {
   companyName: string;
@@ -39,11 +39,11 @@ interface UpcomingItem {
   linkTo: string;
 }
 
+// Open Startup School is hidden from this tile grid for now; its route/page stay intact.
 const EXPLORE_TOOLS = [
   { icon: Layers, title: "Mentorship", desc: "Sessions with your mentor", to: "/mentorship", gated: true },
   { icon: Presentation, title: "Training", desc: "Modules & sessions", to: "/training", gated: true },
   { icon: Handshake, title: "CRM", desc: "Investors, clients & partners", to: "/crm", gated: true },
-  { icon: GraduationCap, title: "Open Startup School", desc: "Unlocks over time", to: "/school", gated: false },
 ];
 
 export default function Home() {
