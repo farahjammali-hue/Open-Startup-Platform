@@ -12,11 +12,11 @@
          few browsers without SVG favicon support, and covers the
          iOS/Android "add to home screen" icon, which needs a raster image
          regardless. -->
-    <!-- ?v=2: bumps this whenever the file's content changes. Same URL with
-         new bytes gets stuck behind browsers' own favicon cache — this makes
-         it a distinct resource so a fresh visit doesn't show the old icon
-         first. Bump it again next time these files actually change. -->
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2" />
+    <!-- ?v=N: bump whenever a file's content changes. Same URL with new
+         bytes gets stuck behind browsers' own favicon cache — this makes it
+         a distinct resource so a fresh visit doesn't show the old icon
+         first. -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=3" />
     <link rel="icon" type="image/png" href="/ost-logo.png?v=2" />
     <link rel="apple-touch-icon" href="/ost-logo.png?v=2" />
 
@@ -25,12 +25,18 @@
 
     <!-- Open Graph: what a link to this site looks like when shared on
          Slack, WhatsApp, LinkedIn, etc. og:image needs an absolute URL —
-         relative paths are silently ignored by most of these platforms. -->
+         relative paths are silently ignored by most of these platforms.
+         og-image.png is the brand emblem composited onto a solid navy
+         1200x630 card (built from the official off-white icon asset) rather
+         than the transparent source PNG, so it renders identically
+         regardless of the viewer's own light/dark theme. -->
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Open Startup Platform" />
     <meta property="og:title" content="Open Startup Platform · The Science Road" />
     <meta property="og:description" content="Open Startup is a Pan-African startup acceleration platform focused on climate and health. We get startups ready for investment and the market." />
-    <meta property="og:image" content="https://platform.open-startup.org/ost-logo.png?v=2" />
+    <meta property="og:image" content="https://platform.open-startup.org/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
     <meta property="og:url" content="https://platform.open-startup.org/" />
 
     <!-- Twitter/X card: falls back to the og: tags above for anything not
@@ -38,7 +44,7 @@
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Open Startup Platform · The Science Road" />
     <meta name="twitter:description" content="Open Startup is a Pan-African startup acceleration platform focused on climate and health. We get startups ready for investment and the market." />
-    <meta name="twitter:image" content="https://platform.open-startup.org/ost-logo.png?v=2" />
+    <meta name="twitter:image" content="https://platform.open-startup.org/og-image.png" />
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
