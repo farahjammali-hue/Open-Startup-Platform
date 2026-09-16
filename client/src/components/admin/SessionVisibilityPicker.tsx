@@ -14,9 +14,10 @@ const TRACK_OPTIONS = [
 ];
 
 /**
- * Lets an admin pick who a Mentorship/Training session is visible to, on top
- * of its owner (Mentorship) or its module's own track (Training): the
- * default, a whole track, or an explicit list of startups. Track and
+ * Lets an admin pick who a Mentorship/Training session — or a Training
+ * module, which has nothing above it to fall back to — is visible to: an
+ * inherited default (omit defaultLabel to hide this option, e.g. for a
+ * module), a whole track, or an explicit list of startups. Track and
  * explicit-list are mutually exclusive — picking one clears the other.
  */
 export function SessionVisibilityPicker({
@@ -30,7 +31,8 @@ export function SessionVisibilityPicker({
   startups,
   excludeStartupId,
 }: {
-  defaultLabel: string;
+  /** Omit to hide the "default" option entirely (e.g. a module, which has no parent to inherit from). */
+  defaultLabel?: string;
   mode: SessionVisibilityMode;
   onModeChange: (mode: SessionVisibilityMode) => void;
   track: string;
@@ -42,7 +44,7 @@ export function SessionVisibilityPicker({
   excludeStartupId?: string;
 }) {
   const modeOptions = [
-    { value: "default", label: defaultLabel },
+    ...(defaultLabel ? [{ value: "default", label: defaultLabel }] : []),
     { value: "track", label: "A track" },
     { value: "startups", label: "Specific startups" },
   ];
@@ -55,7 +57,7 @@ export function SessionVisibilityPicker({
   return (
     <div>
       <label className="ost-label">Visible to</label>
-      <Pills options={modeOptions} value={mode} onChange={(v) => onModeChange((v || "default") as SessionVisibilityMode)} />
+      <Pills options={modeOptions} value={mode} onChange={(v) => onModeChange((v || (defaultLabel ? "default" : "track")) as SessionVisibilityMode)} />
 
       {mode === "track" && (
         <div className="mt-3">

@@ -67,6 +67,7 @@ interface TrainingModule {
   durationLabel: string | null;
   track: ModuleTrack;
   unlocked: boolean;
+  startupIds: string[];
   sessions: TrainingSession[];
 }
 
@@ -225,7 +226,9 @@ export default function AdminTraining() {
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
                           <p className="font-bold text-primary">Module {m.number} · {m.title}</p>
-                          <StatusBadge tone="primary">{TRACK_LABELS[m.track]}</StatusBadge>
+                          <StatusBadge tone="primary">
+                            {m.startupIds.length > 0 ? `${m.startupIds.length} startup${m.startupIds.length === 1 ? "" : "s"}` : TRACK_LABELS[m.track]}
+                          </StatusBadge>
                           {isOpen ? <ChevronUp className="h-4 w-4 text-slate-400" /> : <ChevronDown className="h-4 w-4 text-slate-400" />}
                         </div>
                         {m.description && <p className="mt-1 text-sm text-slate-500">{m.description}</p>}
@@ -345,15 +348,30 @@ function ModuleFormModal({
   const [description, setDescription] = useState(module?.description ?? "");
   const [durationLabel, setDurationLabel] = useState(module?.durationLabel ?? "");
   const [track, setTrack] = useState<ModuleTrack>(module?.track ?? "all");
+  const [visibilityMode, setVisibilityMode] = useState<SessionVisibilityMode>(module?.startupIds?.length ? "startups" : "track");
+  const [startupIds, setStartupIds] = useState<string[]>(module?.startupIds ?? []);
   const [unlocked, setUnlocked] = useState(module?.unlocked ?? false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { data: startupsData } = useQuery<{ startups: StartupOption[] }>({
+    queryKey: ["admin-startups-basic"],
+    queryFn: () => api("/api/admin/startups"),
+  });
+  const startups = startupsData?.startups ?? [];
 
   async function save() {
     setSaving(true);
     setError(null);
     try {
-      const body = JSON.stringify({ number: Number(number) || 1, title, description, durationLabel, track, unlocked });
+      const body = JSON.stringify({
+        number: Number(number) || 1,
+        title,
+        description,
+        durationLabel,
+        track,
+        unlocked,
+        startupIds: visibilityMode === "startups" ? startupIds : [],
+      });
       if (module) {
         await api(`/api/admin/training/modules/${module.id}`, { method: "PATCH", body });
       } else {
@@ -383,25 +401,21 @@ function ModuleFormModal({
       <label className="ost-label">Duration label (optional)</label>
       <input className="ost-input mb-3" value={durationLabel} onChange={(e) => setDurationLabel(e.target.value)} placeholder="e.g. 4 weeks" />
 
-      <label className="ost-label">Which startups is this module for?</label>
-      <div className="mb-3 flex items-center gap-1 rounded-lg border border-slate-200 p-1">
-        {(["all", "seed", "pre_seed"] as const).map((t) => (
-          <button
-            key={t}
-            type="button"
-            onClick={() => setTrack(t)}
-            className={`flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition ${
-              track === t ? "bg-secondary text-white" : "text-slate-500 hover:text-primary"
-            }`}
-          >
-            {TRACK_LABELS[t]}
-          </button>
-        ))}
+      <div className="mb-3">
+        <SessionVisibilityPicker
+          mode={visibilityMode}
+          onModeChange={setVisibilityMode}
+          track={track}
+          onTrackChange={(t) => setTrack(t as ModuleTrack)}
+          startupIds={startupIds}
+          onStartupIdsChange={setStartupIds}
+          startups={startups}
+        />
       </div>
 
       <label className="flex items-center gap-2 text-sm font-medium text-primary">
         <input type="checkbox" checked={unlocked} onChange={(e) => setUnlocked(e.target.checked)} />
-        Unlocked for every startup on that track
+        {visibilityMode === "startups" ? "Unlocked for these startups" : "Unlocked for every startup on that track"}
       </label>
 
       {error && <p className="mb-3 mt-3 text-sm font-medium text-red-600">{error}</p>}

@@ -1005,6 +1005,15 @@ CREATE TABLE IF NOT EXISTS mentorship_session_startups (
   startup_id uuid NOT NULL REFERENCES startups(id) ON DELETE CASCADE,
   created_at timestamp NOT NULL DEFAULT now()
 );
+
+-- Module-level equivalent of training_session_startups: an explicit startup
+-- list a whole module can be targeted to, instead of just its track column.
+CREATE TABLE IF NOT EXISTS training_module_startups (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  module_id uuid NOT NULL REFERENCES training_modules(id) ON DELETE CASCADE,
+  startup_id uuid NOT NULL REFERENCES startups(id) ON DELETE CASCADE,
+  created_at timestamp NOT NULL DEFAULT now()
+);
 `;
 
 try {

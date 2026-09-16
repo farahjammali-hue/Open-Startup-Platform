@@ -17,6 +17,7 @@ import {
   mentorshipSessionStartups,
   mentorshipSessionNotes,
   trainingModules,
+  trainingModuleStartups,
   trainingModuleSessions,
   trainingSessionStartups,
   trainingSessionNotes,
@@ -61,6 +62,7 @@ import {
   type MentorshipSessionStartup,
   type MentorshipSessionNotes,
   type TrainingModule,
+  type TrainingModuleStartup,
   type TrainingModuleSession,
   type TrainingSessionStartup,
   type TrainingSessionNotes,
@@ -2017,14 +2019,16 @@ export const storage = {
   async listTrainingModulesForFounder(startupId: string) {
     const kysProfile = await this.getKysProfile(startupId);
     const track = kysProfile?.track ?? null;
-    const [modules, sessions, sharedRows, notes, homework] = await Promise.all([
+    const [modules, sessions, sharedRows, moduleSharedRows, notes, homework] = await Promise.all([
       db.select().from(trainingModules).orderBy(asc(trainingModules.number)),
       db.select().from(trainingModuleSessions).orderBy(asc(trainingModuleSessions.number)),
       db.select().from(trainingSessionStartups),
+      db.select().from(trainingModuleStartups),
       db.select().from(trainingSessionNotes).where(eq(trainingSessionNotes.startupId, startupId)),
       db.select().from(trainingModuleHomework).where(eq(trainingModuleHomework.startupId, startupId)),
     ]);
     const sharedBySession = groupStartupIdsBySessionId(sharedRows);
+    const sharedByModule = groupStartupIdsBy(moduleSharedRows, (r) => r.moduleId);
     const notesBySessionId = new Map(notes.map((n) => [n.sessionId, n]));
     const homeworkByModuleId = new Map(homework.map((h) => [h.moduleId, h]));
     const emptyNotes = {
@@ -2038,7 +2042,7 @@ export const storage = {
     };
     const emptyHomework = { homeworkUrl: null, submissionFileUrl: null, submissionFileName: null };
     return modules
-      .filter((m) => m.track === "all" || m.track === track)
+      .filter((m) => trainingModuleVisibleTo(startupId, track, m, sharedByModule))
       .map((m) => {
         // Locked modules never leak their session content to the founder side.
         const moduleSessions = m.unlocked
@@ -2058,14 +2062,17 @@ export const storage = {
   },
 
   async listTrainingModulesWithSessions() {
-    const [modules, sessions, sharedRows] = await Promise.all([
+    const [modules, sessions, sharedRows, moduleSharedRows] = await Promise.all([
       db.select().from(trainingModules).orderBy(asc(trainingModules.number)),
       db.select().from(trainingModuleSessions).orderBy(asc(trainingModuleSessions.number)),
       db.select().from(trainingSessionStartups),
+      db.select().from(trainingModuleStartups),
     ]);
     const sharedBySession = groupStartupIdsBySessionId(sharedRows);
+    const sharedByModule = groupStartupIdsBy(moduleSharedRows, (r) => r.moduleId);
     return modules.map((m) => ({
       ...m,
+      startupIds: [...(sharedByModule.get(m.id) ?? [])],
       sessions: sessions
         .filter((s) => s.moduleId === m.id)
         .map((s) => ({ ...s, sharedStartupIds: [...(sharedBySession.get(s.id) ?? [])] })),
@@ -2075,10 +2082,12 @@ export const storage = {
   async listTrainingSessionsForStartup(startupId: string) {
     const kysProfile = await this.getKysProfile(startupId);
     const track = kysProfile?.track ?? null;
-    const modules = await db
-      .select()
-      .from(trainingModules)
-      .where(track ? sql`${trainingModules.track} = 'all' or ${trainingModules.track} = ${track}` : eq(trainingModules.track, "all"));
+    const [allModules, moduleSharedRows] = await Promise.all([
+      db.select().from(trainingModules),
+      db.select().from(trainingModuleStartups),
+    ]);
+    const sharedByModule = groupStartupIdsBy(moduleSharedRows, (r) => r.moduleId);
+    const modules = allModules.filter((m) => trainingModuleVisibleTo(startupId, track, m, sharedByModule));
     if (modules.length === 0) return [];
     const moduleById = new Map(modules.map((m) => [m.id, m]));
     const [sessions, sharedRows] = await Promise.all([
@@ -2102,6 +2111,19 @@ export const storage = {
     await db.delete(trainingSessionStartups).where(eq(trainingSessionStartups.sessionId, sessionId));
     if (startupIds.length > 0) {
       await db.insert(trainingSessionStartups).values(startupIds.map((startupId) => ({ sessionId, startupId })));
+    }
+  },
+
+  async listTrainingModuleStartupIds(moduleId: string): Promise<string[]> {
+    const rows = await db.select().from(trainingModuleStartups).where(eq(trainingModuleStartups.moduleId, moduleId));
+    return rows.map((r) => r.startupId);
+  },
+
+  /** Replaces a module's explicit startup list wholesale (delete + reinsert). */
+  async setTrainingModuleStartups(moduleId: string, startupIds: string[]): Promise<void> {
+    await db.delete(trainingModuleStartups).where(eq(trainingModuleStartups.moduleId, moduleId));
+    if (startupIds.length > 0) {
+      await db.insert(trainingModuleStartups).values(startupIds.map((startupId) => ({ moduleId, startupId })));
     }
   },
 
@@ -2464,13 +2486,19 @@ function computeModuleStatus(
   return "upcoming";
 }
 
-function groupStartupIdsBySessionId(rows: { sessionId: string; startupId: string }[]): Map<string, Set<string>> {
+/** Groups {startupId} rows by whichever other id column they carry (sessionId, moduleId, ...). */
+function groupStartupIdsBy<T extends { startupId: string }>(rows: T[], key: (row: T) => string): Map<string, Set<string>> {
   const map = new Map<string, Set<string>>();
   for (const row of rows) {
-    if (!map.has(row.sessionId)) map.set(row.sessionId, new Set());
-    map.get(row.sessionId)!.add(row.startupId);
+    const k = key(row);
+    if (!map.has(k)) map.set(k, new Set());
+    map.get(k)!.add(row.startupId);
   }
   return map;
+}
+
+function groupStartupIdsBySessionId(rows: { sessionId: string; startupId: string }[]): Map<string, Set<string>> {
+  return groupStartupIdsBy(rows, (r) => r.sessionId);
 }
 
 /**
@@ -2490,4 +2518,19 @@ function trainingSessionVisibleTo(
   if (shared && shared.size > 0) return shared.has(startupId);
   if (session.visibilityTrack) return session.visibilityTrack === "all" || session.visibilityTrack === founderTrack;
   return true;
+}
+
+/**
+ * Whether a training module is visible to this startup at all. An explicit
+ * startup list (if non-empty) wins outright over the module's own track.
+ */
+function trainingModuleVisibleTo(
+  startupId: string,
+  founderTrack: "seed" | "pre_seed" | null,
+  module: { id: string; track: "seed" | "pre_seed" | "all" },
+  sharedByModule: Map<string, Set<string>>,
+): boolean {
+  const shared = sharedByModule.get(module.id);
+  if (shared && shared.size > 0) return shared.has(startupId);
+  return module.track === "all" || module.track === founderTrack;
 }

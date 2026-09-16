@@ -2278,6 +2278,7 @@ export function registerRoutes(app: Express) {
       track: parsed.data.track ?? "all",
       unlocked: parsed.data.unlocked ?? false,
     });
+    if (parsed.data.startupIds) await storage.setTrainingModuleStartups(module.id, parsed.data.startupIds);
     res.status(201).json(module);
   }));
 
@@ -2288,10 +2289,12 @@ export function registerRoutes(app: Express) {
     if (!parsed.success) {
       return res.status(400).json({ message: parsed.error.errors[0].message });
     }
-    const patch: Record<string, unknown> = { ...parsed.data };
+    const { startupIds, ...moduleFields } = parsed.data;
+    const patch: Record<string, unknown> = { ...moduleFields };
     if (parsed.data.description !== undefined) patch.description = parsed.data.description || null;
     if (parsed.data.durationLabel !== undefined) patch.durationLabel = parsed.data.durationLabel || null;
     const module = await storage.updateTrainingModule(existing.id, patch as any);
+    if (startupIds !== undefined) await storage.setTrainingModuleStartups(module.id, startupIds);
     res.json(module);
   }));
 

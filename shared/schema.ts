@@ -784,8 +784,10 @@ export const trainingModuleSessionStatusEnum = pgEnum("training_module_session_s
 
 // trainingModuleTrackEnum is declared above, ahead of the Mentorship
 // section, since mentorshipModuleSessions.visibilityTrack needs it first.
-// A module is scoped to a track wholesale by default; individual sessions
-// can narrow or override that via visibilityTrack / trainingSessionStartups.
+// A module is scoped to a track wholesale by default (or an explicit list of
+// startups via trainingModuleStartups below, which wins over track when it
+// has any rows); individual sessions can further narrow or override that via
+// visibilityTrack / trainingSessionStartups.
 
 export const trainingModules = pgTable("training_modules", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -798,6 +800,21 @@ export const trainingModules = pgTable("training_modules", {
   unlockedAt: timestamp("unlocked_at"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+// Explicit "this module is for these specific startups" list — an
+// alternative to trainingModules.track, for targeting individual startups
+// rather than a whole track. A module with rows here is visible to exactly
+// this list, regardless of its own track column.
+export const trainingModuleStartups = pgTable("training_module_startups", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  moduleId: uuid("module_id")
+    .references(() => trainingModules.id, { onDelete: "cascade" })
+    .notNull(),
+  startupId: uuid("startup_id")
+    .references(() => startups.id, { onDelete: "cascade" })
+    .notNull(),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
 export const trainingModuleSessions = pgTable("training_module_sessions", {
@@ -1572,6 +1589,9 @@ export const trainingModuleSchema = z.object({
   durationLabel: z.string().max(50).optional().or(z.literal("")),
   track: z.enum(["seed", "pre_seed", "all"]).optional(),
   unlocked: z.boolean().optional(),
+  // An explicit startup list, when non-empty, wins over track — see
+  // trainingModuleStartups.
+  startupIds: z.array(z.string().uuid()).max(1000).optional(),
 });
 
 export const trainerSchema = z.object({
@@ -1764,6 +1784,7 @@ export type MentorshipModuleSession = typeof mentorshipModuleSessions.$inferSele
 export type MentorshipSessionStartup = typeof mentorshipSessionStartups.$inferSelect;
 export type MentorshipSessionNotes = typeof mentorshipSessionNotes.$inferSelect;
 export type TrainingModule = typeof trainingModules.$inferSelect;
+export type TrainingModuleStartup = typeof trainingModuleStartups.$inferSelect;
 export type TrainingModuleSession = typeof trainingModuleSessions.$inferSelect;
 export type TrainingSessionStartup = typeof trainingSessionStartups.$inferSelect;
 export type TrainingSessionNotes = typeof trainingSessionNotes.$inferSelect;
