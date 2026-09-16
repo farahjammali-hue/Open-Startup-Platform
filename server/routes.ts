@@ -2158,7 +2158,9 @@ export function registerRoutes(app: Express) {
         mentorBio: parsed.data.mentorBio || null,
         zoomMeetingId,
         zoomHostEmail: hostEmail,
+        visibilityTrack: parsed.data.visibilityTrack || null,
       });
+      if (parsed.data.startupIds) await storage.setMentorshipSessionStartups(session.id, parsed.data.startupIds);
       res.status(201).json(session);
       void dispatchSessionInvite("Mentorship", session);
     } catch (error) {
@@ -2174,10 +2176,12 @@ export function registerRoutes(app: Express) {
     if (!parsed.success) {
       return res.status(400).json({ message: parsed.error.errors[0].message });
     }
-    const patch: Record<string, unknown> = { ...parsed.data };
+    const { startupIds, ...sessionFields } = parsed.data;
+    const patch: Record<string, unknown> = { ...sessionFields };
     if (parsed.data.scheduledAt !== undefined) patch.scheduledAt = new Date(parsed.data.scheduledAt);
     if (parsed.data.description !== undefined) patch.description = parsed.data.description || null;
     if (parsed.data.experts !== undefined) patch.experts = parsed.data.experts || null;
+    if (parsed.data.visibilityTrack !== undefined) patch.visibilityTrack = parsed.data.visibilityTrack || null;
     const requestedHost = parsed.data.zoomHostEmail;
     if (requestedHost !== undefined) patch.zoomHostEmail = requestedHost || null;
     if (requestedHost && requestedHost !== existing.zoomHostEmail) {
@@ -2217,6 +2221,7 @@ export function registerRoutes(app: Express) {
     // A calendar update is only honoured if SEQUENCE increased.
     patch.calendarSequence = (existing.calendarSequence ?? 0) + 1;
     const session = await storage.updateMentorshipModuleSession(existing.id, patch as any);
+    if (startupIds !== undefined) await storage.setMentorshipSessionStartups(session.id, startupIds);
     if (requestedHost && requestedHost !== existing.zoomHostEmail && existing.zoomMeetingId && existing.zoomHostEmail) {
       await deleteZoomMeeting(existing.zoomMeetingId).catch((error) => console.error("[zoom] old meeting cleanup failed:", error));
     }
@@ -2334,7 +2339,9 @@ export function registerRoutes(app: Express) {
         trainerBio: parsed.data.trainerBio || null,
         zoomMeetingId,
         zoomHostEmail: hostEmail,
+        visibilityTrack: parsed.data.visibilityTrack || null,
       });
+      if (parsed.data.startupIds) await storage.setTrainingSessionStartups(session.id, parsed.data.startupIds);
       res.status(201).json(session);
       void dispatchSessionInvite("Training", session);
     } catch (error) {
@@ -2350,10 +2357,12 @@ export function registerRoutes(app: Express) {
     if (!parsed.success) {
       return res.status(400).json({ message: parsed.error.errors[0].message });
     }
-    const patch: Record<string, unknown> = { ...parsed.data };
+    const { startupIds, ...sessionFields } = parsed.data;
+    const patch: Record<string, unknown> = { ...sessionFields };
     if (parsed.data.scheduledAt !== undefined) patch.scheduledAt = new Date(parsed.data.scheduledAt);
     if (parsed.data.description !== undefined) patch.description = parsed.data.description || null;
     if (parsed.data.experts !== undefined) patch.experts = parsed.data.experts || null;
+    if (parsed.data.visibilityTrack !== undefined) patch.visibilityTrack = parsed.data.visibilityTrack || null;
     const requestedHost = parsed.data.zoomHostEmail;
     if (requestedHost !== undefined) patch.zoomHostEmail = requestedHost || null;
     if (requestedHost && requestedHost !== existing.zoomHostEmail) {
@@ -2393,6 +2402,7 @@ export function registerRoutes(app: Express) {
     // A calendar update is only honoured if SEQUENCE increased.
     patch.calendarSequence = (existing.calendarSequence ?? 0) + 1;
     const session = await storage.updateTrainingModuleSession(existing.id, patch as any);
+    if (startupIds !== undefined) await storage.setTrainingSessionStartups(session.id, startupIds);
     if (requestedHost && requestedHost !== existing.zoomHostEmail && existing.zoomMeetingId && existing.zoomHostEmail) {
       await deleteZoomMeeting(existing.zoomMeetingId).catch((error) => console.error("[zoom] old meeting cleanup failed:", error));
     }

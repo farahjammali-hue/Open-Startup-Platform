@@ -990,6 +990,21 @@ CREATE TABLE IF NOT EXISTS startup_competitors (
   details text,
   created_at timestamp NOT NULL DEFAULT now()
 );
+
+-- Session-level visibility for Mentorship and Training: an admin can target
+-- a whole track (reusing training_module_track) and/or an explicit startup
+-- list, on top of Mentorship's owning startup / Training's module default.
+-- Null visibility_track and an empty *_session_startups list both mean
+-- "unchanged from today" for every session created before this feature.
+ALTER TABLE mentorship_module_sessions ADD COLUMN IF NOT EXISTS visibility_track training_module_track;
+ALTER TABLE training_module_sessions ADD COLUMN IF NOT EXISTS visibility_track training_module_track;
+
+CREATE TABLE IF NOT EXISTS mentorship_session_startups (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  session_id uuid NOT NULL REFERENCES mentorship_module_sessions(id) ON DELETE CASCADE,
+  startup_id uuid NOT NULL REFERENCES startups(id) ON DELETE CASCADE,
+  created_at timestamp NOT NULL DEFAULT now()
+);
 `;
 
 try {

@@ -9,6 +9,7 @@ import { ModalShell } from "../../components/ModalShell";
 import { StatusBadge } from "../../components/StatusBadge";
 import { MENTORSHIP_SESSION_STATUS_TONES } from "../../lib/statusTones";
 import { showToast } from "../../lib/toast";
+import { SessionVisibilityPicker, type SessionVisibilityMode, type StartupOption } from "../../components/admin/SessionVisibilityPicker";
 import { Stack as Layers, Lock, LockOpen as Unlock, Pencil, Trash as Trash2, Plus, CircleNotch as Loader2, CaretDown as ChevronDown, CaretUp as ChevronUp, User, Envelope as Mail, ChatCircle as MessageCircle, LinkedinLogo as Linkedin, Camera } from "@phosphor-icons/react";
 
 type ModuleTrack = "seed" | "pre_seed" | "all";
@@ -52,6 +53,8 @@ interface TrainingSession {
   recordingUrl: string | null;
   transcriptUrl: string | null;
   zoomHostEmail: string | null;
+  visibilityTrack: "seed" | "pre_seed" | "all" | null;
+  sharedStartupIds: string[];
 }
 
 interface ZoomHost { id: string; email: string; name: string; }
@@ -71,6 +74,13 @@ interface TrainingModule {
 function toDatetimeLocal(d: Date) {
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+/** null means "inherits the module's own track" — the common case, not worth a badge. */
+function sessionAudienceLabel(s: TrainingSession): string | null {
+  if (s.sharedStartupIds.length > 0) return `${s.sharedStartupIds.length} startup${s.sharedStartupIds.length === 1 ? "" : "s"}`;
+  if (s.visibilityTrack) return TRACK_LABELS[s.visibilityTrack];
+  return null;
 }
 
 export default function AdminTraining() {
@@ -259,6 +269,7 @@ export default function AdminTraining() {
                               <div className="flex items-center gap-2">
                                 <p className="text-sm font-semibold text-primary">Session {s.number} · {s.title}</p>
                                 <StatusBadge tone={MENTORSHIP_SESSION_STATUS_TONES[s.status]}>{s.status}</StatusBadge>
+                                {sessionAudienceLabel(s) && <StatusBadge tone="gray">{sessionAudienceLabel(s)}</StatusBadge>}
                               </div>
                               {s.description && <p className="mt-1 text-xs text-slate-500">{s.description}</p>}
                               <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-slate-400">
@@ -435,6 +446,11 @@ function SessionFormModal({
   const [presentationUrl, setPresentationUrl] = useState(session?.presentationUrl ?? "");
   const [recordingUrl, setRecordingUrl] = useState(session?.recordingUrl ?? "");
   const [transcriptUrl, setTranscriptUrl] = useState(session?.transcriptUrl ?? "");
+  const [visibilityMode, setVisibilityMode] = useState<SessionVisibilityMode>(
+    session?.sharedStartupIds?.length ? "startups" : session?.visibilityTrack ? "track" : "default",
+  );
+  const [visibilityTrack, setVisibilityTrack] = useState(session?.visibilityTrack ?? "");
+  const [visibilityStartupIds, setVisibilityStartupIds] = useState<string[]>(session?.sharedStartupIds ?? []);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { data: zoomData, isLoading: zoomHostsLoading } = useQuery<{ hosts: ZoomHost[] }>({
@@ -442,6 +458,11 @@ function SessionFormModal({
     queryFn: () => api("/api/admin/zoom/hosts"),
     retry: false,
   });
+  const { data: startupsData } = useQuery<{ startups: StartupOption[] }>({
+    queryKey: ["admin-startups-basic"],
+    queryFn: () => api("/api/admin/startups"),
+  });
+  const startups = startupsData?.startups ?? [];
   const { data: catalogExpertsData } = useQuery<{ experts: CatalogExpert[] }>({
     queryKey: ["admin-experts"],
     queryFn: () => api("/api/admin/experts"),
@@ -499,6 +520,8 @@ function SessionFormModal({
         presentationUrl,
         recordingUrl,
         transcriptUrl,
+        visibilityTrack: visibilityMode === "track" ? visibilityTrack : "",
+        startupIds: visibilityMode === "startups" ? visibilityStartupIds : [],
       });
       if (session) {
         await api(`/api/admin/training/sessions/${session.id}`, { method: "PATCH", body });
@@ -610,6 +633,19 @@ function SessionFormModal({
 
       <label className="ost-label">Transcript link</label>
       <input className="ost-input mb-3" value={transcriptUrl} onChange={(e) => setTranscriptUrl(e.target.value)} placeholder="https://…" />
+
+      <div className="mb-3">
+        <SessionVisibilityPicker
+          defaultLabel="Module default"
+          mode={visibilityMode}
+          onModeChange={setVisibilityMode}
+          track={visibilityTrack}
+          onTrackChange={setVisibilityTrack}
+          startupIds={visibilityStartupIds}
+          onStartupIdsChange={setVisibilityStartupIds}
+          startups={startups}
+        />
+      </div>
 
       {error && <p className="mb-3 text-sm font-medium text-red-600">{error}</p>}
 

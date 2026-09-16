@@ -12,6 +12,7 @@ import { StatusBadge } from "../../components/StatusBadge";
 import { MentorAssignment, type MentorOption } from "../../components/admin/MentorAssignment";
 import { MENTORSHIP_SESSION_STATUS_TONES } from "../../lib/statusTones";
 import { showToast } from "../../lib/toast";
+import { SessionVisibilityPicker, type SessionVisibilityMode } from "../../components/admin/SessionVisibilityPicker";
 import { Calendar as CalendarClock, Pencil, Trash as Trash2, Plus, CircleNotch as Loader2, Buildings as Building2, Upload, FileText, ClipboardText as ClipboardList, Sparkle as Sparkles } from "@phosphor-icons/react";
 
 interface Expert {
@@ -69,6 +70,8 @@ interface MentorshipSession {
   transcriptUrl: string | null;
   materialsUrl: string | null;
   zoomHostEmail: string | null;
+  visibilityTrack: "seed" | "pre_seed" | "all" | null;
+  sharedStartupIds: string[];
 }
 
 interface ZoomHost { id: string; email: string; name: string; }
@@ -91,6 +94,19 @@ interface MentorshipSessionNoteRow {
   founderComments: string | null;
   mentorRating: number | null;
   mentorFeedback: string | null;
+}
+
+const TRACK_LABELS: Record<"seed" | "pre_seed" | "all", string> = {
+  seed: "Seed",
+  pre_seed: "Pre-Seed",
+  all: "All startups",
+};
+
+/** null means "just this startup" — the common case, not worth a badge. */
+function sessionAudienceLabel(s: MentorshipSession): string | null {
+  if (s.sharedStartupIds.length > 0) return `+${s.sharedStartupIds.length} other startup${s.sharedStartupIds.length === 1 ? "" : "s"}`;
+  if (s.visibilityTrack) return TRACK_LABELS[s.visibilityTrack];
+  return null;
 }
 
 /** datetime-local expects local time, no timezone suffix. */
@@ -307,6 +323,7 @@ export default function AdminMentorshipStartup() {
                       <StatusBadge tone={hasRecap ? "teal" : "gray"}>{hasRecap ? "AI recap ready" : "No recap yet"}</StatusBadge>
                       {hasComments && <StatusBadge tone="teal">Startup left comments</StatusBadge>}
                       <StatusBadge tone={hasFeedback ? "teal" : "gray"}>{hasFeedback ? "Feedback added" : "No feedback yet"}</StatusBadge>
+                      {sessionAudienceLabel(s) && <StatusBadge tone="gray">{sessionAudienceLabel(s)}</StatusBadge>}
                     </div>
                     {s.description && <p className="mt-1 text-xs text-slate-500">{s.description}</p>}
                     <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-slate-400">
@@ -728,6 +745,11 @@ function SessionFormModal({
     session?.materialsUrl ? session.materialsUrl.split("/").pop() ?? null : null,
   );
   const [uploadingMaterials, setUploadingMaterials] = useState(false);
+  const [visibilityMode, setVisibilityMode] = useState<SessionVisibilityMode>(
+    session?.sharedStartupIds?.length ? "startups" : session?.visibilityTrack ? "track" : "default",
+  );
+  const [visibilityTrack, setVisibilityTrack] = useState(session?.visibilityTrack ?? "");
+  const [visibilityStartupIds, setVisibilityStartupIds] = useState<string[]>(session?.sharedStartupIds ?? []);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { data: zoomData, isLoading: zoomHostsLoading } = useQuery<{ hosts: ZoomHost[] }>({
@@ -735,6 +757,11 @@ function SessionFormModal({
     queryFn: () => api("/api/admin/zoom/hosts"),
     retry: false,
   });
+  const { data: startupsData } = useQuery<{ startups: StartupOption[] }>({
+    queryKey: ["admin-startups"],
+    queryFn: () => api("/api/admin/startups"),
+  });
+  const startups = startupsData?.startups ?? [];
   const { data: expertsData } = useQuery<{ experts: MentorOption[] }>({
     queryKey: ["admin-experts"],
     queryFn: () => api("/api/admin/experts"),
@@ -781,6 +808,8 @@ function SessionFormModal({
         recordingUrl,
         transcriptUrl,
         materialsUrl,
+        visibilityTrack: visibilityMode === "track" ? visibilityTrack : "",
+        startupIds: visibilityMode === "startups" ? visibilityStartupIds : [],
       });
       if (session) {
         await api(`/api/admin/startups/${startupId}/mentorship-sessions/${session.id}`, { method: "PATCH", body });
@@ -904,6 +933,20 @@ function SessionFormModal({
         <p className="mb-3 flex items-center gap-1 text-xs text-slate-400"><FileText className="h-4 w-4" /> Uploaded: {materialsFileName}</p>
       )}
       {!materialsFileName && <div className="mb-3" />}
+
+      <div className="mb-3">
+        <SessionVisibilityPicker
+          defaultLabel="Just this startup"
+          mode={visibilityMode}
+          onModeChange={setVisibilityMode}
+          track={visibilityTrack}
+          onTrackChange={setVisibilityTrack}
+          startupIds={visibilityStartupIds}
+          onStartupIdsChange={setVisibilityStartupIds}
+          startups={startups}
+          excludeStartupId={startupId}
+        />
+      </div>
 
       {error && <p className="mb-3 text-sm font-medium text-red-600">{error}</p>}
 

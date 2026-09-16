@@ -14,9 +14,11 @@ import {
   trainings,
   trainingProgress,
   mentorshipModuleSessions,
+  mentorshipSessionStartups,
   mentorshipSessionNotes,
   trainingModules,
   trainingModuleSessions,
+  trainingSessionStartups,
   trainingSessionNotes,
   trainingModuleHomework,
   trainers,
@@ -56,9 +58,11 @@ import {
   type Training,
   type TrainingProgress,
   type MentorshipModuleSession,
+  type MentorshipSessionStartup,
   type MentorshipSessionNotes,
   type TrainingModule,
   type TrainingModuleSession,
+  type TrainingSessionStartup,
   type TrainingSessionNotes,
   type TrainingModuleHomework,
   type Trainer,
@@ -1766,11 +1770,24 @@ export const storage = {
   },
 
   /* ---------------- Mentorship (per-startup sessions, no modules/locking) ---------------- */
+  // A session is visible to a startup if it owns it, OR it's on the explicit
+  // shared list for that session, OR its track matches (and there's no
+  // explicit list at all — an explicit list always wins over a track).
   async listMentorshipSessionsForFounder(startupId: string) {
-    const [sessions, notes] = await Promise.all([
-      db.select().from(mentorshipModuleSessions).where(eq(mentorshipModuleSessions.startupId, startupId)).orderBy(asc(mentorshipModuleSessions.scheduledAt)),
+    const kysProfile = await this.getKysProfile(startupId);
+    const track = kysProfile?.track ?? null;
+    const [allSessions, sharedRows, notes] = await Promise.all([
+      db.select().from(mentorshipModuleSessions).orderBy(asc(mentorshipModuleSessions.scheduledAt)),
+      db.select().from(mentorshipSessionStartups),
       db.select().from(mentorshipSessionNotes).where(eq(mentorshipSessionNotes.startupId, startupId)),
     ]);
+    const sharedBySession = groupStartupIdsBySessionId(sharedRows);
+    const sessions = allSessions.filter((s) => {
+      if (s.startupId === startupId) return true;
+      const shared = sharedBySession.get(s.id);
+      if (shared && shared.size > 0) return shared.has(startupId);
+      return !!s.visibilityTrack && (s.visibilityTrack === "all" || s.visibilityTrack === track);
+    });
     const notesBySessionId = new Map(notes.map((n) => [n.sessionId, n]));
     const emptyNotes = {
       teamMembersPresence: null,
@@ -1849,12 +1866,36 @@ export const storage = {
     });
   },
 
-  async listMentorshipSessionsForStartup(startupId: string): Promise<MentorshipModuleSession[]> {
-    return db
+  // Sessions this startup owns (created from its own admin page) — the
+  // shared-in-via-track/list case is deliberately not surfaced here, so a
+  // session's admin management always lives on the one page it was created
+  // from. sharedStartupIds is attached for the edit modal to prefill from.
+  async listMentorshipSessionsForStartup(startupId: string): Promise<(MentorshipModuleSession & { sharedStartupIds: string[] })[]> {
+    const sessions = await db
       .select()
       .from(mentorshipModuleSessions)
       .where(eq(mentorshipModuleSessions.startupId, startupId))
       .orderBy(asc(mentorshipModuleSessions.scheduledAt));
+    if (sessions.length === 0) return [];
+    const rows = await db
+      .select()
+      .from(mentorshipSessionStartups)
+      .where(inArray(mentorshipSessionStartups.sessionId, sessions.map((s) => s.id)));
+    const bySession = groupStartupIdsBySessionId(rows);
+    return sessions.map((s) => ({ ...s, sharedStartupIds: [...(bySession.get(s.id) ?? [])] }));
+  },
+
+  async listMentorshipSessionStartupIds(sessionId: string): Promise<string[]> {
+    const rows = await db.select().from(mentorshipSessionStartups).where(eq(mentorshipSessionStartups.sessionId, sessionId));
+    return rows.map((r) => r.startupId);
+  },
+
+  /** Replaces a session's explicit shared-startup list wholesale (delete + reinsert). */
+  async setMentorshipSessionStartups(sessionId: string, startupIds: string[]): Promise<void> {
+    await db.delete(mentorshipSessionStartups).where(eq(mentorshipSessionStartups.sessionId, sessionId));
+    if (startupIds.length > 0) {
+      await db.insert(mentorshipSessionStartups).values(startupIds.map((startupId) => ({ sessionId, startupId })));
+    }
   },
 
   async getMentorshipModuleSessionById(id: string): Promise<MentorshipModuleSession | undefined> {
@@ -1886,6 +1927,7 @@ export const storage = {
     mentorBio?: string | null;
     zoomMeetingId?: string | null;
     zoomHostEmail?: string | null;
+    visibilityTrack?: "seed" | "pre_seed" | "all" | null;
   }): Promise<MentorshipModuleSession> {
     const [row] = await db
       .insert(mentorshipModuleSessions)
@@ -1968,17 +2010,21 @@ export const storage = {
 
   /* ---------------- Training (Modules + Sessions) ----------------
    * One trainer runs each real track (seed/pre_seed), so a module is scoped
-   * to a whole track (or "all") rather than each session picking individual
-   * startups — see trainingModules.track. */
+   * to a whole track (or "all") by default — see trainingModules.track. An
+   * individual session can narrow that further (its own visibilityTrack, or
+   * an explicit trainingSessionStartups list), but only for startups the
+   * module itself is already visible to — see trainingSessionVisibleTo. */
   async listTrainingModulesForFounder(startupId: string) {
     const kysProfile = await this.getKysProfile(startupId);
     const track = kysProfile?.track ?? null;
-    const [modules, sessions, notes, homework] = await Promise.all([
+    const [modules, sessions, sharedRows, notes, homework] = await Promise.all([
       db.select().from(trainingModules).orderBy(asc(trainingModules.number)),
       db.select().from(trainingModuleSessions).orderBy(asc(trainingModuleSessions.number)),
+      db.select().from(trainingSessionStartups),
       db.select().from(trainingSessionNotes).where(eq(trainingSessionNotes.startupId, startupId)),
       db.select().from(trainingModuleHomework).where(eq(trainingModuleHomework.startupId, startupId)),
     ]);
+    const sharedBySession = groupStartupIdsBySessionId(sharedRows);
     const notesBySessionId = new Map(notes.map((n) => [n.sessionId, n]));
     const homeworkByModuleId = new Map(homework.map((h) => [h.moduleId, h]));
     const emptyNotes = {
@@ -1997,7 +2043,7 @@ export const storage = {
         // Locked modules never leak their session content to the founder side.
         const moduleSessions = m.unlocked
           ? sessions
-              .filter((s) => s.moduleId === m.id)
+              .filter((s) => s.moduleId === m.id && trainingSessionVisibleTo(startupId, track, s, sharedBySession))
               .map((s) => ({ ...s, notes: notesBySessionId.get(s.id) ?? emptyNotes }))
           : [];
         return {
@@ -2012,13 +2058,17 @@ export const storage = {
   },
 
   async listTrainingModulesWithSessions() {
-    const [modules, sessions] = await Promise.all([
+    const [modules, sessions, sharedRows] = await Promise.all([
       db.select().from(trainingModules).orderBy(asc(trainingModules.number)),
       db.select().from(trainingModuleSessions).orderBy(asc(trainingModuleSessions.number)),
+      db.select().from(trainingSessionStartups),
     ]);
+    const sharedBySession = groupStartupIdsBySessionId(sharedRows);
     return modules.map((m) => ({
       ...m,
-      sessions: sessions.filter((s) => s.moduleId === m.id),
+      sessions: sessions
+        .filter((s) => s.moduleId === m.id)
+        .map((s) => ({ ...s, sharedStartupIds: [...(sharedBySession.get(s.id) ?? [])] })),
     }));
   },
 
@@ -2031,13 +2081,28 @@ export const storage = {
       .where(track ? sql`${trainingModules.track} = 'all' or ${trainingModules.track} = ${track}` : eq(trainingModules.track, "all"));
     if (modules.length === 0) return [];
     const moduleById = new Map(modules.map((m) => [m.id, m]));
-    const sessions = await db
-      .select()
-      .from(trainingModuleSessions)
-      .where(inArray(trainingModuleSessions.moduleId, modules.map((m) => m.id)));
+    const [sessions, sharedRows] = await Promise.all([
+      db.select().from(trainingModuleSessions).where(inArray(trainingModuleSessions.moduleId, modules.map((m) => m.id))),
+      db.select().from(trainingSessionStartups),
+    ]);
+    const sharedBySession = groupStartupIdsBySessionId(sharedRows);
     return sessions
+      .filter((s) => trainingSessionVisibleTo(startupId, track, s, sharedBySession))
       .map((s) => ({ ...s, moduleTitle: moduleById.get(s.moduleId)?.title ?? null }))
       .sort((a, b) => a.scheduledAt.getTime() - b.scheduledAt.getTime());
+  },
+
+  async listTrainingSessionStartupIds(sessionId: string): Promise<string[]> {
+    const rows = await db.select().from(trainingSessionStartups).where(eq(trainingSessionStartups.sessionId, sessionId));
+    return rows.map((r) => r.startupId);
+  },
+
+  /** Replaces a session's explicit shared-startup list wholesale (delete + reinsert). */
+  async setTrainingSessionStartups(sessionId: string, startupIds: string[]): Promise<void> {
+    await db.delete(trainingSessionStartups).where(eq(trainingSessionStartups.sessionId, sessionId));
+    if (startupIds.length > 0) {
+      await db.insert(trainingSessionStartups).values(startupIds.map((startupId) => ({ sessionId, startupId })));
+    }
   },
 
   async getTrainingModuleById(id: string): Promise<TrainingModule | undefined> {
@@ -2111,6 +2176,7 @@ export const storage = {
       trainerBio?: string | null;
       zoomMeetingId?: string | null;
       zoomHostEmail?: string | null;
+      visibilityTrack?: "seed" | "pre_seed" | "all" | null;
     },
   ): Promise<TrainingModuleSession> {
     const [row] = await db
@@ -2396,4 +2462,32 @@ function computeModuleStatus(
   if (sessions.length > 0 && sessions.every((s) => s.status === "completed")) return "completed";
   if (sessions.some((s) => s.status === "completed")) return "active";
   return "upcoming";
+}
+
+function groupStartupIdsBySessionId(rows: { sessionId: string; startupId: string }[]): Map<string, Set<string>> {
+  const map = new Map<string, Set<string>>();
+  for (const row of rows) {
+    if (!map.has(row.sessionId)) map.set(row.sessionId, new Set());
+    map.get(row.sessionId)!.add(row.startupId);
+  }
+  return map;
+}
+
+/**
+ * Whether a training session — already gated at the module level by the
+ * caller — is also visible to this specific startup. An explicit shared
+ * list (if non-empty) wins outright; otherwise the session's own track
+ * override applies if set; otherwise it inherits the module's own track,
+ * which the caller has already checked.
+ */
+function trainingSessionVisibleTo(
+  startupId: string,
+  founderTrack: "seed" | "pre_seed" | null,
+  session: { id: string; visibilityTrack: "seed" | "pre_seed" | "all" | null },
+  sharedBySession: Map<string, Set<string>>,
+): boolean {
+  const shared = sharedBySession.get(session.id);
+  if (shared && shared.size > 0) return shared.has(startupId);
+  if (session.visibilityTrack) return session.visibilityTrack === "all" || session.visibilityTrack === founderTrack;
+  return true;
 }

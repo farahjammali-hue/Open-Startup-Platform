@@ -666,13 +666,22 @@ export const trainingProgress = pgTable("training_progress", {
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
 
+// Shared by both Mentorship and Training sessions' visibilityTrack column
+// below — a session can target a whole track instead of (or as a narrower
+// override on top of) an explicit startup list. Declared here, ahead of
+// both sections, since Mentorship's session table needs it first.
+export const trainingModuleTrackEnum = pgEnum("training_module_track", ["seed", "pre_seed", "all"]);
+
 /* =========================================================
  * Mentorship (Sessions) — each session belongs to exactly one
- * startup (1:1 mentoring, not a shared cohort catalog). There is
- * no "module" concept and no per-module/session locking (every
- * session is visible to its startup once KYS is submitted). The
- * DB table is still named mentorship_module_sessions from an
- * earlier module-based design.
+ * "owning" startup (1:1 mentoring, not a shared cohort catalog),
+ * but can additionally be made visible to a whole track or an
+ * explicit list of other startups via visibilityTrack /
+ * mentorshipSessionStartups below (see routes.ts for the exact
+ * precedence). There is no "module" concept and no per-module/
+ * session locking (every session is visible to its startup once
+ * KYS is submitted). The DB table is still named
+ * mentorship_module_sessions from an earlier module-based design.
  * =======================================================*/
 export const mentorshipModuleSessionStatusEnum = pgEnum("mentorship_module_session_status", ["upcoming", "completed"]);
 
@@ -693,6 +702,12 @@ export const mentorshipModuleSessions = pgTable("mentorship_module_sessions", {
   recordingUrl: text("recording_url"),
   transcriptUrl: text("transcript_url"),
   materialsUrl: text("materials_url"), // slides/handouts/resources for this session
+  // When set, also shows this session to every startup on that track, on top
+  // of the owning startupId above. Null means "just the owning startup"
+  // (every session created before this feature, and the default going
+  // forward). Superseded by mentorshipSessionStartups below when that has
+  // any rows — an explicit startup list wins over a track.
+  visibilityTrack: trainingModuleTrackEnum("visibility_track"),
   // Parsed automatically from meetingLink when it's a Zoom join link — lets
   // the Zoom recording webhook find this exact session with a direct lookup.
   zoomMeetingId: text("zoom_meeting_id"),
@@ -703,6 +718,21 @@ export const mentorshipModuleSessions = pgTable("mentorship_module_sessions", {
   calendarSequence: integer("calendar_sequence").notNull().default(0),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+// Explicit "also show this session to these other startups" list — an
+// alternative to visibilityTrack above, for targeting specific startups
+// rather than a whole track. A session with rows here is visible to exactly
+// this list (plus its owning startupId), regardless of visibilityTrack.
+export const mentorshipSessionStartups = pgTable("mentorship_session_startups", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: uuid("session_id")
+    .references(() => mentorshipModuleSessions.id, { onDelete: "cascade" })
+    .notNull(),
+  startupId: uuid("startup_id")
+    .references(() => startups.id, { onDelete: "cascade" })
+    .notNull(),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
 // Per-(session, startup) recap — the mentor's notes and rating for THIS
@@ -752,10 +782,10 @@ export const mentorshipSessionNotes = pgTable("mentorship_session_notes", {
  * =======================================================*/
 export const trainingModuleSessionStatusEnum = pgEnum("training_module_session_status", ["upcoming", "completed"]);
 
-// Which startups a module's sessions apply to — one trainer runs each real
-// track (seed/pre_seed), so a module is scoped to a track wholesale rather
-// than each session picking individual startups.
-export const trainingModuleTrackEnum = pgEnum("training_module_track", ["seed", "pre_seed", "all"]);
+// trainingModuleTrackEnum is declared above, ahead of the Mentorship
+// section, since mentorshipModuleSessions.visibilityTrack needs it first.
+// A module is scoped to a track wholesale by default; individual sessions
+// can narrow or override that via visibilityTrack / trainingSessionStartups.
 
 export const trainingModules = pgTable("training_modules", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -792,14 +822,20 @@ export const trainingModuleSessions = pgTable("training_module_sessions", {
   zoomMeetingId: text("zoom_meeting_id"),
   zoomHostEmail: text("zoom_host_email"),
   calendarSequence: integer("calendar_sequence").notNull().default(0),
+  // Narrows this one session to a track other than its module's default, for
+  // startups the module itself is already visible to. Null (the default,
+  // and every session created before this feature) means "inherit the
+  // module's own track" — today's behavior, unchanged. Superseded by
+  // trainingSessionStartups below when that has any rows for this session.
+  visibilityTrack: trainingModuleTrackEnum("visibility_track"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
 
-// Which startups a given training session applies to — a session can be
-// shared across several startups (e.g. everyone on the same track), unlike
-// Mentorship sessions which belong to exactly one startup. A session with no
-// rows here targets nobody yet.
+// Which specific startups a given session is narrowed to, as an alternative
+// to visibilityTrack above — only meaningful for startups the module itself
+// is already visible to. A session with no rows here just uses
+// visibilityTrack / the module's own track instead (today's behavior).
 export const trainingSessionStartups = pgTable("training_session_startups", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   sessionId: uuid("session_id")
@@ -1509,6 +1545,11 @@ export const mentorshipModuleSessionSchema = z.object({
   recordingUrl: z.string().max(500).optional().or(z.literal("")),
   transcriptUrl: z.string().max(500).optional().or(z.literal("")),
   materialsUrl: z.string().max(500).optional().or(z.literal("")),
+  // Visibility, on top of the owning startup: either a whole track, or an
+  // explicit list of other startups — mutually exclusive in the UI, but the
+  // server just applies startupIds (if non-empty) ahead of visibilityTrack.
+  visibilityTrack: z.enum(["seed", "pre_seed", "all"]).optional().or(z.literal("")),
+  startupIds: z.array(z.string().uuid()).max(1000).optional(),
 });
 
 // The startup's own free-text notes on a session, editable any time from
@@ -1577,6 +1618,10 @@ export const trainingModuleSessionSchema = z.object({
   presentationUrl: z.string().max(500).optional().or(z.literal("")),
   recordingUrl: z.string().max(500).optional().or(z.literal("")),
   transcriptUrl: z.string().max(500).optional().or(z.literal("")),
+  // Narrows this one session within the module's own track, or to an
+  // explicit startup list — see trainingModuleSessions.visibilityTrack.
+  visibilityTrack: z.enum(["seed", "pre_seed", "all"]).optional().or(z.literal("")),
+  startupIds: z.array(z.string().uuid()).max(1000).optional(),
 });
 
 // Filled in by the startup itself, briefly, after a session is held.
@@ -1716,6 +1761,7 @@ export type OfficeHourBooking = typeof officeHourBookings.$inferSelect;
 export type Training = typeof trainings.$inferSelect;
 export type TrainingProgress = typeof trainingProgress.$inferSelect;
 export type MentorshipModuleSession = typeof mentorshipModuleSessions.$inferSelect;
+export type MentorshipSessionStartup = typeof mentorshipSessionStartups.$inferSelect;
 export type MentorshipSessionNotes = typeof mentorshipSessionNotes.$inferSelect;
 export type TrainingModule = typeof trainingModules.$inferSelect;
 export type TrainingModuleSession = typeof trainingModuleSessions.$inferSelect;
