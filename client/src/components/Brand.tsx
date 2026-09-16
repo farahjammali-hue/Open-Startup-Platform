@@ -25,7 +25,7 @@ export function AuthHeader({ withSignOut = false }: { withSignOut?: boolean }) {
   const { logout } = useAuth();
   return (
     <header className="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-4">
-      <Logo />
+      <img src="/logos/logo-navy.svg" alt="Open Startup Platform" className="h-6 w-auto" />
       {withSignOut && (
         <button
           onClick={() => logout()}
