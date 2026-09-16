@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { api } from "../lib/utils";
+import { useQueryClient } from "@tanstack/react-query";
 import { AppShell } from "../components/AppShell";
 import { BackLink, PageHeader } from "../components/PageHeader";
 import { useKysStatus } from "../lib/kysStatus";
@@ -16,11 +15,7 @@ type Step = "contract" | "kys" | "done";
 export default function ContractKys() {
   const [, navigate] = useLocation();
   const qc = useQueryClient();
-  const { contract, kysProfile, contractSigned, kysSubmitted, kysDocuments, isLoading } = useKysStatus();
-  const { data: startup } = useQuery<{ companyName: string }>({
-    queryKey: ["startup-me"],
-    queryFn: () => api("/api/startup/me"),
-  });
+  const { contract, kysProfile, contractSigned, kysSubmitted, isLoading } = useKysStatus();
 
   const [step, setStep] = useState<Step | null>(null);
   useEffect(() => {
@@ -72,8 +67,6 @@ export default function ContractKys() {
           {step === "kys" && (
             <KysStep
               initial={kysProfile}
-              defaultStartupName={startup?.companyName ?? ""}
-              documents={kysDocuments}
               onSubmitted={() => {
                 qc.invalidateQueries({ queryKey: ["kys"] });
                 setStep("done");

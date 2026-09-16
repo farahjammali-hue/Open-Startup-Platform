@@ -16,7 +16,7 @@ export interface Contract {
 export interface KysProfile {
   id: string;
   track: "pre_seed" | "seed";
-  incorporated: boolean;
+  incorporated: boolean | null;
   addressLine1: string | null;
   city: string | null;
   country: string | null;

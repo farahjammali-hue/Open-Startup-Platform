@@ -1477,7 +1477,7 @@ export function registerRoutes(app: Express) {
     const d = parsed.data;
     const profile = await storage.submitKysProfile(startup.id, {
       track: d.track,
-      incorporated: d.incorporated,
+      incorporated: d.incorporated ?? null,
       addressLine1: d.addressLine1 || null,
       city: d.city || null,
       country: d.country || null,

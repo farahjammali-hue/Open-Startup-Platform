@@ -953,7 +953,11 @@ export const kysProfiles = pgTable("kys_profiles", {
     .notNull()
     .unique(),
   track: kysTrackEnum("track").notNull(),
-  incorporated: boolean("incorporated").notNull(),
+  // Nullable: the founder-facing form is a placeholder for now (an external
+  // Typeform link, see KysStep.tsx) that doesn't ask this, so new
+  // submissions leave it and every other Path A/B field below null. Old
+  // submissions keep their real true/false.
+  incorporated: boolean("incorporated"),
 
   // Path A - incorporated
   addressLine1: text("address_line1"),
@@ -1663,63 +1667,39 @@ export const trainingModuleHomeworkSchema = z.object({
   homeworkUrl: z.string().max(500).optional().or(z.literal("")),
 });
 
-export const kysSubmitSchema = z
-  .object({
-    track: z.enum(["pre_seed", "seed"], {
-      errorMap: () => ({ message: "Select a program track" }),
-    }),
-    incorporated: z.boolean({ invalid_type_error: "Select Yes or No" }),
+// The founder-facing KYS form is a placeholder for now (an external
+// Typeform link, see KysStep.tsx) — it only collects track, so every field
+// below except track/consentAccepted is optional and normally omitted.
+// Kept (rather than removed) so existing submissions' shape still validates
+// and the detailed fields are ready to use again once real KYS collection
+// moves back in-app.
+export const kysSubmitSchema = z.object({
+  track: z.enum(["pre_seed", "seed"], {
+    errorMap: () => ({ message: "Select a program track" }),
+  }),
+  incorporated: z.boolean({ invalid_type_error: "Select Yes or No" }).optional(),
 
-    addressLine1: z.string().optional(),
-    city: z.string().optional(),
-    country: z.string().optional(),
-    incorporationDate: z.string().optional(),
-    tin: z.string().optional(),
-    signatoryName: z.string().optional(),
-    signatoryPhone: z.string().optional(),
-    signatoryEmail: z.string().optional(),
-    irsForm: z.enum(["w9", "w8ben", "w8bene"]).optional(),
-    acceptsAltPayment: z.boolean().optional(),
-    altPaymentDetail: z.string().optional().or(z.literal("")),
+  addressLine1: z.string().optional(),
+  city: z.string().optional(),
+  country: z.string().optional(),
+  incorporationDate: z.string().optional(),
+  tin: z.string().optional(),
+  signatoryName: z.string().optional(),
+  signatoryPhone: z.string().optional(),
+  signatoryEmail: z.string().optional(),
+  irsForm: z.enum(["w9", "w8ben", "w8bene"]).optional(),
+  acceptsAltPayment: z.boolean().optional(),
+  altPaymentDetail: z.string().optional().or(z.literal("")),
 
-    repName: z.string().optional(),
-    repPhone: z.string().optional(),
-    repEmail: z.string().optional(),
-    disclaimerAccepted: z.boolean().optional(),
+  repName: z.string().optional(),
+  repPhone: z.string().optional(),
+  repEmail: z.string().optional(),
+  disclaimerAccepted: z.boolean().optional(),
 
-    consentAccepted: z.literal(true, {
-      errorMap: () => ({ message: "Consent is required to submit" }),
-    }),
-  })
-  .superRefine((data, ctx) => {
-    const req = (field: keyof typeof data, message: string) => {
-      if (!data[field]) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message, path: [field] });
-      }
-    };
-    if (data.incorporated) {
-      req("addressLine1", "Registered address is required");
-      req("city", "City is required");
-      req("country", "Country is required");
-      req("incorporationDate", "Date of incorporation is required");
-      req("tin", "Tax ID is required");
-      req("signatoryName", "Signatory name is required");
-      req("signatoryPhone", "Signatory phone is required");
-      req("signatoryEmail", "Signatory email is required");
-      req("irsForm", "Select an IRS form");
-    } else {
-      req("repName", "Representative name is required");
-      req("repPhone", "Representative phone is required");
-      req("repEmail", "Representative email is required");
-      if (data.disclaimerAccepted === undefined) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: "Accept or decline the disclaimer",
-          path: ["disclaimerAccepted"],
-        });
-      }
-    }
-  });
+  consentAccepted: z.literal(true, {
+    errorMap: () => ({ message: "Consent is required to submit" }),
+  }),
+});
 
 export const kysDocumentUploadSchema = z.object({
   docType: z.enum([

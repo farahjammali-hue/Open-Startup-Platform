@@ -1014,6 +1014,11 @@ CREATE TABLE IF NOT EXISTS training_module_startups (
   startup_id uuid NOT NULL REFERENCES startups(id) ON DELETE CASCADE,
   created_at timestamp NOT NULL DEFAULT now()
 );
+
+-- The founder-facing KYS form is a placeholder for now (an external Typeform
+-- link) that only collects track, so new submissions no longer answer this.
+-- Existing rows keep their real true/false.
+ALTER TABLE kys_profiles ALTER COLUMN incorporated DROP NOT NULL;
 `;
 
 try {

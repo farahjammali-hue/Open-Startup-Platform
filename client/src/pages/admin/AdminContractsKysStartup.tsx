@@ -26,7 +26,7 @@ interface ContractRow {
 interface KysRow {
   id: string;
   track: "pre_seed" | "seed";
-  incorporated: boolean;
+  incorporated: boolean | null;
   submittedAt: string;
   status: ReviewStatus;
   reviewNote: string | null;
@@ -196,13 +196,19 @@ function KysReview({ kys, onReviewed }: { kys: KysRow; onReviewed: () => void })
     <>
       <div className="mb-4 flex items-center justify-between rounded-lg border border-slate-200 p-4">
         <div className="text-sm text-slate-500">
-          {TRACK_LABEL[profile.track] || profile.track} track · {profile.incorporated ? "Incorporated" : "Not incorporated"} · submitted {new Date(profile.submittedAt).toLocaleString()}
+          {TRACK_LABEL[profile.track] || profile.track} track
+          {profile.incorporated != null && ` · ${profile.incorporated ? "Incorporated" : "Not incorporated"}`}
+          {" "}· submitted {new Date(profile.submittedAt).toLocaleString()}
         </div>
         <StatusBadge tone={REVIEW_STATUS_TONES[profile.status]} icon={REVIEW_STATUS_ICONS[profile.status]}>{profile.status}</StatusBadge>
       </div>
 
       <div className="mb-4 grid gap-3 sm:grid-cols-2">
-        {profile.incorporated ? (
+        {profile.incorporated == null ? (
+          <p className="text-sm text-slate-400 sm:col-span-2">
+            Submitted via the external KYS form for now — detailed fields aren't captured here yet.
+          </p>
+        ) : profile.incorporated ? (
           <>
             <Detail label="Address" value={[profile.addressLine1, profile.city, profile.country].filter(Boolean).join(", ")} />
             <Detail label="Date of incorporation" value={profile.incorporationDate} />
