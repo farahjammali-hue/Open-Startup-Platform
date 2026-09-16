@@ -1,5 +1,8 @@
+import { useEffect, useState } from "react";
 import { Route, Switch, Redirect, useLocation } from "wouter";
 import { useAuth } from "./lib/auth";
+import { useEffectiveRole } from "./lib/viewMode";
+import { api } from "./lib/utils";
 import { Logo } from "./components/Brand";
 import Login from "./pages/Login";
 import RoleSelect from "./pages/RoleSelect";
@@ -57,7 +60,26 @@ function Loading() {
  */
 export default function App() {
   const { user, loading } = useAuth();
+  const effectiveRole = useEffectiveRole();
   const [location] = useLocation();
+
+  // When an admin flips to "Startup view" they need a startup to look at —
+  // ensure the demo one exists before rendering any founder-facing route.
+  const inAdminStartupPreview = user?.role === "admin" && effectiveRole === "startup";
+  const [demoStartupReady, setDemoStartupReady] = useState(false);
+  useEffect(() => {
+    if (!inAdminStartupPreview) {
+      setDemoStartupReady(false);
+      return;
+    }
+    let cancelled = false;
+    api("/api/admin/demo-startup", { method: "POST" }).finally(() => {
+      if (!cancelled) setDemoStartupReady(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [inAdminStartupPreview]);
 
   // Public, unauthenticated — never gated behind login, loading state, or onboarding.
   if (location.startsWith("/share/data-room/")) {
@@ -76,8 +98,10 @@ export default function App() {
     return <VerifyEmail />;
   }
 
-  // Admins get the admin area.
-  if (user.role === "admin") {
+  if (inAdminStartupPreview && !demoStartupReady) return <Loading />;
+
+  // Admins get the admin area (unless they've flipped to "Startup view").
+  if (effectiveRole === "admin") {
     return (
       <Switch>
         <Route path="/admin" component={AdminDashboard} />

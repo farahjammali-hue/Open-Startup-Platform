@@ -258,8 +258,23 @@ export const storage = {
   },
 
   /** Applicants waiting on an admin decision, oldest first. */
+  /**
+   * Full detail for the admin's approval queue: the applicant's whole
+   * survey (and KYS, if already submitted) so an admin can actually verify
+   * the request, not just see who applied. The applicant's own pending-
+   * approval screen deliberately shows none of this (name/email/startup
+   * name only) — this data is admin-only.
+   */
   async listPendingApprovals(): Promise<
-    { id: string; name: string; email: string; role: string | null; createdAt: Date; startup: { id: string; companyName: string } | null }[]
+    {
+      id: string;
+      name: string;
+      email: string;
+      role: string | null;
+      createdAt: Date;
+      startup: (typeof startups.$inferSelect) | null;
+      kys: (typeof kysProfiles.$inferSelect) | null;
+    }[]
   > {
     const rows = await db
       .select({
@@ -268,11 +283,12 @@ export const storage = {
         email: users.email,
         role: users.role,
         createdAt: users.createdAt,
-        startupId: startups.id,
-        startupName: startups.companyName,
+        startup: startups,
+        kys: kysProfiles,
       })
       .from(users)
       .leftJoin(startups, eq(startups.userId, users.id))
+      .leftJoin(kysProfiles, eq(kysProfiles.startupId, startups.id))
       .where(eq(users.onboardingStatus, "pending_approval"))
       .orderBy(asc(users.createdAt));
     return rows.map((r) => ({
@@ -281,7 +297,8 @@ export const storage = {
       email: r.email,
       role: r.role,
       createdAt: r.createdAt,
-      startup: r.startupId ? { id: r.startupId, companyName: r.startupName! } : null,
+      startup: r.startup,
+      kys: r.kys,
     }));
   },
 
@@ -411,6 +428,67 @@ export const storage = {
         website: data.website ?? null,
       })
       .returning();
+    return row;
+  },
+
+  /**
+   * The startup an admin sees when they flip to "Startup view" (App.tsx /
+   * Sidebar.tsx use this instead of the admin routes). Auto-provisioned once
+   * per admin account, pre-filled with a complete sample profile and an
+   * already-verified KYC record, so the founder-facing app has something
+   * real to show instead of empty states everywhere.
+   */
+  async getOrCreateDemoStartup(userId: string): Promise<Startup> {
+    const existing = await this.getStartupsByUserId(userId);
+    if (existing.length > 0) return existing[0];
+
+    const [row] = await db
+      .insert(startups)
+      .values({
+        userId,
+        companyName: "Demo Startup",
+        website: "https://example.com",
+        shortDescription: "A sample profile for previewing the founder experience.",
+        location: "Nigeria",
+        markets: ["Fintech", "Climate"],
+        stage: "mvp",
+        revenueLastMonth: 5000,
+        revenueLast12Months: 42000,
+        detailedDescription:
+          "This is a sample startup profile, filled in end to end (including KYC) so an admin can preview exactly what the founder-facing app looks like.",
+        differentiator: "Sample data for admin preview purposes only.",
+        isIncorporated: true,
+        startedMonth: 1,
+        startedYear: 2023,
+        links: { linkedin: "https://linkedin.com/company/demo" },
+        isRaising: true,
+        amountRaised: 100000,
+        investorsEquityHolders: "Demo Ventures (10%)",
+        runwayMonths: 12,
+        isProfitable: false,
+        customerTypes: ["b2b"],
+        interactionPlatforms: ["web"],
+      })
+      .returning();
+
+    await db.insert(kysProfiles).values({
+      startupId: row.id,
+      track: "seed",
+      incorporated: true,
+      addressLine1: "1 Sample Street",
+      city: "Lagos",
+      country: "Nigeria",
+      incorporationDate: "2023-01-15",
+      tin: "000000000",
+      signatoryName: "Demo Signatory",
+      signatoryPhone: "+2340000000",
+      signatoryEmail: "signatory@example.com",
+      irsForm: "w8ben",
+      consentAccepted: true,
+      status: "approved",
+    });
+
+    await this.setActiveStartup(userId, row.id);
     return row;
   },
 

@@ -1,10 +1,41 @@
 import { useLocation } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../lib/auth";
+import { useViewMode } from "../lib/viewMode";
 import { api } from "../lib/utils";
 import { confirmLeave } from "../lib/navGuard";
 import { Dropdown } from "./Dropdown";
-import { CaretDown as ChevronDown, Check, Buildings as Building2, SignOut as LogOut, Gear as Settings } from "@phosphor-icons/react";
+import { CaretDown as ChevronDown, Check, Buildings as Building2, SignOut as LogOut, Gear as Settings, ShieldCheck, Rocket } from "@phosphor-icons/react";
+
+/** Admin-only: flip between the admin console and a preview of the founder-facing app. */
+function AdminViewSwitch() {
+  const { viewMode, setViewMode } = useViewMode();
+  const [, navigate] = useLocation();
+
+  function go(mode: "admin" | "startup") {
+    if (mode === viewMode) return;
+    if (!confirmLeave()) return;
+    setViewMode(mode);
+    navigate(mode === "admin" ? "/admin" : "/");
+  }
+
+  return (
+    <div className="flex items-center rounded-full border border-slate-200 p-0.5 text-xs font-semibold">
+      <button
+        onClick={() => go("admin")}
+        className={`flex items-center gap-1.5 rounded-full px-3 py-1 ${viewMode === "admin" ? "bg-primary text-white" : "text-slate-500 hover:text-primary"}`}
+      >
+        <ShieldCheck className="h-3.5 w-3.5" /> Admin view
+      </button>
+      <button
+        onClick={() => go("startup")}
+        className={`flex items-center gap-1.5 rounded-full px-3 py-1 ${viewMode === "startup" ? "bg-secondary text-white" : "text-slate-500 hover:text-primary"}`}
+      >
+        <Rocket className="h-3.5 w-3.5" /> Startup view
+      </button>
+    </div>
+  );
+}
 
 interface StartupLite {
   id: string;
@@ -58,6 +89,7 @@ export function AppHeader() {
   return (
     <header className="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-3">
       <div className="flex items-center gap-4">
+        {user?.role === "admin" && <AdminViewSwitch />}
         {startups.length > 0 && (
           <Dropdown
             align="left"

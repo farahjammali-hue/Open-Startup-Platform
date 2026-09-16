@@ -1,6 +1,7 @@
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "../lib/auth";
+import { useEffectiveRole } from "../lib/viewMode";
 import { api } from "../lib/utils";
 import { confirmLeave } from "../lib/navGuard";
 import { useKysStatus } from "../lib/kysStatus";
@@ -67,7 +68,7 @@ interface StartupProfile {
 export function Sidebar() {
   const { user } = useAuth();
   const [location, navigate] = useLocation();
-  const isAdmin = user?.role === "admin";
+  const isAdmin = useEffectiveRole() === "admin";
   const { kysSubmitted } = useKysStatus();
   const { data: startup } = useQuery<StartupProfile>({
     queryKey: ["startup-me"],

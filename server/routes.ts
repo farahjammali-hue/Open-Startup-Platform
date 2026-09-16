@@ -261,6 +261,20 @@ const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || "")
   .map((e) => e.trim().toLowerCase())
   .filter(Boolean);
 
+// Anyone signing up/in with one of these email domains is auto-promoted to
+// admin, in addition to the individually-listed ADMIN_EMAILS above.
+const ADMIN_EMAIL_DOMAINS = (process.env.ADMIN_EMAIL_DOMAINS || "open-startup.org")
+  .split(",")
+  .map((d) => d.trim().toLowerCase())
+  .filter(Boolean);
+
+function isAdminEmail(email: string): boolean {
+  const lower = email.toLowerCase();
+  if (ADMIN_EMAILS.includes(lower)) return true;
+  const domain = lower.split("@")[1];
+  return !!domain && ADMIN_EMAIL_DOMAINS.includes(domain);
+}
+
 // Testing-only: who can permanently erase a user + their startup. Deliberately
 // separate from ADMIN_EMAILS and unset by default — this bypasses every
 // cascade-safety the app otherwise relies on, so it's scoped to as few people
@@ -273,7 +287,7 @@ const SUPER_ADMIN_EMAILS = (process.env.SUPER_ADMIN_EMAILS || "")
 
 // Auto-promote configured emails to admin on login / session check.
 async function ensureAdmin(user: any) {
-  if (ADMIN_EMAILS.includes(user.email) && user.role !== "admin") {
+  if (isAdminEmail(user.email) && user.role !== "admin") {
     return await storage.promoteToAdmin(user.id);
   }
   return user;
@@ -536,7 +550,7 @@ export function registerRoutes(app: Express) {
         .json({ message: "An account with this email already exists" });
     }
     const hash = await bcrypt.hash(password, 12);
-    const user = await storage.createUser({
+    const created = await storage.createUser({
       name: `${firstName} ${lastName}`,
       firstName,
       lastName,
@@ -547,6 +561,7 @@ export function registerRoutes(app: Express) {
       authProvider: "local",
       emailVerified: false,
     });
+    const user = await ensureAdmin(created);
     await issueVerification(user);
     req.session.userId = user.id;
     res.status(201).json(toPublicUser(user));
@@ -670,6 +685,7 @@ export function registerRoutes(app: Express) {
       }
       req.session.userId = user.id;
       await storage.touchLogin(user.id);
+      await ensureAdmin(full);
       res.redirect(`${APP_URL}/`);
     }),
   );
@@ -3037,6 +3053,13 @@ export function registerRoutes(app: Express) {
     if (!startup) return res.status(404).json({ message: "Not found" });
     await storage.cancelStartupDeletion(startup.id);
     res.json({ ok: true });
+  }));
+
+  // Admin's "Startup view" toggle: ensures (creating if needed) the sample
+  // startup an admin previews the founder-facing app as. Idempotent.
+  app.post("/api/admin/demo-startup", requireAdmin, ah(async (req, res) => {
+    const startup = await storage.getOrCreateDemoStartup(req.session.userId!);
+    res.json(startup);
   }));
 
   /* ---------------- Admin: signup approvals ---------------- */
