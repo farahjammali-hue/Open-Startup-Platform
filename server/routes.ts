@@ -1582,6 +1582,26 @@ export function registerRoutes(app: Express) {
     res.status(201).json(member);
   }));
 
+  app.patch("/api/team/:id", requireAuth, ah(async (req, res) => {
+    const startup = await requireActiveStartup(req, res);
+    if (!startup) return;
+    const owned = await storage.getOwnedTeamMember(req.params.id, startup.id);
+    if (!owned) return res.status(404).json({ message: "Not found" });
+    const parsed = teamMemberSchema.partial().safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
+    const d = parsed.data;
+    const member = await storage.updateTeamMember(owned.id, {
+      ...(d.name !== undefined && { name: d.name }),
+      ...(d.role !== undefined && { role: d.role || null }),
+      ...(d.type !== undefined && { type: d.type }),
+      ...(d.gender !== undefined && { gender: d.gender || null }),
+      ...(d.educationalBackground !== undefined && { educationalBackground: d.educationalBackground || null }),
+      ...(d.professionalBackground !== undefined && { professionalBackground: d.professionalBackground || null }),
+      ...(d.yearsOfExperience !== undefined && { yearsOfExperience: d.yearsOfExperience ?? null }),
+    });
+    res.json(member);
+  }));
+
   app.delete("/api/team/:id", requireAuth, ah(async (req, res) => {
     const startup = await requireActiveStartup(req, res);
     if (!startup) return;
@@ -1607,6 +1627,22 @@ export function registerRoutes(app: Express) {
     }
     const entry = await storage.createCapTableEntry(startup.id, parsed.data);
     res.status(201).json(entry);
+  }));
+
+  app.patch("/api/cap-table/:id", requireAuth, ah(async (req, res) => {
+    const startup = await requireActiveStartup(req, res);
+    if (!startup) return;
+    const owned = await storage.getOwnedCapTableEntry(req.params.id, startup.id);
+    if (!owned) return res.status(404).json({ message: "Not found" });
+    const parsed = capTableEntrySchema.partial().safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
+    const d = parsed.data;
+    const entry = await storage.updateCapTableEntry(owned.id, {
+      ...(d.name !== undefined && { name: d.name }),
+      ...(d.percentage !== undefined && { percentage: d.percentage }),
+      ...(d.currentInvolvement !== undefined && { currentInvolvement: d.currentInvolvement || null }),
+    });
+    res.json(entry);
   }));
 
   app.delete("/api/cap-table/:id", requireAuth, ah(async (req, res) => {
@@ -1637,6 +1673,24 @@ export function registerRoutes(app: Express) {
     res.status(201).json(member);
   }));
 
+  app.patch("/api/admin/startups/:id/team/:memberId", requireAdmin, ah(async (req, res) => {
+    const owned = await storage.getOwnedTeamMember(req.params.memberId, req.params.id);
+    if (!owned) return res.status(404).json({ message: "Not found" });
+    const parsed = teamMemberSchema.partial().safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
+    const d = parsed.data;
+    const member = await storage.updateTeamMember(owned.id, {
+      ...(d.name !== undefined && { name: d.name }),
+      ...(d.role !== undefined && { role: d.role || null }),
+      ...(d.type !== undefined && { type: d.type }),
+      ...(d.gender !== undefined && { gender: d.gender || null }),
+      ...(d.educationalBackground !== undefined && { educationalBackground: d.educationalBackground || null }),
+      ...(d.professionalBackground !== undefined && { professionalBackground: d.professionalBackground || null }),
+      ...(d.yearsOfExperience !== undefined && { yearsOfExperience: d.yearsOfExperience ?? null }),
+    });
+    res.json(member);
+  }));
+
   app.delete("/api/admin/startups/:id/team/:memberId", requireAdmin, ah(async (req, res) => {
     const owned = await storage.getOwnedTeamMember(req.params.memberId, req.params.id);
     if (!owned) return res.status(404).json({ message: "Not found" });
@@ -1651,6 +1705,20 @@ export function registerRoutes(app: Express) {
     if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
     const entry = await storage.createCapTableEntry(startup.id, { ...parsed.data, currentInvolvement: parsed.data.currentInvolvement || null });
     res.status(201).json(entry);
+  }));
+
+  app.patch("/api/admin/startups/:id/cap-table/:entryId", requireAdmin, ah(async (req, res) => {
+    const owned = await storage.getOwnedCapTableEntry(req.params.entryId, req.params.id);
+    if (!owned) return res.status(404).json({ message: "Not found" });
+    const parsed = capTableEntrySchema.partial().safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
+    const d = parsed.data;
+    const entry = await storage.updateCapTableEntry(owned.id, {
+      ...(d.name !== undefined && { name: d.name }),
+      ...(d.percentage !== undefined && { percentage: d.percentage }),
+      ...(d.currentInvolvement !== undefined && { currentInvolvement: d.currentInvolvement || null }),
+    });
+    res.json(entry);
   }));
 
   app.delete("/api/admin/startups/:id/cap-table/:entryId", requireAdmin, ah(async (req, res) => {
@@ -1692,13 +1760,14 @@ export function registerRoutes(app: Express) {
   }));
 
   /* ---------------- Initial Data: new repeatable tables (Cards 6, 9, 11, 13, 14) ----------------
-   * Each is add + delete only (no edit), mirrored founder / admin, same
-   * shape as Cap Table above. */
-  function initialDataSubResource<TSchema extends { safeParse: (v: unknown) => any }>(
+   * Add + edit + delete, mirrored founder / admin, same shape as Cap Table
+   * above. */
+  function initialDataSubResource<TSchema extends { safeParse: (v: unknown) => any; partial: () => { safeParse: (v: unknown) => any } }>(
     path: string,
     schema: TSchema,
     create: (startupId: string, data: any) => Promise<any>,
     getOwned: (id: string, startupId: string) => Promise<any>,
+    update: (id: string, data: any) => Promise<any>,
     del: (id: string) => Promise<void>,
   ) {
     app.post(`/api/startup-profile/${path}`, requireAuth, ah(async (req, res) => {
@@ -1707,6 +1776,15 @@ export function registerRoutes(app: Express) {
       const parsed = schema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
       res.status(201).json(await create(startup.id, parsed.data));
+    }));
+    app.patch(`/api/startup-profile/${path}/:entryId`, requireAuth, ah(async (req, res) => {
+      const startup = await requireActiveStartup(req, res);
+      if (!startup) return;
+      const owned = await getOwned(req.params.entryId, startup.id);
+      if (!owned) return res.status(404).json({ message: "Not found" });
+      const parsed = schema.partial().safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
+      res.json(await update(owned.id, parsed.data));
     }));
     app.delete(`/api/startup-profile/${path}/:entryId`, requireAuth, ah(async (req, res) => {
       const startup = await requireActiveStartup(req, res);
@@ -1723,6 +1801,13 @@ export function registerRoutes(app: Express) {
       if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
       res.status(201).json(await create(startup.id, parsed.data));
     }));
+    app.patch(`/api/admin/startups/:id/${path}/:entryId`, requireAdmin, ah(async (req, res) => {
+      const owned = await getOwned(req.params.entryId, req.params.id);
+      if (!owned) return res.status(404).json({ message: "Not found" });
+      const parsed = schema.partial().safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
+      res.json(await update(owned.id, parsed.data));
+    }));
     app.delete(`/api/admin/startups/:id/${path}/:entryId`, requireAdmin, ah(async (req, res) => {
       const owned = await getOwned(req.params.entryId, req.params.id);
       if (!owned) return res.status(404).json({ message: "Not found" });
@@ -1731,14 +1816,14 @@ export function registerRoutes(app: Express) {
     }));
   }
 
-  initialDataSubResource("funding-rounds", fundingRoundSchema, storage.createFundingRound.bind(storage), storage.getOwnedFundingRound.bind(storage), storage.deleteFundingRound.bind(storage));
-  initialDataSubResource("patents", patentSchema, storage.createPatent.bind(storage), storage.getOwnedPatent.bind(storage), storage.deletePatent.bind(storage));
-  initialDataSubResource("target-markets", targetMarketSchema, storage.createTargetMarket.bind(storage), storage.getOwnedTargetMarket.bind(storage), storage.deleteTargetMarket.bind(storage));
-  initialDataSubResource("competitors", competitorSchema, storage.createCompetitor.bind(storage), storage.getOwnedCompetitor.bind(storage), storage.deleteCompetitor.bind(storage));
-  initialDataSubResource("client-stats", clientStatSchema, storage.createClientStat.bind(storage), storage.getOwnedClientStat.bind(storage), storage.deleteClientStat.bind(storage));
-  initialDataSubResource("client-details", clientDetailSchema, storage.createClientDetail.bind(storage), storage.getOwnedClientDetail.bind(storage), storage.deleteClientDetail.bind(storage));
-  initialDataSubResource("partner-stats", partnerStatSchema, storage.createPartnerStat.bind(storage), storage.getOwnedPartnerStat.bind(storage), storage.deletePartnerStat.bind(storage));
-  initialDataSubResource("partner-details", partnerDetailSchema, storage.createPartnerDetail.bind(storage), storage.getOwnedPartnerDetail.bind(storage), storage.deletePartnerDetail.bind(storage));
+  initialDataSubResource("funding-rounds", fundingRoundSchema, storage.createFundingRound.bind(storage), storage.getOwnedFundingRound.bind(storage), storage.updateFundingRound.bind(storage), storage.deleteFundingRound.bind(storage));
+  initialDataSubResource("patents", patentSchema, storage.createPatent.bind(storage), storage.getOwnedPatent.bind(storage), storage.updatePatent.bind(storage), storage.deletePatent.bind(storage));
+  initialDataSubResource("target-markets", targetMarketSchema, storage.createTargetMarket.bind(storage), storage.getOwnedTargetMarket.bind(storage), storage.updateTargetMarket.bind(storage), storage.deleteTargetMarket.bind(storage));
+  initialDataSubResource("competitors", competitorSchema, storage.createCompetitor.bind(storage), storage.getOwnedCompetitor.bind(storage), storage.updateCompetitor.bind(storage), storage.deleteCompetitor.bind(storage));
+  initialDataSubResource("client-stats", clientStatSchema, storage.createClientStat.bind(storage), storage.getOwnedClientStat.bind(storage), storage.updateClientStat.bind(storage), storage.deleteClientStat.bind(storage));
+  initialDataSubResource("client-details", clientDetailSchema, storage.createClientDetail.bind(storage), storage.getOwnedClientDetail.bind(storage), storage.updateClientDetail.bind(storage), storage.deleteClientDetail.bind(storage));
+  initialDataSubResource("partner-stats", partnerStatSchema, storage.createPartnerStat.bind(storage), storage.getOwnedPartnerStat.bind(storage), storage.updatePartnerStat.bind(storage), storage.deletePartnerStat.bind(storage));
+  initialDataSubResource("partner-details", partnerDetailSchema, storage.createPartnerDetail.bind(storage), storage.getOwnedPartnerDetail.bind(storage), storage.updatePartnerDetail.bind(storage), storage.deletePartnerDetail.bind(storage));
 
   /* ---------------- Mentorship (flat list of sessions, no modules/locking) ---------------- */
   // Session content is program-wide, but each session embeds this startup's

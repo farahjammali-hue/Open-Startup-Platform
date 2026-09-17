@@ -176,9 +176,17 @@ interface FieldDef {
 }
 
 function AddModal({
-  title, fields, onClose, onSubmit,
-}: { title: string; fields: FieldDef[]; onClose: () => void; onSubmit: (values: Record<string, string>) => Promise<void> }) {
-  const [values, setValues] = useState<Record<string, string>>({});
+  title, fields, initial, submitLabel = "Add", onClose, onSubmit,
+}: {
+  title: string; fields: FieldDef[]; initial?: Record<string, any>; submitLabel?: string;
+  onClose: () => void; onSubmit: (values: Record<string, string>) => Promise<void>;
+}) {
+  const [values, setValues] = useState<Record<string, string>>(() => {
+    if (!initial) return {};
+    const v: Record<string, string> = {};
+    for (const f of fields) v[f.key] = initial[f.key] != null ? String(initial[f.key]) : "";
+    return v;
+  });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -222,7 +230,7 @@ function AddModal({
       <div className="mt-2 flex justify-end gap-2">
         <button onClick={onClose} className="ost-btn-ghost">Cancel</button>
         <button disabled={saving} onClick={submit} className="ost-btn-primary disabled:cursor-not-allowed disabled:opacity-50">
-          {saving && <Loader2 className="h-4 w-4 animate-spin" />} Add
+          {saving && <Loader2 className="h-4 w-4 animate-spin" />} {submitLabel}
         </button>
       </div>
     </ModalShell>
@@ -264,26 +272,39 @@ function RepeatableList<T extends { id: string }>({
   );
 }
 
-/** Competitor + details, listed one under another, with its own inline add form (no modal). */
+/** Competitor + details, listed one under another, with its own inline add/edit form (no modal). */
 function CompetitorsSection({
-  sub, competitors, addRow, deleteRow,
+  sub, competitors, addRow, updateRow, deleteRow,
 }: {
   sub: string;
   competitors: CompetitorRow[];
   addRow: (base: string, values: Record<string, string>) => Promise<void>;
+  updateRow: (base: string, id: string, values: Record<string, string>) => Promise<void>;
   deleteRow: (base: string, id: string) => Promise<void>;
 }) {
   const [name, setName] = useState("");
   const [details, setDetails] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  async function add() {
+  function cancelEdit() {
+    setEditingId(null);
+    setName("");
+    setDetails("");
+  }
+
+  async function save() {
     if (!name.trim()) return;
     setSaving(true);
     try {
-      await addRow(`${sub}/competitors`, { name, details });
+      if (editingId) {
+        await updateRow(`${sub}/competitors`, editingId, { name, details });
+      } else {
+        await addRow(`${sub}/competitors`, { name, details });
+      }
       setName("");
       setDetails("");
+      setEditingId(null);
     } finally {
       setSaving(false);
     }
@@ -295,6 +316,7 @@ function CompetitorsSection({
         rows={competitors}
         emptyText="No competitors added yet."
         onDelete={(id) => deleteRow(`${sub}/competitors`, id)}
+        onRowClick={(c) => { setEditingId(c.id); setName(c.name); setDetails(c.details ?? ""); }}
         renderRow={(c) => (
           <>
             <p className="font-semibold text-primary">{c.name}</p>
@@ -303,6 +325,12 @@ function CompetitorsSection({
         )}
       />
       <div className="mt-3 space-y-3">
+        {editingId && (
+          <div className="flex items-center justify-between rounded-lg bg-secondary/5 px-3 py-2 text-xs font-semibold text-secondary">
+            Editing competitor
+            <button type="button" onClick={cancelEdit} className="text-slate-400 hover:text-primary">Cancel</button>
+          </div>
+        )}
         <div>
           <FieldLabel>Competitor</FieldLabel>
           <input className={`ost-input ${H10}`} value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Competitor A" />
@@ -313,33 +341,14 @@ function CompetitorsSection({
         </div>
         <button
           type="button"
-          onClick={add}
+          onClick={save}
           disabled={saving || !name.trim()}
           className="ost-btn-ghost !px-2.5 !py-1 text-xs disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Add competitor
+          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} {editingId ? "Update competitor" : "Add competitor"}
         </button>
       </div>
     </div>
-  );
-}
-
-function DetailModal({ title, rows, onClose }: { title: string; rows: { label: string; value: ReactNode }[]; onClose: () => void }) {
-  return (
-    <ModalShell maxWidth="max-w-md">
-      <h3 className="mb-4 text-lg font-bold text-primary">{title}</h3>
-      <div className="space-y-3">
-        {rows.map((r) => (
-          <div key={r.label}>
-            <FieldLabel>{r.label}</FieldLabel>
-            <p className="text-sm text-primary">{r.value || <span className="text-slate-300">—</span>}</p>
-          </div>
-        ))}
-      </div>
-      <div className="mt-5 flex justify-end">
-        <button onClick={onClose} className="ost-btn-ghost">Close</button>
-      </div>
-    </ModalShell>
   );
 }
 
@@ -354,10 +363,11 @@ export function InitialDataPanel({ apiConfig, startupName }: { apiConfig: Initia
   const [form, setForm] = useState<Record<string, any>>({});
   const [saving, setSaving] = useState(false);
   const [activeModal, setActiveModal] = useState<string | null>(null);
-  const [viewFounder, setViewFounder] = useState<TeamMemberRow | null>(null);
-  const [viewShareholder, setViewShareholder] = useState<CapTableEntryRow | null>(null);
-  const [viewPartnerDetail, setViewPartnerDetail] = useState<PartnerDetailRow | null>(null);
+  // The row being edited when activeModal is open for an existing entry;
+  // null means the modal is in "add a new one" mode.
+  const [editingRow, setEditingRow] = useState<Record<string, any> | null>(null);
   const [newPatent, setNewPatent] = useState<Record<string, string>>({});
+  const [editingPatentId, setEditingPatentId] = useState<string | null>(null);
 
   useEffect(() => {
     if (data?.startup) setForm({ ...data.startup });
@@ -395,7 +405,12 @@ export function InitialDataPanel({ apiConfig, startupName }: { apiConfig: Initia
       // into its always-visible fields is created here, same as any other
       // field on this form, whenever there's something in it to save.
       if (Object.values(newPatent).some((v) => v)) {
-        await addRow(`${sub}/patents`, newPatent);
+        if (editingPatentId) {
+          await updateRow(`${sub}/patents`, editingPatentId, newPatent);
+          setEditingPatentId(null);
+        } else {
+          await addRow(`${sub}/patents`, newPatent);
+        }
         setNewPatent({});
       }
       showToast("Changes saved");
@@ -415,6 +430,26 @@ export function InitialDataPanel({ apiConfig, startupName }: { apiConfig: Initia
     }
     await api(base, { method: "POST", body: JSON.stringify(body) });
     invalidate();
+  }
+
+  async function updateRow(base: string, id: string, values: Record<string, string>, numericKeys: string[] = []) {
+    const body: Record<string, any> = {};
+    for (const [k, v] of Object.entries(values)) {
+      if (v === "" || v == null) continue;
+      body[k] = numericKeys.includes(k) ? Number(v) : v;
+    }
+    await api(`${base}/${id}`, { method: "PATCH", body: JSON.stringify(body) });
+    invalidate();
+  }
+
+  function openAdd(kind: string) {
+    setEditingRow(null);
+    setActiveModal(kind);
+  }
+
+  function openEdit(kind: string, row: Record<string, any>) {
+    setEditingRow(row);
+    setActiveModal(kind);
   }
 
   async function deleteRow(base: string, id: string) {
@@ -590,9 +625,9 @@ export function InitialDataPanel({ apiConfig, startupName }: { apiConfig: Initia
           <RepeatableList
             rows={founders}
             emptyText="No founders added yet."
-            addLabel="Add founder"
-            onAdd={() => setActiveModal("founder")}
-            onRowClick={setViewFounder}
+            addLabel="Add team member"
+            onAdd={() => openAdd("founder")}
+            onRowClick={(row) => openEdit("founder", row)}
             onDelete={(id) => deleteRow(apiConfig.teamUrl, id)}
             renderRow={(m) => (
               <>
@@ -609,8 +644,8 @@ export function InitialDataPanel({ apiConfig, startupName }: { apiConfig: Initia
             rows={data.capTableEntries}
             emptyText="No shareholders added yet."
             addLabel="Add shareholder"
-            onAdd={() => setActiveModal("shareholder")}
-            onRowClick={setViewShareholder}
+            onAdd={() => openAdd("shareholder")}
+            onRowClick={(row) => openEdit("shareholder", row)}
             onDelete={(id) => deleteRow(apiConfig.capTableUrl, id)}
             renderRow={(entry) => (
               <>
@@ -633,7 +668,8 @@ export function InitialDataPanel({ apiConfig, startupName }: { apiConfig: Initia
               rows={data.fundingRounds}
               emptyText="No funding rounds added yet."
               addLabel="Add funding round"
-              onAdd={() => setActiveModal("fundingRound")}
+              onAdd={() => openAdd("fundingRound")}
+              onRowClick={(row) => openEdit("fundingRound", row)}
               onDelete={(id) => deleteRow(`${sub}/funding-rounds`, id)}
               renderRow={(r) => (
                 <>
@@ -703,6 +739,20 @@ export function InitialDataPanel({ apiConfig, startupName }: { apiConfig: Initia
             rows={data.patents}
             emptyText="No patents added yet."
             onDelete={(id) => deleteRow(`${sub}/patents`, id)}
+            onRowClick={(p) => {
+              setEditingPatentId(p.id);
+              setNewPatent({
+                applicationType: p.applicationType ?? "",
+                status: p.status ?? "",
+                applicantName: p.applicantName ?? "",
+                country: p.country ?? "",
+                priorityDate: p.priorityDate ?? "",
+                effectiveFilingDate: p.effectiveFilingDate ?? "",
+                publicationDate: p.publicationDate ?? "",
+                publicationNumber: p.publicationNumber ?? "",
+                nextAction: p.nextAction ?? "",
+              });
+            }}
             renderRow={(p) => (
               <>
                 <p className="font-semibold text-primary">{labelOf(PATENT_APPLICATION_TYPE_OPTIONS, p.applicationType)} · {labelOf(PATENT_STATUS_OPTIONS, p.status)}</p>
@@ -715,6 +765,12 @@ export function InitialDataPanel({ apiConfig, startupName }: { apiConfig: Initia
           />
 
           {/* Fields for a new patent sit directly in the card, same as Funding's fields — no "Add" button that opens a modal. */}
+          {editingPatentId && (
+            <div className="mb-2 flex items-center justify-between rounded-lg bg-secondary/5 px-3 py-2 text-xs font-semibold text-secondary">
+              Editing patent — Save changes to apply
+              <button type="button" onClick={() => { setEditingPatentId(null); setNewPatent({}); }} className="text-slate-400 hover:text-primary">Cancel</button>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-4">
             <Field label="Type of application">
               <select className={`ost-input ${H10}`} value={newPatent.applicationType ?? ""} onChange={(e) => setNewPatent((v) => ({ ...v, applicationType: e.target.value }))}>
@@ -789,7 +845,8 @@ export function InitialDataPanel({ apiConfig, startupName }: { apiConfig: Initia
             rows={data.targetMarkets}
             emptyText="No target markets added yet."
             addLabel="Add market"
-            onAdd={() => setActiveModal("targetMarket")}
+            onAdd={() => openAdd("targetMarket")}
+            onRowClick={(row) => openEdit("targetMarket", row)}
             onDelete={(id) => deleteRow(`${sub}/target-markets`, id)}
             renderRow={(m) => (
               <>
@@ -804,7 +861,7 @@ export function InitialDataPanel({ apiConfig, startupName }: { apiConfig: Initia
         {/* 12. Competition */}
         <InitialDataCard title="12. Competition" icon={Binoculars} completion={completionOf([data.competitors.length > 0, !!s.competitionOverview])} isOpen={false} onToggle={() => {}}>
           <Field label="Main Competitors">
-            <CompetitorsSection sub={sub} competitors={data.competitors} addRow={addRow} deleteRow={deleteRow} />
+            <CompetitorsSection sub={sub} competitors={data.competitors} addRow={addRow} updateRow={updateRow} deleteRow={deleteRow} />
           </Field>
           <textarea className="ost-input min-h-[90px] w-full" value={s.competitionOverview ?? ""} onChange={(e) => set("competitionOverview", e.target.value)} />
         </InitialDataCard>
@@ -822,7 +879,8 @@ export function InitialDataPanel({ apiConfig, startupName }: { apiConfig: Initia
                 rows={data.clientDetails}
                 emptyText="No client details added yet."
                 addLabel="Add client detail"
-                onAdd={() => setActiveModal("clientDetail")}
+                onAdd={() => openAdd("clientDetail")}
+                onRowClick={(row) => openEdit("clientDetail", row)}
                 onDelete={(id) => deleteRow(`${sub}/client-details`, id)}
                 renderRow={(c) => (
                   <>
@@ -839,7 +897,8 @@ export function InitialDataPanel({ apiConfig, startupName }: { apiConfig: Initia
             rows={data.clientStats}
             emptyText="No client types added yet."
             addLabel="Add clients by type"
-            onAdd={() => setActiveModal("clientStat")}
+            onAdd={() => openAdd("clientStat")}
+            onRowClick={(row) => openEdit("clientStat", row)}
             onDelete={(id) => deleteRow(`${sub}/client-stats`, id)}
             renderRow={(c) => (
               <>
@@ -864,8 +923,8 @@ export function InitialDataPanel({ apiConfig, startupName }: { apiConfig: Initia
                 rows={data.partnerDetails}
                 emptyText="No partner details added yet."
                 addLabel="Add partner detail"
-                onAdd={() => setActiveModal("partnerDetail")}
-                onRowClick={setViewPartnerDetail}
+                onAdd={() => openAdd("partnerDetail")}
+                onRowClick={(row) => openEdit("partnerDetail", row)}
                 onDelete={(id) => deleteRow(`${sub}/partner-details`, id)}
                 renderRow={(p) => <p className="font-semibold text-primary">{p.partnerName}</p>}
               />
@@ -877,7 +936,8 @@ export function InitialDataPanel({ apiConfig, startupName }: { apiConfig: Initia
             rows={data.partnerStats}
             emptyText="No partner types added yet."
             addLabel="Add partners by type"
-            onAdd={() => setActiveModal("partnerStat")}
+            onAdd={() => openAdd("partnerStat")}
+            onRowClick={(row) => openEdit("partnerStat", row)}
             onDelete={(id) => deleteRow(`${sub}/partner-stats`, id)}
             renderRow={(p) => (
               <>
@@ -894,42 +954,11 @@ export function InitialDataPanel({ apiConfig, startupName }: { apiConfig: Initia
         </InitialDataCard>
       </div>
 
-      {viewFounder && (
-        <DetailModal
-          title={viewFounder.name}
-          onClose={() => setViewFounder(null)}
-          rows={[
-            { label: "Gender", value: viewFounder.gender },
-            { label: "Educational Background", value: viewFounder.educationalBackground },
-            { label: "Professional Background", value: viewFounder.professionalBackground },
-            { label: "Years of Experience", value: viewFounder.yearsOfExperience != null ? `${viewFounder.yearsOfExperience} yrs` : null },
-          ]}
-        />
-      )}
-      {viewShareholder && (
-        <DetailModal
-          title={viewShareholder.name}
-          onClose={() => setViewShareholder(null)}
-          rows={[
-            { label: "Shareholder %", value: `${viewShareholder.percentage}%` },
-            { label: "Current involvement", value: viewShareholder.currentInvolvement ? labelOf(INVOLVEMENT_OPTIONS, viewShareholder.currentInvolvement) : null },
-          ]}
-        />
-      )}
-      {viewPartnerDetail && (
-        <DetailModal
-          title={viewPartnerDetail.partnerName}
-          onClose={() => setViewPartnerDetail(null)}
-          rows={[
-            { label: "Scope of Partnership", value: viewPartnerDetail.scopeOfPartnership },
-            { label: "Next Steps", value: viewPartnerDetail.nextSteps },
-          ]}
-        />
-      )}
-
       {activeModal === "founder" && (
         <AddModal
-          title="Add founder"
+          title={editingRow ? "Edit team member" : "Add team member"}
+          submitLabel={editingRow ? "Save changes" : "Add"}
+          initial={editingRow ?? undefined}
           fields={[
             { key: "name", label: "Name", type: "text" },
             { key: "gender", label: "Gender", type: "text" },
@@ -938,24 +967,32 @@ export function InitialDataPanel({ apiConfig, startupName }: { apiConfig: Initia
             { key: "yearsOfExperience", label: "Years of Experience", type: "number" },
           ]}
           onClose={() => setActiveModal(null)}
-          onSubmit={(v) => addRow(apiConfig.teamUrl, { ...v, type: "founder" }, ["yearsOfExperience"])}
+          onSubmit={(v) => editingRow
+            ? updateRow(apiConfig.teamUrl, editingRow.id, { ...v, type: "founder" }, ["yearsOfExperience"])
+            : addRow(apiConfig.teamUrl, { ...v, type: "founder" }, ["yearsOfExperience"])}
         />
       )}
       {activeModal === "shareholder" && (
         <AddModal
-          title="Add shareholder"
+          title={editingRow ? "Edit shareholder" : "Add shareholder"}
+          submitLabel={editingRow ? "Save changes" : "Add"}
+          initial={editingRow ?? undefined}
           fields={[
             { key: "name", label: "Shareholder Name", type: "text" },
             { key: "percentage", label: "Shareholder %", type: "number" },
             { key: "currentInvolvement", label: "Current involvement", type: "select", options: INVOLVEMENT_OPTIONS },
           ]}
           onClose={() => setActiveModal(null)}
-          onSubmit={(v) => addRow(apiConfig.capTableUrl, v, ["percentage"])}
+          onSubmit={(v) => editingRow
+            ? updateRow(apiConfig.capTableUrl, editingRow.id, v, ["percentage"])
+            : addRow(apiConfig.capTableUrl, v, ["percentage"])}
         />
       )}
       {activeModal === "fundingRound" && (
         <AddModal
-          title="Add funding round"
+          title={editingRow ? "Edit funding round" : "Add funding round"}
+          submitLabel={editingRow ? "Save changes" : "Add"}
+          initial={editingRow ?? undefined}
           fields={[
             { key: "fundingType", label: "Type", type: "select", options: FUNDING_TYPE_OPTIONS },
             { key: "amount", label: "Amount", type: "number" },
@@ -965,23 +1002,31 @@ export function InitialDataPanel({ apiConfig, startupName }: { apiConfig: Initia
             { key: "dealTerms", label: "Deal terms", type: "textarea" },
           ]}
           onClose={() => setActiveModal(null)}
-          onSubmit={(v) => addRow(`${sub}/funding-rounds`, v, ["amount"])}
+          onSubmit={(v) => editingRow
+            ? updateRow(`${sub}/funding-rounds`, editingRow.id, v, ["amount"])
+            : addRow(`${sub}/funding-rounds`, v, ["amount"])}
         />
       )}
       {activeModal === "targetMarket" && (
         <AddModal
-          title="Add target market"
+          title={editingRow ? "Edit target market" : "Add target market"}
+          submitLabel={editingRow ? "Save changes" : "Add"}
+          initial={editingRow ?? undefined}
           fields={[
             { key: "market", label: "Market", type: "text" },
             { key: "status", label: "Status", type: "select", options: GTM_STATUS_OPTIONS },
           ]}
           onClose={() => setActiveModal(null)}
-          onSubmit={(v) => addRow(`${sub}/target-markets`, v)}
+          onSubmit={(v) => editingRow
+            ? updateRow(`${sub}/target-markets`, editingRow.id, v)
+            : addRow(`${sub}/target-markets`, v)}
         />
       )}
       {activeModal === "clientStat" && (
         <AddModal
-          title="Add clients by type"
+          title={editingRow ? "Edit clients by type" : "Add clients by type"}
+          submitLabel={editingRow ? "Save changes" : "Add"}
+          initial={editingRow ?? undefined}
           fields={[
             { key: "clientType", label: "Type of client", type: "select", options: CLIENT_TYPE_OPTIONS },
             { key: "totalClients", label: "Total number of clients", type: "number" },
@@ -989,24 +1034,32 @@ export function InitialDataPanel({ apiConfig, startupName }: { apiConfig: Initia
             { key: "retentionRate", label: "Retention rate (%)", type: "number" },
           ]}
           onClose={() => setActiveModal(null)}
-          onSubmit={(v) => addRow(`${sub}/client-stats`, v, ["totalClients", "retentionRate"])}
+          onSubmit={(v) => editingRow
+            ? updateRow(`${sub}/client-stats`, editingRow.id, v, ["totalClients", "retentionRate"])
+            : addRow(`${sub}/client-stats`, v, ["totalClients", "retentionRate"])}
         />
       )}
       {activeModal === "clientDetail" && (
         <AddModal
-          title="Add client detail"
+          title={editingRow ? "Edit client detail" : "Add client detail"}
+          submitLabel={editingRow ? "Save changes" : "Add"}
+          initial={editingRow ?? undefined}
           fields={[
             { key: "clientName", label: "Client Name", type: "text" },
             { key: "scopeOfWork", label: "Scope of work", type: "text" },
             { key: "dealValue", label: "Deal value", type: "number" },
           ]}
           onClose={() => setActiveModal(null)}
-          onSubmit={(v) => addRow(`${sub}/client-details`, v, ["dealValue"])}
+          onSubmit={(v) => editingRow
+            ? updateRow(`${sub}/client-details`, editingRow.id, v, ["dealValue"])
+            : addRow(`${sub}/client-details`, v, ["dealValue"])}
         />
       )}
       {activeModal === "partnerStat" && (
         <AddModal
-          title="Add partners by type"
+          title={editingRow ? "Edit partners by type" : "Add partners by type"}
+          submitLabel={editingRow ? "Save changes" : "Add"}
+          initial={editingRow ?? undefined}
           fields={[
             { key: "partnerType", label: "Type of partner", type: "select", options: PARTNER_TYPE_OPTIONS },
             { key: "totalPartners", label: "Total number of partners", type: "number" },
@@ -1014,19 +1067,25 @@ export function InitialDataPanel({ apiConfig, startupName }: { apiConfig: Initia
             { key: "retentionRate", label: "Retention rate (%)", type: "number" },
           ]}
           onClose={() => setActiveModal(null)}
-          onSubmit={(v) => addRow(`${sub}/partner-stats`, v, ["totalPartners", "retentionRate"])}
+          onSubmit={(v) => editingRow
+            ? updateRow(`${sub}/partner-stats`, editingRow.id, v, ["totalPartners", "retentionRate"])
+            : addRow(`${sub}/partner-stats`, v, ["totalPartners", "retentionRate"])}
         />
       )}
       {activeModal === "partnerDetail" && (
         <AddModal
-          title="Add partner detail"
+          title={editingRow ? "Edit partner detail" : "Add partner detail"}
+          submitLabel={editingRow ? "Save changes" : "Add"}
+          initial={editingRow ?? undefined}
           fields={[
             { key: "partnerName", label: "Partner Name", type: "text" },
             { key: "scopeOfPartnership", label: "Scope of partnership", type: "text" },
             { key: "nextSteps", label: "Next steps", type: "text" },
           ]}
           onClose={() => setActiveModal(null)}
-          onSubmit={(v) => addRow(`${sub}/partner-details`, v)}
+          onSubmit={(v) => editingRow
+            ? updateRow(`${sub}/partner-details`, editingRow.id, v)
+            : addRow(`${sub}/partner-details`, v)}
         />
       )}
     </div>
