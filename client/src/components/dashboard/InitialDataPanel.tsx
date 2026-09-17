@@ -612,30 +612,30 @@ export function InitialDataPanel({ apiConfig, startupName }: { apiConfig: Initia
           isOpen={expanded.has("team")}
           onToggle={() => toggle("team")}
           hidden={
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="Team Size"><input type="number" className={`ost-input ${H10}`} value={s.teamSize ?? ""} onChange={(e) => set("teamSize", e.target.value ? Number(e.target.value) : null)} /></Field>
-              <Field label="% Youth in team"><input type="number" className={`ost-input ${H10}`} value={s.youthEmployees ?? ""} onChange={(e) => set("youthEmployees", e.target.value ? Number(e.target.value) : null)} /></Field>
-              <Field label="Contractors"><input type="number" className={`ost-input ${H10}`} value={s.contractorsCount ?? ""} onChange={(e) => set("contractorsCount", e.target.value ? Number(e.target.value) : null)} /></Field>
-              <Field label="Paid employees"><input type="number" className={`ost-input ${H10}`} value={s.paidEmployeesCount ?? ""} onChange={(e) => set("paidEmployeesCount", e.target.value ? Number(e.target.value) : null)} /></Field>
-              <Field label="Advisors"><input type="number" className={`ost-input ${H10}`} value={s.advisorsCount ?? ""} onChange={(e) => set("advisorsCount", e.target.value ? Number(e.target.value) : null)} /></Field>
-              <Field label="Female employees"><input type="number" className={`ost-input ${H10}`} value={s.femaleTeamMembers ?? ""} onChange={(e) => set("femaleTeamMembers", e.target.value ? Number(e.target.value) : null)} /></Field>
-            </div>
+            <RepeatableList
+              rows={founders}
+              emptyText="No founders added yet."
+              addLabel="Add team member"
+              onAdd={() => openAdd("founder")}
+              onRowClick={(row) => openEdit("founder", row)}
+              onDelete={(id) => deleteRow(apiConfig.teamUrl, id)}
+              renderRow={(m) => (
+                <>
+                  <p className="font-semibold text-primary">{m.name}</p>
+                  <p className="text-slate-400">{[m.gender, m.educationalBackground, m.professionalBackground, m.yearsOfExperience != null ? `${m.yearsOfExperience} yrs exp.` : null].filter(Boolean).join(" · ")}</p>
+                </>
+              )}
+            />
           }
         >
-          <RepeatableList
-            rows={founders}
-            emptyText="No founders added yet."
-            addLabel="Add team member"
-            onAdd={() => openAdd("founder")}
-            onRowClick={(row) => openEdit("founder", row)}
-            onDelete={(id) => deleteRow(apiConfig.teamUrl, id)}
-            renderRow={(m) => (
-              <>
-                <p className="font-semibold text-primary">{m.name}</p>
-                <p className="text-slate-400">{[m.gender, m.educationalBackground, m.professionalBackground, m.yearsOfExperience != null ? `${m.yearsOfExperience} yrs exp.` : null].filter(Boolean).join(" · ")}</p>
-              </>
-            )}
-          />
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Team Size"><input type="number" className={`ost-input ${H10}`} value={s.teamSize ?? ""} onChange={(e) => set("teamSize", e.target.value ? Number(e.target.value) : null)} /></Field>
+            <Field label="% Youth in team"><input type="number" className={`ost-input ${H10}`} value={s.youthEmployees ?? ""} onChange={(e) => set("youthEmployees", e.target.value ? Number(e.target.value) : null)} /></Field>
+            <Field label="Contractors"><input type="number" className={`ost-input ${H10}`} value={s.contractorsCount ?? ""} onChange={(e) => set("contractorsCount", e.target.value ? Number(e.target.value) : null)} /></Field>
+            <Field label="Paid employees"><input type="number" className={`ost-input ${H10}`} value={s.paidEmployeesCount ?? ""} onChange={(e) => set("paidEmployeesCount", e.target.value ? Number(e.target.value) : null)} /></Field>
+            <Field label="Advisors"><input type="number" className={`ost-input ${H10}`} value={s.advisorsCount ?? ""} onChange={(e) => set("advisorsCount", e.target.value ? Number(e.target.value) : null)} /></Field>
+            <Field label="Female employees"><input type="number" className={`ost-input ${H10}`} value={s.femaleTeamMembers ?? ""} onChange={(e) => set("femaleTeamMembers", e.target.value ? Number(e.target.value) : null)} /></Field>
+          </div>
         </InitialDataCard>
 
         {/* 5. Shareholders */}
