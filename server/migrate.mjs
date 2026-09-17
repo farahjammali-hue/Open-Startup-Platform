@@ -1023,6 +1023,10 @@ ALTER TABLE kys_profiles ALTER COLUMN incorporated DROP NOT NULL;
 -- Team members (Initial Data Card 4) now also capture current involvement,
 -- same catalog as cap_table_entries.current_involvement.
 ALTER TABLE team_members ADD COLUMN IF NOT EXISTS current_involvement text;
+
+-- Each target market (Initial Data Card 11) can now carry its own GTM
+-- strategy link, separate from the startup-wide one.
+ALTER TABLE startup_target_markets ADD COLUMN IF NOT EXISTS strategy_link text;
 `;
 
 try {

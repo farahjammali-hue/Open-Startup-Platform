@@ -1512,7 +1512,7 @@ export const storage = {
   async listTargetMarkets(startupId: string): Promise<StartupTargetMarket[]> {
     return db.select().from(startupTargetMarkets).where(eq(startupTargetMarkets.startupId, startupId)).orderBy(asc(startupTargetMarkets.createdAt));
   },
-  async createTargetMarket(startupId: string, data: { market: string; status: string }): Promise<StartupTargetMarket> {
+  async createTargetMarket(startupId: string, data: { market: string; status: string; strategyLink?: string | null }): Promise<StartupTargetMarket> {
     const [row] = await db.insert(startupTargetMarkets).values({ ...data, startupId }).returning();
     return row;
   },

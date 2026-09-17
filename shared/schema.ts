@@ -1117,6 +1117,9 @@ export const startupTargetMarkets = pgTable("startup_target_markets", {
     .notNull(),
   market: text("market").notNull(),
   status: text("status").notNull(),
+  // Per-market GTM strategy doc, distinct from the startup-wide
+  // goToMarketStrategyLink on startups.
+  strategyLink: text("strategy_link"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
@@ -1495,6 +1498,7 @@ export const patentSchema = z.object({
 export const targetMarketSchema = z.object({
   market: z.string().min(1, "Market is required").max(200),
   status: z.enum(GTM_STATUS_VALUES),
+  strategyLink: z.string().max(500).optional().or(z.literal("")),
 });
 
 export const competitorSchema = z.object({

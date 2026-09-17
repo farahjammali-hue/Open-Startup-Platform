@@ -79,7 +79,7 @@ interface PatentRow {
   priorityDate: string | null; effectiveFilingDate: string | null; publicationDate: string | null;
   publicationNumber: string | null; status: string | null; nextAction: string | null;
 }
-interface TargetMarketRow { id: string; market: string; status: string }
+interface TargetMarketRow { id: string; market: string; status: string; strategyLink: string | null }
 interface CompetitorRow { id: string; name: string; details: string | null }
 interface ClientStatRow { id: string; clientType: string; totalClients: number | null; majorClientNames: string | null; retentionRate: number | null }
 interface ClientDetailRow { id: string; clientName: string; scopeOfWork: string | null; dealValue: number | null }
@@ -512,7 +512,7 @@ export function InitialDataPanel({ apiConfig, startupName }: { apiConfig: Initia
     push("10. Market Size", "Serviceable Addressable Market", s.serviceableAddressableMarket ?? "");
     push("10. Market Size", "Serviceable Obtainable Market", s.serviceableObtainableMarket ?? "");
 
-    data.targetMarkets.forEach((m, i) => push("11. Go To Market", `Target Market ${i + 1}`, `${m.market} · ${labelOf(GTM_STATUS_OPTIONS, m.status)}`));
+    data.targetMarkets.forEach((m, i) => push("11. Go To Market", `Target Market ${i + 1}`, [m.market, labelOf(GTM_STATUS_OPTIONS, m.status), m.strategyLink].filter(Boolean).join(" · ")));
     push("11. Go To Market", "Go To Market strategy (link)", s.goToMarketStrategyLink ?? "");
 
     data.competitors.forEach((c, i) => push("12. Competition", `Competitor ${i + 1}`, [c.name, c.details].filter(Boolean).join(" · ")));
@@ -780,6 +780,17 @@ export function InitialDataPanel({ apiConfig, startupName }: { apiConfig: Initia
               <>
                 <p className="font-semibold text-primary">{m.market}</p>
                 <p className="text-slate-400">{labelOf(GTM_STATUS_OPTIONS, m.status)}</p>
+                {m.strategyLink && (
+                  <a
+                    href={m.strategyLink}
+                    target="_blank"
+                    rel="noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    className="inline-flex items-center gap-1 text-xs font-medium text-secondary hover:underline"
+                  >
+                    Strategy link <ExternalLink className="h-3 w-3" />
+                  </a>
+                )}
               </>
             )}
           />
@@ -965,8 +976,9 @@ export function InitialDataPanel({ apiConfig, startupName }: { apiConfig: Initia
           submitLabel={editingRow ? "Save changes" : "Add"}
           initial={editingRow ?? undefined}
           fields={[
-            { key: "market", label: "Market", type: "text" },
+            { key: "market", label: "Market (Country)", type: "text" },
             { key: "status", label: "Status", type: "select", options: GTM_STATUS_OPTIONS },
+            { key: "strategyLink", label: "Go To Market strategy (link)", type: "text" },
           ]}
           onClose={() => setActiveModal(null)}
           onSubmit={(v) => editingRow
