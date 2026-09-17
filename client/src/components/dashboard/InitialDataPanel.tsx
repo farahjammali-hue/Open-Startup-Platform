@@ -70,6 +70,7 @@ interface StartupProfileData {
 interface TeamMemberRow {
   id: string; name: string; role: string | null; type: "founder" | "full_time" | "part_time" | "advisor";
   gender: string | null; educationalBackground: string | null; professionalBackground: string | null; yearsOfExperience: number | null;
+  currentInvolvement: string | null;
 }
 interface CapTableEntryRow { id: string; name: string; percentage: number; currentInvolvement: string | null }
 interface FundingRoundRow { id: string; amount: number | null; investorName: string | null; fundingType: string | null; round: string | null; roundDate: string | null; dealTerms: string | null }
@@ -498,7 +499,7 @@ export function InitialDataPanel({ apiConfig, startupName }: { apiConfig: Initia
     push("4. Team", "Paid employees", s.paidEmployeesCount ?? "");
     push("4. Team", "Advisors", s.advisorsCount ?? "");
     push("4. Team", "Female employees", s.femaleTeamMembers ?? "");
-    founders.forEach((m, i) => push("4. Team", `Founder ${i + 1}`, [m.name, m.gender, m.educationalBackground, m.professionalBackground, m.yearsOfExperience != null ? `${m.yearsOfExperience} yrs` : null].filter(Boolean).join(" · ")));
+    founders.forEach((m, i) => push("4. Team", `Founder ${i + 1}`, [m.name, m.role, m.currentInvolvement ? labelOf(INVOLVEMENT_OPTIONS, m.currentInvolvement) : null, m.gender, m.educationalBackground, m.professionalBackground, m.yearsOfExperience != null ? `${m.yearsOfExperience} yrs` : null].filter(Boolean).join(" · ")));
 
     data.capTableEntries.forEach((e, i) => push("5. Shareholders", `Shareholder ${i + 1}`, [`${e.name} — ${e.percentage}%`, e.currentInvolvement ? labelOf(INVOLVEMENT_OPTIONS, e.currentInvolvement) : null].filter(Boolean).join(" · ")));
 
@@ -621,8 +622,8 @@ export function InitialDataPanel({ apiConfig, startupName }: { apiConfig: Initia
               onDelete={(id) => deleteRow(apiConfig.teamUrl, id)}
               renderRow={(m) => (
                 <>
-                  <p className="font-semibold text-primary">{m.name}</p>
-                  <p className="text-slate-400">{[m.gender, m.educationalBackground, m.professionalBackground, m.yearsOfExperience != null ? `${m.yearsOfExperience} yrs exp.` : null].filter(Boolean).join(" · ")}</p>
+                  <p className="font-semibold text-primary">{m.name}{m.role ? ` · ${m.role}` : ""}</p>
+                  <p className="text-slate-400">{[m.gender, m.educationalBackground, m.professionalBackground, m.yearsOfExperience != null ? `${m.yearsOfExperience} yrs exp.` : null, m.currentInvolvement ? labelOf(INVOLVEMENT_OPTIONS, m.currentInvolvement) : null].filter(Boolean).join(" · ")}</p>
                 </>
               )}
             />
@@ -961,6 +962,8 @@ export function InitialDataPanel({ apiConfig, startupName }: { apiConfig: Initia
           initial={editingRow ?? undefined}
           fields={[
             { key: "name", label: "Name", type: "text" },
+            { key: "role", label: "Position", type: "text" },
+            { key: "currentInvolvement", label: "Current involvement", type: "select", options: INVOLVEMENT_OPTIONS },
             { key: "gender", label: "Gender", type: "text" },
             { key: "educationalBackground", label: "Educational Background", type: "text" },
             { key: "professionalBackground", label: "Professional Background", type: "text" },

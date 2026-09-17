@@ -1019,6 +1019,10 @@ CREATE TABLE IF NOT EXISTS training_module_startups (
 -- link) that only collects track, so new submissions no longer answer this.
 -- Existing rows keep their real true/false.
 ALTER TABLE kys_profiles ALTER COLUMN incorporated DROP NOT NULL;
+
+-- Team members (Initial Data Card 4) now also capture current involvement,
+-- same catalog as cap_table_entries.current_involvement.
+ALTER TABLE team_members ADD COLUMN IF NOT EXISTS current_involvement text;
 `;
 
 try {

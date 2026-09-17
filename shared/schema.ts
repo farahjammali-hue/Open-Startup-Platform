@@ -1056,6 +1056,8 @@ export const teamMembers = pgTable("team_members", {
   educationalBackground: text("educational_background"),
   professionalBackground: text("professional_background"),
   yearsOfExperience: integer("years_of_experience"),
+  // Same catalog as capTableEntries.currentInvolvement below.
+  currentInvolvement: text("current_involvement"),
 });
 
 /* =========================================================
@@ -1729,6 +1731,7 @@ export const teamMemberSchema = z.object({
   educationalBackground: z.string().max(300).optional().or(z.literal("")),
   professionalBackground: z.string().max(300).optional().or(z.literal("")),
   yearsOfExperience: z.number().int().nonnegative().optional(),
+  currentInvolvement: z.enum(INVOLVEMENT_VALUES).optional().or(z.literal("")),
 });
 
 /* =========================================================

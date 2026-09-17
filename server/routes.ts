@@ -1578,6 +1578,7 @@ export function registerRoutes(app: Express) {
       educationalBackground: parsed.data.educationalBackground || null,
       professionalBackground: parsed.data.professionalBackground || null,
       yearsOfExperience: parsed.data.yearsOfExperience ?? null,
+      currentInvolvement: parsed.data.currentInvolvement || null,
     });
     res.status(201).json(member);
   }));
@@ -1598,6 +1599,7 @@ export function registerRoutes(app: Express) {
       ...(d.educationalBackground !== undefined && { educationalBackground: d.educationalBackground || null }),
       ...(d.professionalBackground !== undefined && { professionalBackground: d.professionalBackground || null }),
       ...(d.yearsOfExperience !== undefined && { yearsOfExperience: d.yearsOfExperience ?? null }),
+      ...(d.currentInvolvement !== undefined && { currentInvolvement: d.currentInvolvement || null }),
     });
     res.json(member);
   }));
@@ -1669,6 +1671,7 @@ export function registerRoutes(app: Express) {
       educationalBackground: d.educationalBackground || null,
       professionalBackground: d.professionalBackground || null,
       yearsOfExperience: d.yearsOfExperience ?? null,
+      currentInvolvement: d.currentInvolvement || null,
     });
     res.status(201).json(member);
   }));
@@ -1687,6 +1690,7 @@ export function registerRoutes(app: Express) {
       ...(d.educationalBackground !== undefined && { educationalBackground: d.educationalBackground || null }),
       ...(d.professionalBackground !== undefined && { professionalBackground: d.professionalBackground || null }),
       ...(d.yearsOfExperience !== undefined && { yearsOfExperience: d.yearsOfExperience ?? null }),
+      ...(d.currentInvolvement !== undefined && { currentInvolvement: d.currentInvolvement || null }),
     });
     res.json(member);
   }));

@@ -1412,6 +1412,7 @@ export const storage = {
       educationalBackground?: string | null;
       professionalBackground?: string | null;
       yearsOfExperience?: number | null;
+      currentInvolvement?: string | null;
     },
   ): Promise<TeamMember> {
     const [row] = await db.insert(teamMembers).values({ startupId, ...data }).returning();
