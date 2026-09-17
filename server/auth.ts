@@ -15,10 +15,6 @@ const PgStore = connectPgSimple(session);
 declare module "express-session" {
   interface SessionData {
     userId?: string;
-    // Admin-only: which real startup "Startup view" should render as, when
-    // the admin picked one explicitly rather than previewing the sample
-    // Demo Startup. See requireActiveStartup in routes.ts.
-    previewStartupId?: string;
   }
 }
 

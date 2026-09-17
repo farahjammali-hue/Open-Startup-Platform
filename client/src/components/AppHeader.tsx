@@ -15,11 +15,6 @@ function AdminViewSwitch() {
   function go(mode: "admin" | "startup") {
     if (mode === viewMode) return;
     if (!confirmLeave()) return;
-    // Leaving Startup view drops any specific startup the admin was
-    // previewing, so the next time in starts fresh on the sample startup.
-    if (mode === "admin") {
-      api("/api/admin/preview-startup/clear", { method: "POST" }).catch(() => {});
-    }
     setViewMode(mode);
     navigate(mode === "admin" ? "/admin" : "/");
   }

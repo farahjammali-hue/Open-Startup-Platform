@@ -1,15 +1,13 @@
 import { useRoute, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../lib/utils";
-import { useViewMode } from "../../lib/viewMode";
-import { showToast } from "../../lib/toast";
 import { AppShell } from "../../components/AppShell";
 import { BackLink, PageHeader } from "../../components/PageHeader";
 import { StatusBadge } from "../../components/StatusBadge";
 import { Skeleton, SkeletonText } from "../../components/Skeleton";
 import { STAGE_LABELS, type StartupStage } from "../../lib/stageLabels";
 import { REVIEW_STATUS_TONES, REVIEW_STATUS_ICONS } from "../../lib/statusTones";
-import { Buildings as Building2, Globe, MapPin, ChartLine as LineChart, FolderLock, Signature as FileSignature, ShieldCheck, Stack as Layers, Handshake, ArrowRight, Rocket } from "@phosphor-icons/react";
+import { Buildings as Building2, Globe, MapPin, ChartLine as LineChart, FolderLock, Signature as FileSignature, ShieldCheck, Stack as Layers, Handshake, ArrowRight } from "@phosphor-icons/react";
 
 interface ReviewEntity { status: "pending" | "approved" | "rejected"; reviewNote: string | null }
 
@@ -28,22 +26,11 @@ export default function AdminStartupDetail() {
   const [, params] = useRoute("/admin/startups/:id");
   const id = params?.id ?? "";
   const [, navigate] = useLocation();
-  const { setViewMode } = useViewMode();
   const { data, isLoading } = useQuery<Detail>({
     queryKey: ["admin-startup-detail", id],
     queryFn: () => api(`/api/admin/startups/${id}`),
     enabled: !!id,
   });
-
-  async function previewAsStartup() {
-    try {
-      await api(`/api/admin/preview-startup/${id}`, { method: "POST" });
-      setViewMode("startup");
-      navigate("/");
-    } catch (e: any) {
-      showToast(e.message || "Couldn't switch to Startup view");
-    }
-  }
 
   if (isLoading || !data) {
     return (
@@ -130,11 +117,6 @@ export default function AdminStartupDetail() {
               )}
               {startup.stage && <span>{STAGE_LABELS[startup.stage as StartupStage] || startup.stage}</span>}
             </span>
-          }
-          action={
-            <button onClick={previewAsStartup} className="ost-btn-ghost !px-4 !py-2 text-sm">
-              <Rocket className="h-4 w-4" /> Preview as this startup
-            </button>
           }
         />
 
