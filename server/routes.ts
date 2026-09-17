@@ -466,6 +466,19 @@ const ah =
   (fn: AsyncHandler) => (req: Request, res: Response, next: NextFunction) =>
     Promise.resolve(fn(req, res, next)).catch(next);
 
+// Resolves the startup a request should act on: an admin's specific preview
+// pick (Startup view → "Preview as this startup") if one is set, otherwise
+// the signed-in user's own active startup via ownership. Shared by every
+// place that used to call storage.resolveActiveStartup(user) directly, so
+// admin preview is honored consistently.
+async function resolveEffectiveStartup(req: Request, user: NonNullable<Awaited<ReturnType<typeof storage.getUserById>>>) {
+  if (user.role === "admin" && req.session.previewStartupId) {
+    const preview = await storage.getStartupById(req.session.previewStartupId);
+    if (preview) return preview;
+  }
+  return storage.resolveActiveStartup(user);
+}
+
 // Resolve the signed-in user's active startup, or send a 400/401 and return
 // undefined. Every module route (goals, KPIs, data room, etc.) is scoped to
 // this startup.
@@ -475,7 +488,7 @@ async function requireActiveStartup(req: Request, res: Response) {
     res.status(401).json({ message: "Not authenticated" });
     return undefined;
   }
-  const startup = await storage.resolveActiveStartup(user);
+  const startup = await resolveEffectiveStartup(req, user);
   if (!startup) {
     res.status(400).json({ message: "Create a startup first" });
     return undefined;
@@ -865,7 +878,7 @@ export function registerRoutes(app: Express) {
   app.get("/api/startup/me", requireAuth, ah(async (req, res) => {
     const user = await storage.getUserById(req.session.userId!);
     if (!user) return res.status(401).json({ message: "Not authenticated" });
-    const active = await storage.resolveActiveStartup(user);
+    const active = await resolveEffectiveStartup(req, user);
     if (!active) return res.status(404).json({ message: "No startup yet" });
     res.json(active);
   }));
@@ -873,6 +886,13 @@ export function registerRoutes(app: Express) {
   app.get("/api/startups", requireAuth, ah(async (req, res) => {
     const user = await storage.getUserById(req.session.userId!);
     if (!user) return res.status(401).json({ message: "Not authenticated" });
+    // Admin "Startup view" previewing a real startup: show that one instead
+    // of the admin's own (sample) startups, so the header matches what's
+    // actually rendered.
+    if (user.role === "admin" && req.session.previewStartupId) {
+      const preview = await storage.getStartupById(req.session.previewStartupId);
+      if (preview) return res.json({ startups: [preview], activeStartupId: preview.id });
+    }
     const list = await storage.getStartupsByUserId(user.id);
     res.json({ startups: list, activeStartupId: user.activeStartupId });
   }));
@@ -3158,9 +3178,31 @@ export function registerRoutes(app: Express) {
   }));
 
   // Admin's "Startup view" toggle: ensures (creating if needed) the sample
-  // startup an admin previews the founder-facing app as. Idempotent.
+  // startup an admin previews the founder-facing app as. Idempotent. If the
+  // admin has instead picked a real startup to preview (see
+  // /preview-startup below), that one wins and the sample is left alone.
   app.post("/api/admin/demo-startup", requireAdmin, ah(async (req, res) => {
+    if (req.session.previewStartupId) {
+      const preview = await storage.getStartupById(req.session.previewStartupId);
+      if (preview) return res.json(preview);
+      req.session.previewStartupId = undefined;
+    }
     const startup = await storage.getOrCreateDemoStartup(req.session.userId!);
+    res.json(startup);
+  }));
+
+  // Admin "Startup view": preview the founder-facing app as a specific real
+  // startup instead of the sample Demo Startup. The literal /clear route
+  // must be registered before /:id, or Express would match "clear" as an id.
+  app.post("/api/admin/preview-startup/clear", requireAdmin, ah(async (req, res) => {
+    req.session.previewStartupId = undefined;
+    res.json({ ok: true });
+  }));
+
+  app.post("/api/admin/preview-startup/:id", requireAdmin, ah(async (req, res) => {
+    const startup = await storage.getStartupById(req.params.id);
+    if (!startup) return res.status(404).json({ message: "Not found" });
+    req.session.previewStartupId = startup.id;
     res.json(startup);
   }));
 
