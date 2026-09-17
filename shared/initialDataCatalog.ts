@@ -42,6 +42,7 @@ export const PATENT_APPLICATION_TYPE_OPTIONS: Option[] = [
 ];
 
 export const PATENT_STATUS_OPTIONS: Option[] = [
+  { value: "to_be_filled", label: "To be filled" },
   { value: "pending", label: "Pending" },
   { value: "published", label: "Published" },
   { value: "granted", label: "Granted" },

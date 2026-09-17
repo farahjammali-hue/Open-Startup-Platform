@@ -367,8 +367,6 @@ export function InitialDataPanel({ apiConfig, startupName }: { apiConfig: Initia
   // The row being edited when activeModal is open for an existing entry;
   // null means the modal is in "add a new one" mode.
   const [editingRow, setEditingRow] = useState<Record<string, any> | null>(null);
-  const [newPatent, setNewPatent] = useState<Record<string, string>>({});
-  const [editingPatentId, setEditingPatentId] = useState<string | null>(null);
 
   useEffect(() => {
     if (data?.startup) setForm({ ...data.startup });
@@ -402,18 +400,6 @@ export function InitialDataPanel({ apiConfig, startupName }: { apiConfig: Initia
         body[k] = v;
       }
       await api(apiConfig.overviewPatchUrl, { method: "PATCH", body: JSON.stringify(body) });
-      // The Patenting card has no add button of its own — a patent typed
-      // into its always-visible fields is created here, same as any other
-      // field on this form, whenever there's something in it to save.
-      if (Object.values(newPatent).some((v) => v)) {
-        if (editingPatentId) {
-          await updateRow(`${sub}/patents`, editingPatentId, newPatent);
-          setEditingPatentId(null);
-        } else {
-          await addRow(`${sub}/patents`, newPatent);
-        }
-        setNewPatent({});
-      }
       showToast("Changes saved");
       invalidate();
     } catch (e: any) {
@@ -740,21 +726,10 @@ export function InitialDataPanel({ apiConfig, startupName }: { apiConfig: Initia
           <RepeatableList
             rows={data.patents}
             emptyText="No patents added yet."
+            addLabel="Add patent"
+            onAdd={() => openAdd("patent")}
+            onRowClick={(row) => openEdit("patent", row)}
             onDelete={(id) => deleteRow(`${sub}/patents`, id)}
-            onRowClick={(p) => {
-              setEditingPatentId(p.id);
-              setNewPatent({
-                applicationType: p.applicationType ?? "",
-                status: p.status ?? "",
-                applicantName: p.applicantName ?? "",
-                country: p.country ?? "",
-                priorityDate: p.priorityDate ?? "",
-                effectiveFilingDate: p.effectiveFilingDate ?? "",
-                publicationDate: p.publicationDate ?? "",
-                publicationNumber: p.publicationNumber ?? "",
-                nextAction: p.nextAction ?? "",
-              });
-            }}
             renderRow={(p) => (
               <>
                 <p className="font-semibold text-primary">{labelOf(PATENT_APPLICATION_TYPE_OPTIONS, p.applicationType)} · {labelOf(PATENT_STATUS_OPTIONS, p.status)}</p>
@@ -765,55 +740,6 @@ export function InitialDataPanel({ apiConfig, startupName }: { apiConfig: Initia
               </>
             )}
           />
-
-          {/* Fields for a new patent sit directly in the card, same as Funding's fields — no "Add" button that opens a modal. */}
-          {editingPatentId && (
-            <div className="mb-2 flex items-center justify-between rounded-lg bg-secondary/5 px-3 py-2 text-xs font-semibold text-secondary">
-              Editing patent — Save changes to apply
-              <button type="button" onClick={() => { setEditingPatentId(null); setNewPatent({}); }} className="text-slate-400 hover:text-primary">Cancel</button>
-            </div>
-          )}
-          <div className="grid grid-cols-2 gap-4">
-            <Field label="Type of application">
-              <select className={`ost-input ${H10}`} value={newPatent.applicationType ?? ""} onChange={(e) => setNewPatent((v) => ({ ...v, applicationType: e.target.value }))}>
-                <option value="">Select…</option>
-                {PATENT_APPLICATION_TYPE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
-            </Field>
-            <Field label="Status">
-              <select className={`ost-input ${H10}`} value={newPatent.status ?? ""} onChange={(e) => setNewPatent((v) => ({ ...v, status: e.target.value }))}>
-                <option value="">Select…</option>
-                {PATENT_STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
-            </Field>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <Field label="Patent Applicant Name">
-              <input className={`ost-input ${H10}`} value={newPatent.applicantName ?? ""} onChange={(e) => setNewPatent((v) => ({ ...v, applicantName: e.target.value }))} />
-            </Field>
-            <Field label="Country">
-              <input className={`ost-input ${H10}`} value={newPatent.country ?? ""} onChange={(e) => setNewPatent((v) => ({ ...v, country: e.target.value }))} />
-            </Field>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <Field label="Priority Date">
-              <input className={`ost-input ${H10}`} value={newPatent.priorityDate ?? ""} onChange={(e) => setNewPatent((v) => ({ ...v, priorityDate: e.target.value }))} />
-            </Field>
-            <Field label="Effective filing date">
-              <input className={`ost-input ${H10}`} value={newPatent.effectiveFilingDate ?? ""} onChange={(e) => setNewPatent((v) => ({ ...v, effectiveFilingDate: e.target.value }))} />
-            </Field>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <Field label="Publication Date">
-              <input className={`ost-input ${H10}`} value={newPatent.publicationDate ?? ""} onChange={(e) => setNewPatent((v) => ({ ...v, publicationDate: e.target.value }))} />
-            </Field>
-            <Field label="Publication Number">
-              <input className={`ost-input ${H10}`} value={newPatent.publicationNumber ?? ""} onChange={(e) => setNewPatent((v) => ({ ...v, publicationNumber: e.target.value }))} />
-            </Field>
-          </div>
-          <Field label="Next Action">
-            <textarea className="ost-input min-h-[60px]" value={newPatent.nextAction ?? ""} onChange={(e) => setNewPatent((v) => ({ ...v, nextAction: e.target.value }))} />
-          </Field>
         </InitialDataCard>
 
         {/* 10. Market Size */}
@@ -1009,6 +935,28 @@ export function InitialDataPanel({ apiConfig, startupName }: { apiConfig: Initia
           onSubmit={(v) => editingRow
             ? updateRow(`${sub}/funding-rounds`, editingRow.id, v, ["amount"])
             : addRow(`${sub}/funding-rounds`, v, ["amount"])}
+        />
+      )}
+      {activeModal === "patent" && (
+        <AddModal
+          title={editingRow ? "Edit patent" : "Add patent"}
+          submitLabel={editingRow ? "Save changes" : "Add"}
+          initial={editingRow ?? undefined}
+          fields={[
+            { key: "applicationType", label: "Type of application", type: "select", options: PATENT_APPLICATION_TYPE_OPTIONS },
+            { key: "status", label: "Status", type: "select", options: PATENT_STATUS_OPTIONS },
+            { key: "applicantName", label: "Patent Applicant Name", type: "text" },
+            { key: "country", label: "Country", type: "text" },
+            { key: "priorityDate", label: "Priority Date", type: "text" },
+            { key: "effectiveFilingDate", label: "Effective filing date", type: "text" },
+            { key: "publicationDate", label: "Publication Date", type: "text" },
+            { key: "publicationNumber", label: "Publication Number", type: "text" },
+            { key: "nextAction", label: "Next Action", type: "textarea" },
+          ]}
+          onClose={() => setActiveModal(null)}
+          onSubmit={(v) => editingRow
+            ? updateRow(`${sub}/patents`, editingRow.id, v)
+            : addRow(`${sub}/patents`, v)}
         />
       )}
       {activeModal === "targetMarket" && (
