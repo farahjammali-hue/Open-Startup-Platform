@@ -79,19 +79,24 @@ export function Sidebar() {
   const STARTUP_GROUPS: { label: string; items: Item[] }[] = [
     { label: "Overview", items: [{ label: "Home", to: "/", icon: HomeIcon }] },
     {
-      label: "Priority",
+      label: "Onboarding",
       items: [
         { label: "Contract & KYS", to: "/contract-kys", icon: FileText },
-        { label: "Dashboard", to: "/dashboard", icon: LayoutDashboard, lockedIf: !kysSubmitted },
-        { label: "Data Room", to: "/data-room", icon: FolderLock, lockedIf: !kysSubmitted },
       ],
     },
     {
-      label: "Program Tools",
+      label: "Startups data",
       items: [
-        { label: "Mentorship", to: "/mentorship", icon: Layers, lockedIf: !kysSubmitted },
-        { label: "Training", to: "/training", icon: Presentation, lockedIf: !kysSubmitted },
+        { label: "Dashboard", to: "/dashboard", icon: LayoutDashboard, lockedIf: !kysSubmitted },
+        { label: "Data Room", to: "/data-room", icon: FolderLock, lockedIf: !kysSubmitted },
         { label: "CRM", to: "/crm", icon: Handshake, lockedIf: !kysSubmitted },
+      ],
+    },
+    {
+      label: "Program resources",
+      items: [
+        { label: "Training", to: "/training", icon: Presentation, lockedIf: !kysSubmitted },
+        { label: "Mentorship", to: "/mentorship", icon: Layers, lockedIf: !kysSubmitted },
         // KPI Visualizations, Office Hours, and Open Startup School are
         // hidden from the nav for now; routes/pages stay intact.
       ],
