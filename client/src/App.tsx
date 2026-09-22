@@ -32,6 +32,7 @@ import AdminStartupDashboard from "./pages/admin/AdminStartupDashboard";
 import AdminStartupDataRoom from "./pages/admin/AdminStartupDataRoom";
 import AdminDeletionRequests from "./pages/admin/AdminDeletionRequests";
 import AdminApprovals from "./pages/admin/AdminApprovals";
+import AdminMessages from "./pages/admin/AdminMessages";
 import AdminUsers from "./pages/admin/AdminUsers";
 import AdminContractsKys from "./pages/admin/AdminContractsKys";
 import AdminContractsKysStartup from "./pages/admin/AdminContractsKysStartup";
@@ -112,6 +113,7 @@ export default function App() {
         <Route path="/admin/startups/:id/data-room" component={AdminStartupDataRoom} />
         <Route path="/admin/deletion-requests" component={AdminDeletionRequests} />
         <Route path="/admin/approvals" component={AdminApprovals} />
+        <Route path="/admin/messages" component={AdminMessages} />
         <Route path="/admin/users" component={AdminUsers} />
         <Route path="/admin/contracts-kys" component={AdminContractsKys} />
         <Route path="/admin/contracts-kys/:startupId" component={AdminContractsKysStartup} />

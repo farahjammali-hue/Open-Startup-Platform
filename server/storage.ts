@@ -440,9 +440,12 @@ export const storage = {
   /**
    * The startup an admin sees when they flip to "Startup view" (App.tsx /
    * Sidebar.tsx use this instead of the admin routes). Auto-provisioned once
-   * per admin account, pre-filled with a complete sample profile and an
-   * already-verified KYC record, so the founder-facing app has something
-   * real to show instead of empty states everywhere.
+   * per admin account: a fully filled-in profile of a strong, top-performing
+   * seed-stage startup, so every founder-facing screen — Dashboard, Data
+   * Room, Mentorship, Training, CRM, Contract & KYS — has real content
+   * instead of empty states. Placeholder file links (contract, KYS docs,
+   * data room docs) are clearly named but do not point at real uploads —
+   * everything else here is structured data, not files.
    */
   async getOrCreateDemoStartup(userId: string): Promise<Startup> {
     const existing = await this.getStartupsByUserId(userId);
@@ -452,49 +455,268 @@ export const storage = {
       .insert(startups)
       .values({
         userId,
-        companyName: "Demo Startup",
-        website: "https://example.com",
-        shortDescription: "A sample profile for previewing the founder experience.",
-        location: "Nigeria",
-        markets: ["Fintech", "Climate"],
-        stage: "mvp",
-        revenueLastMonth: 5000,
-        revenueLast12Months: 42000,
+        companyName: "Verdant Energy",
+        website: "https://verdant.energy",
+        shortDescription: "Pay-as-you-go solar financing for off-grid households across West Africa.",
+        location: "Lagos, Nigeria",
+        markets: ["Climate", "Fintech", "Energy Access"],
+        stage: "growth",
+        revenueLastMonth: 28000,
+        revenueLast12Months: 240000,
         detailedDescription:
-          "This is a sample startup profile, filled in end to end (including KYC) so an admin can preview exactly what the founder-facing app looks like.",
-        differentiator: "Sample data for admin preview purposes only.",
+          "Verdant Energy sells and finances solar home systems on a pay-as-you-go basis to off-grid and " +
+          "under-grid households and small shops across Nigeria, Ghana and Ivory Coast. Repayments are collected " +
+          "via mobile money and USSD, and an embedded credit-scoring engine — built from two years of repayment " +
+          "data — keeps default rates well below the market average.",
+        differentiator: "Only pay-as-you-go solar platform with embedded credit scoring built for informal-economy customers.",
         isIncorporated: true,
-        startedMonth: 1,
-        startedYear: 2023,
-        links: { linkedin: "https://linkedin.com/company/demo" },
+        startedMonth: 3,
+        startedYear: 2022,
+        links: {
+          linkedin: "https://linkedin.com/company/verdant-energy",
+          twitter: "https://twitter.com/verdantenergy",
+          instagram: "https://instagram.com/verdantenergy",
+        },
         isRaising: true,
-        amountRaised: 100000,
-        investorsEquityHolders: "Demo Ventures (10%)",
-        runwayMonths: 12,
+        amountRaised: 350000,
+        investorsEquityHolders: "Savanna Seed Fund (8%), angel syndicate (4%)",
+        runwayMonths: 14,
         isProfitable: false,
-        customerTypes: ["b2b"],
-        interactionPlatforms: ["web"],
+        customerTypes: ["b2c", "b2b"],
+        interactionPlatforms: ["mobile app", "USSD", "web"],
+        techTrack: "soft_tech",
+        legalEntityStatus: "yes",
+        country: "Nigeria",
+        businessModelTypes: ["b2c", "b2b2c"],
+        dataRoomUpdatedAt: new Date(),
+        coreBusinessOverview:
+          "Sells and finances solar home systems on a pay-as-you-go basis, collected via mobile money and USSD.",
+        coreIpTechnology: "IoT-enabled solar meters paired with a proprietary embedded credit-scoring engine.",
+        uniqueValueProposition:
+          "Lower default rates than competitors thanks to two years of proprietary repayment data feeding the credit model.",
+        totalRevenueSinceFounding: 410000,
+        totalGrants: 25000,
+        totalRoundSize: 350000,
+        roundTerms: "SAFE, $4M valuation cap, 20% discount",
+        lastValuation: 4000000,
+        sdgsAddressed: ["SDG 7 — Affordable and Clean Energy", "SDG 1 — No Poverty"],
+        femaleTeamMembers: 4,
+        youthEmployees: 6,
+        countryOfIncorporation: "Nigeria",
+        customerBase: "emerging_market",
+        countriesOfOperation: "Nigeria, Ghana, Ivory Coast",
+        teamSize: 14,
+        contractorsCount: 3,
+        paidEmployeesCount: 11,
+        advisorsCount: 2,
+        totalFundingRaised: 350000,
+        totalFundingDilutive: 300000,
+        totalFundingNonDilutive: 50000,
+        investmentStage: "Seed",
+        roundSize: 500000,
+        committedFunds: 350000,
+        mainTechnologies: "IoT solar meters, embedded credit-scoring engine, USSD/mobile-money integration",
+        productType: "Hardware-enabled fintech platform",
+        productStage: "Live with paying customers",
+        trlLevel: 7,
+        totalAddressableMarket: "$18B pay-as-you-go solar market across Sub-Saharan Africa",
+        serviceableAddressableMarket: "$2.1B across Nigeria, Ghana and Ivory Coast",
+        serviceableObtainableMarket: "$40M across current target regions over 3 years",
+        mainCompetitors: "M-KOPA, PEG Africa, Bboxx",
+        competitionOverview: "Differentiated through proprietary credit scoring and materially lower default rates.",
+        idealCustomerPersona: "Off-grid or under-grid households and small shops earning $150-$400/month",
       })
       .returning();
 
+    const startupId = row.id;
+    const now = new Date();
+    const daysFromNow = (n: number) => new Date(now.getTime() + n * 86400000);
+    const monthsAgo = (n: number) => new Date(now.getTime() - n * 30 * 86400000);
+
     await db.insert(kysProfiles).values({
-      startupId: row.id,
+      startupId,
       track: "seed",
       incorporated: true,
-      addressLine1: "1 Sample Street",
+      addressLine1: "14 Adeola Odeku Street",
       city: "Lagos",
       country: "Nigeria",
-      incorporationDate: "2023-01-15",
-      tin: "000000000",
-      signatoryName: "Demo Signatory",
-      signatoryPhone: "+2340000000",
-      signatoryEmail: "signatory@example.com",
+      incorporationDate: "2022-04-01",
+      tin: "10293847",
+      signatoryName: "Amara Okafor",
+      signatoryPhone: "+2348012345678",
+      signatoryEmail: "amara@verdant.energy",
       irsForm: "w8ben",
       consentAccepted: true,
       status: "approved",
+      reviewedAt: monthsAgo(6),
     });
 
-    await this.setActiveStartup(userId, row.id);
+    await db.insert(contracts).values({
+      startupId,
+      fileUrl: "/placeholder/verdant-energy-program-agreement.pdf",
+      fileName: "Program-Agreement-Signed.pdf",
+      uploadedAt: monthsAgo(6),
+      status: "approved",
+      reviewedAt: monthsAgo(6),
+    });
+
+    await db.insert(kysDocuments).values([
+      { startupId, docType: "certificate_of_incorporation", fileUrl: "/placeholder/certificate-of-incorporation.pdf", fileName: "Certificate-of-Incorporation.pdf" },
+      { startupId, docType: "proof_of_address", fileUrl: "/placeholder/proof-of-address.pdf", fileName: "Proof-of-Address.pdf" },
+      { startupId, docType: "irs_form", fileUrl: "/placeholder/w8ben.pdf", fileName: "W8-BEN.pdf" },
+      { startupId, docType: "banking", fileUrl: "/placeholder/banking-details.pdf", fileName: "Banking-Details.pdf" },
+    ]);
+
+    await db.insert(documents).values([
+      { startupId, category: "main_docs", title: "Pitch Deck", fileUrl: "/placeholder/verdant-energy-deck.pdf", fileName: "Verdant-Energy-Deck.pdf", status: "approved" },
+      { startupId, category: "financial", title: "Financial Model", fileUrl: "/placeholder/financial-model.xlsx", fileName: "Financial-Model.xlsx", status: "approved" },
+      { startupId, category: "legal", title: "Certificate of Incorporation", fileUrl: "/placeholder/certificate-of-incorporation.pdf", fileName: "Certificate-of-Incorporation.pdf", status: "approved" },
+      { startupId, category: "legal", title: "Shareholder Agreement", fileUrl: "/placeholder/shareholder-agreement.pdf", fileName: "Shareholder-Agreement.pdf", status: "approved" },
+      { startupId, category: "product", title: "Product Roadmap", fileUrl: "/placeholder/product-roadmap.pdf", fileName: "Product-Roadmap.pdf", status: "approved" },
+    ]);
+
+    await db.insert(goals).values([
+      { startupId, title: "Close $350k seed extension", description: "Finalize terms with Savanna Seed Fund and the angel syndicate.", targetDate: daysFromNow(30), status: "on_track" },
+      { startupId, title: "Launch in Ghana", description: "Onboard first 500 households in Accra and Kumasi.", targetDate: daysFromNow(75), status: "at_risk" },
+      { startupId, title: "Reach 50,000 active customers", description: "Cross the 50k mark on active pay-as-you-go accounts.", targetDate: daysFromNow(150), status: "on_track" },
+    ]);
+
+    await db.insert(startupMetricsProfile).values({
+      startupId,
+      salesNotes: "Strong repeat-purchase rate on accessory add-ons (lanterns, fans) once a household completes its first unit.",
+      revenueNotes: "Mobile-money repayments (USSD + app) account for ~92% of revenue; the remainder is cash collected by field agents.",
+      teamRecruitNotes: "Hiring a Ghana country lead and two additional embedded-credit data analysts.",
+      partnershipNotes: "Distribution partnership with a regional mobile-money operator signed this quarter.",
+      fundraisingNotes: "In discussion with Savanna Seed Fund (lead) and a syndicate of climate-focused angels.",
+      dataRoom: Object.fromEntries(
+        ["website", "product_demo", "deck", "financial_model", "registration_documents", "shareholder_agreement",
+         "cap_table", "product_roadmap", "technology_roadmap", "sales_status", "partnerships_overview", "gtm",
+         "investor_crm", "trademarks", "patents", "ip"].map((k) => [k, { inception: true, graduation: true }]),
+      ),
+      companyProfile: {
+        tech_hardware: { inception: "IoT solar meter, v1", graduation: "IoT solar meter, v3 (BLE-enabled)" },
+        tech_ip_status: { inception: "None filed", graduation: "1 utility patent filed" },
+        tech_stage: { inception: "Prototype", graduation: "Live with paying customers" },
+        legal_incorporated: { inception: "In process", graduation: "Incorporated (Nigeria)" },
+        legal_domicile: { inception: "Nigeria", graduation: "Nigeria" },
+        regulatory_status: { inception: "Preparing", graduation: "Approved" },
+        impact_sdgs: { inception: "SDG 7", graduation: "SDG 7, SDG 1" },
+      },
+    });
+
+    await db.insert(startupMetricEntries).values([
+      {
+        startupId,
+        period: "initial",
+        values: {
+          sales_paying_customers_b2c: 1200, sales_retention_b2c_pct: 78, sales_cac: 18, sales_ltv: 96,
+          rev_mrr_b2c: 9500, rev_cumulative: 60000,
+          hr_founders: 2, hr_team_size: 6, hr_contractors: 1, hr_advisors: 1, hr_paid_employees: 4, hr_female_employees: 2,
+          partner_total: 1,
+          fund_investment_raised: 50000, fund_valuation: 1500000,
+        },
+      },
+      {
+        startupId,
+        period: "2026-08",
+        values: {
+          sales_paying_customers_b2c: 41500, sales_retention_b2c_pct: 91, sales_cac: 11, sales_ltv: 140,
+          rev_mrr_b2c: 28000, rev_cumulative: 410000,
+          hr_founders: 2, hr_team_size: 14, hr_contractors: 3, hr_advisors: 2, hr_paid_employees: 11, hr_female_employees: 4,
+          partner_total: 4,
+          fund_investment_raised: 350000, fund_valuation: 4000000,
+        },
+      },
+    ]);
+
+    await db.insert(startupAchievements).values([
+      { startupId, achievement: "Crossed 40,000 active customers", details: "Reached 41,500 active pay-as-you-go accounts across 3 countries." },
+      { startupId, achievement: "Signed regional mobile-money distribution deal", details: "Partnership gives access to 2M+ registered mobile-money users in Ghana." },
+    ]);
+
+    await db.insert(startupCrmEntries).values([
+      { startupId, category: "investor", name: "Savanna Seed Fund", type: "VC", priority: "high", status: "term sheet", introVia: "Demo Day", ctaStartup: "Send updated data room", ctaOst: "Warm intro follow-up" },
+      { startupId, category: "investor", name: "Angel syndicate (climate-focused)", type: "Angels", priority: "medium", status: "in discussion" },
+      { startupId, category: "client", name: "Kano Households Cooperative", type: "B2B2C", priority: "high", status: "active", contractValue: "$40,000/yr" },
+      { startupId, category: "partner", name: "PanAfricom Mobile Money", type: "Distribution", priority: "high", status: "signed", howItHelps: "Access to 2M+ registered mobile-money users in Ghana" },
+    ]);
+
+    await db.insert(monthlyUpdates).values([
+      {
+        startupId, periodMonth: 6, periodQuarter: 2, periodYear: 2026,
+        achieved: "Crossed 40,000 active customers; signed Ghana distribution partnership.",
+        blocked: "Import duties on solar hardware delaying Ghana inventory by ~3 weeks.",
+        focusNext: "Close the seed extension; onboard first 500 Ghana households.",
+        status: "on_track",
+      },
+    ]);
+
+    await db.insert(teamMembers).values([
+      { startupId, name: "Amara Okafor", role: "Co-Founder & CEO", type: "founder", gender: "Female", educationalBackground: "MBA, Lagos Business School", professionalBackground: "Ex-Interswitch, payments", yearsOfExperience: 9, currentInvolvement: "Full-time" },
+      { startupId, name: "Tunde Bello", role: "Co-Founder & CTO", type: "founder", gender: "Male", educationalBackground: "BSc Electrical Engineering, University of Lagos", professionalBackground: "Ex-Arnergy, solar hardware", yearsOfExperience: 8, currentInvolvement: "Full-time" },
+      { startupId, name: "Fatima Sani", role: "Head of Operations", type: "full_time" },
+      { startupId, name: "Kwame Mensah", role: "Ghana Country Lead", type: "full_time" },
+    ]);
+
+    await db.insert(capTableEntries).values([
+      { startupId, name: "Amara Okafor", percentage: 42, currentInvolvement: "Full-time" },
+      { startupId, name: "Tunde Bello", percentage: 38, currentInvolvement: "Full-time" },
+      { startupId, name: "Savanna Seed Fund", percentage: 8, currentInvolvement: "Investor" },
+      { startupId, name: "ESOP pool", percentage: 7, currentInvolvement: "N/A" },
+      { startupId, name: "Angel syndicate", percentage: 5, currentInvolvement: "Investor" },
+    ]);
+
+    await db.insert(startupFundingRounds).values([
+      { startupId, amount: 50000, investorName: "Climate Grant Facility", fundingType: "Grant", round: "Pre-Seed", roundDate: "2022-09", dealTerms: "Non-dilutive" },
+      { startupId, amount: 300000, investorName: "Savanna Seed Fund, angel syndicate", fundingType: "Equity", round: "Seed", roundDate: "2025-11", dealTerms: "SAFE, $4M cap, 20% discount" },
+    ]);
+
+    await db.insert(startupPatents).values([
+      { startupId, applicantName: "Verdant Energy Ltd", country: "Nigeria", applicationType: "Utility patent", priorityDate: "2025-02-10", status: "Filed", nextAction: "Awaiting examination" },
+    ]);
+
+    await db.insert(startupTargetMarkets).values([
+      { startupId, market: "Nigeria", status: "Active" },
+      { startupId, market: "Ghana", status: "Launching" },
+      { startupId, market: "Ivory Coast", status: "Planned" },
+    ]);
+
+    await db.insert(startupCompetitors).values([
+      { startupId, name: "M-KOPA", details: "Larger, East-Africa-first incumbent; less focus on West Africa." },
+      { startupId, name: "PEG Africa", details: "Ghana-based, similar pay-as-you-go model, weaker credit-scoring tech." },
+      { startupId, name: "Bboxx", details: "Broader multi-country footprint, higher default rates reported." },
+    ]);
+
+    await db.insert(startupClientStats).values([
+      { startupId, clientType: "b2c", totalClients: 41500, majorClientNames: "N/A (individual households)", retentionRate: 0.91 },
+    ]);
+    await db.insert(startupClientDetails).values([
+      { startupId, clientName: "Kano Households Cooperative", scopeOfWork: "Bulk household solar financing", dealValue: 40000 },
+    ]);
+
+    await db.insert(startupPartnerStats).values([
+      { startupId, partnerType: "Distribution", totalPartners: 4, majorPartnerNames: "PanAfricom Mobile Money", retentionRate: 1 },
+    ]);
+    await db.insert(startupPartnerDetails).values([
+      { startupId, partnerName: "PanAfricom Mobile Money", scopeOfPartnership: "Repayment collection + customer distribution", nextSteps: "Expand integration to Ghana in Q1" },
+    ]);
+
+    // Mentorship sessions belong 1:1 to a startup, so seeding these is safe —
+    // unlike Training, nothing here is shared with any real startup's view.
+    await db.insert(mentorshipModuleSessions).values([
+      {
+        startupId, number: 1, title: "Go-to-market strategy for Ghana expansion",
+        description: "Reviewed distribution partnership terms and Ghana launch plan.",
+        scheduledAt: monthsAgo(1), durationMinutes: 60, experts: "Ivy Shultz", status: "completed",
+      },
+      {
+        startupId, number: 2, title: "Seed extension fundraising prep",
+        description: "Prepping the data room and pitch narrative for Savanna Seed Fund's partner meeting.",
+        scheduledAt: daysFromNow(10), durationMinutes: 60, experts: "Ivy Shultz", status: "upcoming",
+      },
+    ]);
+
+    await this.setActiveStartup(userId, startupId);
     return row;
   },
 
@@ -1909,6 +2131,55 @@ export const storage = {
       seen.add(key);
       return true;
     });
+  },
+
+  /**
+   * Recipients for an admin's cohort-wide message: every active, verified
+   * founder on the given KYS track ("all" = every founder, regardless of
+   * track). Unlike listSessionInviteRecipients, admins are NOT included —
+   * this is the admin's own outgoing message, not a session they'd expect to
+   * see themselves invited to.
+   */
+  async listCohortMessageRecipients(
+    track: "seed" | "pre_seed" | "all",
+  ): Promise<{ email: string; name: string | null }[]> {
+    const rows = await db
+      .select({ email: users.email, name: users.name })
+      .from(users)
+      .innerJoin(startups, eq(startups.userId, users.id))
+      .innerJoin(kysProfiles, eq(kysProfiles.startupId, startups.id))
+      .where(
+        and(
+          eq(users.role, "startup"),
+          eq(users.isActive, true),
+          eq(users.emailVerified, true),
+          track === "all" ? undefined : eq(kysProfiles.track, track),
+        ),
+      );
+    const seen = new Set<string>();
+    return rows.filter((r) => {
+      const key = r.email.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  },
+
+  /** The founder who owns a specific startup — normally exactly one. */
+  async listStartupMessageRecipients(
+    startupId: string,
+  ): Promise<{ email: string; name: string | null }[]> {
+    return db
+      .select({ email: users.email, name: users.name })
+      .from(startups)
+      .innerJoin(users, eq(users.id, startups.userId))
+      .where(
+        and(
+          eq(startups.id, startupId),
+          eq(users.isActive, true),
+          eq(users.emailVerified, true),
+        ),
+      );
   },
 
   // Sessions this startup owns (created from its own admin page) — the

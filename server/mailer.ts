@@ -281,6 +281,87 @@ export async function sendSessionInvite(opts: {
   return sent;
 }
 
+/* ---------------- Admin broadcast (cohort / single startup) ---------------- */
+
+function adminBroadcastHtml(opts: {
+  name?: string | null;
+  body: string;
+  senderName: string;
+  asSelf: boolean;
+}): string {
+  const paragraphs = opts.body
+    .split(/\n{2,}/)
+    .map((p) => `<p style="margin:0 0 14px;font-size:14px;line-height:1.6;color:#475569">${p.replace(/\n/g, "<br/>")}</p>`)
+    .join("");
+  const byline = opts.asSelf
+    ? `<p style="font-size:12px;color:#94a3b8;margin-top:20px">Sent by ${opts.senderName} via the Open Startup Platform. Replying goes directly to them.</p>`
+    : `<p style="font-size:12px;color:#94a3b8;margin-top:20px">Sent by the Open Startup team.</p>`;
+  return `
+  <div style="font-family:Montserrat,Arial,sans-serif;max-width:520px;margin:0 auto;color:${BRAND}">
+    <div style="background:${BRAND};border-radius:14px 14px 0 0;padding:28px 32px;color:#fff">
+      <div style="font-size:20px;font-weight:800">Open Startup</div>
+      <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:${ACCENT}">Platform</div>
+    </div>
+    <div style="border:1px solid #eef0f6;border-top:0;border-radius:0 0 14px 14px;padding:32px">
+      <p style="font-size:14px;line-height:1.6;color:#475569;margin:0 0 16px">Hi ${opts.name || "there"},</p>
+      ${paragraphs}
+      ${byline}
+    </div>
+  </div>`;
+}
+
+/**
+ * A message an admin sends to either a whole cohort (by KYS track) or a
+ * single startup. Sent one message per recipient (never a shared To list),
+ * same convention as sendSessionInvite.
+ *
+ * The literal "From" address is always the platform's own authenticated SMTP
+ * account, regardless of asSelf — Gmail's relay only permits a different
+ * visible sender when that exact address is registered as a "Send mail as"
+ * alias on the account, which isn't set up here. "Send as me" instead sets
+ * the display name to the admin and Reply-To to their own address, so
+ * replies land in their inbox even though the raw From stays the platform's.
+ */
+export async function sendAdminBroadcast(opts: {
+  recipients: { email: string; name?: string | null }[];
+  subject: string;
+  body: string;
+  senderName: string;
+  senderEmail: string;
+  asSelf: boolean;
+}): Promise<number> {
+  if (!opts.recipients.length) return 0;
+  const displayName = opts.asSelf ? `${opts.senderName} via Open Startup` : "Open Startup";
+
+  if (!transporter) {
+    console.log("\n==================== ADMIN MESSAGE ====================");
+    console.log(`  ${opts.subject}`);
+    console.log(`  From: ${displayName}${opts.asSelf ? ` (reply-to ${opts.senderEmail})` : ""}`);
+    console.log(`  Recipients: ${opts.recipients.map((r) => r.email).join(", ")}`);
+    console.log("  (SMTP not configured — no message was emailed.)");
+    console.log("=======================================================\n");
+    return 0;
+  }
+
+  let sent = 0;
+  for (const recipient of opts.recipients) {
+    try {
+      await transporter.sendMail({
+        from: `"${displayName}" <${FROM}>`,
+        ...(opts.asSelf ? { replyTo: opts.senderEmail } : {}),
+        to: recipient.email,
+        subject: opts.subject,
+        html: adminBroadcastHtml({ name: recipient.name, body: opts.body, senderName: opts.senderName, asSelf: opts.asSelf }),
+        text: opts.body,
+      });
+      sent += 1;
+    } catch (error) {
+      console.error(`[mailer] admin message to ${recipient.email} failed:`, error);
+    }
+  }
+  return sent;
+}
+
 /* ---------------- Signup approval ---------------- */
 
 /**

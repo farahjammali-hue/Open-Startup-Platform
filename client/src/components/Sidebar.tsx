@@ -30,6 +30,7 @@ const ADMIN_GROUPS: { label: string; items: Item[] }[] = [
       { label: "Startups", to: "/admin/startups", icon: Rocket },
       { label: "Users", to: "/admin/users", icon: Users },
       { label: "Signup Approvals", to: "/admin/approvals", icon: UserCheck },
+      { label: "Message founders", to: "/admin/messages", icon: MessagesSquare },
       { label: "Deletion Requests", to: "/admin/deletion-requests", icon: Trash2 },
     ],
   },

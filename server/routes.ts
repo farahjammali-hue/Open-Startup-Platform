@@ -7,6 +7,7 @@ import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
 import crypto from "crypto";
+import { z } from "zod";
 import { storage, toPublicUser } from "./storage";
 import { requireAuth } from "./auth";
 import {
@@ -72,6 +73,7 @@ import {
   sendSessionInvite,
   sendApplicationNotice,
   sendApplicationDecision,
+  sendAdminBroadcast,
 } from "./mailer";
 import { buildSessionIcs } from "./calendar";
 import {
@@ -3163,6 +3165,60 @@ export function registerRoutes(app: Express) {
   app.post("/api/admin/demo-startup", requireAdmin, ah(async (req, res) => {
     const startup = await storage.getOrCreateDemoStartup(req.session.userId!);
     res.json(startup);
+  }));
+
+  /* ---------------- Admin: messaging (cohort or single startup) ----------------
+   * Not modeled in shared/schema.ts on purpose (no message log/table) — kept
+   * a stateless send, same as session invites, so this ships without
+   * touching the schema-change deploy gate. */
+  const adminMessageSchema = z.object({
+    subject: z.string().trim().min(1, "Subject is required").max(200),
+    body: z.string().trim().min(1, "Message is required").max(5000),
+    // "Send as platform" (default) vs "send as me" — see sendAdminBroadcast
+    // for why this only changes the display name + Reply-To, not the raw From.
+    asSelf: z.boolean().optional().default(false),
+  });
+
+  app.post("/api/admin/messages/cohort", requireAdmin, ah(async (req, res) => {
+    const parsed = adminMessageSchema
+      .extend({ track: z.enum(["seed", "pre_seed", "all"]) })
+      .safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: parsed.error.errors[0].message });
+    }
+    const admin = await storage.getUserById(req.session.userId!);
+    if (!admin) return res.status(401).json({ message: "Not authenticated" });
+    const recipients = await storage.listCohortMessageRecipients(parsed.data.track);
+    const sent = await sendAdminBroadcast({
+      recipients,
+      subject: parsed.data.subject,
+      body: parsed.data.body,
+      senderName: admin.name,
+      senderEmail: admin.email,
+      asSelf: parsed.data.asSelf,
+    });
+    res.json({ sent, total: recipients.length });
+  }));
+
+  app.post("/api/admin/messages/startup/:id", requireAdmin, ah(async (req, res) => {
+    const parsed = adminMessageSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: parsed.error.errors[0].message });
+    }
+    const startup = await storage.getStartupById(req.params.id);
+    if (!startup) return res.status(404).json({ message: "Not found" });
+    const admin = await storage.getUserById(req.session.userId!);
+    if (!admin) return res.status(401).json({ message: "Not authenticated" });
+    const recipients = await storage.listStartupMessageRecipients(startup.id);
+    const sent = await sendAdminBroadcast({
+      recipients,
+      subject: parsed.data.subject,
+      body: parsed.data.body,
+      senderName: admin.name,
+      senderEmail: admin.email,
+      asSelf: parsed.data.asSelf,
+    });
+    res.json({ sent, total: recipients.length });
   }));
 
   /* ---------------- Admin: signup approvals ---------------- */
