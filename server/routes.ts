@@ -352,7 +352,7 @@ async function dispatchSessionInvite(
     zoomHostEmail?: string | null;
     startupId?: string | null;
   },
-  opts: { cancelled?: boolean; sequence?: number } = {},
+  opts: { cancelled?: boolean; sequence?: number; updated?: boolean } = {},
 ): Promise<void> {
   if (!icsInvitesEnabled) return;
   try {
@@ -399,8 +399,9 @@ async function dispatchSessionInvite(
       joinUrl: session.meetingLink ?? null,
       ics,
       cancelled: opts.cancelled,
+      updated: opts.updated,
     });
-    console.log(`[calendar] ${opts.cancelled ? "cancellation" : "invite"} for ${kind} session ${session.id}: ${sent}/${recipients.length} sent`);
+    console.log(`[calendar] ${opts.cancelled ? "cancellation" : opts.updated ? "update" : "invite"} for ${kind} session ${session.id}: ${sent}/${recipients.length} sent`);
   } catch (error) {
     console.error("[calendar] invite dispatch failed:", error);
   }
@@ -2315,7 +2316,7 @@ export function registerRoutes(app: Express) {
       await deleteZoomMeeting(existing.zoomMeetingId).catch((error) => console.error("[zoom] old meeting cleanup failed:", error));
     }
     res.json(session);
-    void dispatchSessionInvite("Mentorship", session);
+    void dispatchSessionInvite("Mentorship", session, { updated: true });
   }));
 
   app.delete("/api/admin/startups/:startupId/mentorship-sessions/:id", requireAdmin, ah(async (req, res) => {
@@ -2499,7 +2500,7 @@ export function registerRoutes(app: Express) {
       await deleteZoomMeeting(existing.zoomMeetingId).catch((error) => console.error("[zoom] old meeting cleanup failed:", error));
     }
     res.json(session);
-    void dispatchSessionInvite("Training", session);
+    void dispatchSessionInvite("Training", session, { updated: true });
   }));
 
   app.delete("/api/admin/training/sessions/:id", requireAdmin, ah(async (req, res) => {

@@ -168,11 +168,18 @@ function sessionInviteHtml(opts: {
   durationMinutes: number;
   joinUrl?: string | null;
   cancelled?: boolean;
+  updated?: boolean;
 }): string {
-  const heading = opts.cancelled ? "Session cancelled" : `${opts.kind} session scheduled`;
+  const heading = opts.cancelled
+    ? "Session cancelled"
+    : opts.updated
+      ? `${opts.kind} session updated`
+      : `${opts.kind} session scheduled`;
   const lead = opts.cancelled
     ? `This ${opts.kind.toLowerCase()} session has been cancelled. Your calendar should update automatically.`
-    : `You're invited to a ${opts.kind.toLowerCase()} session. Accept the attached invite to add it to your calendar.`;
+    : opts.updated
+      ? `A ${opts.kind.toLowerCase()} session you're invited to has changed. Accept the attached update to refresh it on your calendar.`
+      : `You're invited to a ${opts.kind.toLowerCase()} session. Accept the attached invite to add it to your calendar.`;
   const joinBlock = opts.cancelled || !opts.joinUrl
     ? ""
     : `<p style="margin:24px 0">
@@ -223,11 +230,12 @@ export async function sendSessionInvite(opts: {
   joinUrl?: string | null;
   ics: string;
   cancelled?: boolean;
+  updated?: boolean;
 }): Promise<number> {
   if (!opts.recipients.length) return 0;
 
   const whenUtc = opts.startsAt.toUTCString();
-  const verb = opts.cancelled ? "Cancelled" : "Invitation";
+  const verb = opts.cancelled ? "Cancelled" : opts.updated ? "Updated" : "Invitation";
   const subject = `${verb}: ${opts.title} — ${whenUtc}`;
 
   if (!transporter) {
@@ -248,7 +256,11 @@ export async function sendSessionInvite(opts: {
         subject,
         html: sessionInviteHtml({ ...opts, name: recipient.name, whenUtc }),
         text: [
-          opts.cancelled ? `Cancelled: ${opts.title}` : `You're invited: ${opts.title}`,
+          opts.cancelled
+            ? `Cancelled: ${opts.title}`
+            : opts.updated
+              ? `Updated: ${opts.title}`
+              : `You're invited: ${opts.title}`,
           `When: ${whenUtc} (${opts.durationMinutes} minutes)`,
           opts.joinUrl && !opts.cancelled ? `Join: ${opts.joinUrl}` : "",
         ].filter(Boolean).join("\n"),
