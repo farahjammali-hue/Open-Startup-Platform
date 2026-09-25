@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { api } from "../../lib/utils";
 import { AppShell } from "../../components/AppShell";
 import { PageHeader } from "../../components/PageHeader";
-import { Users, Rocket, Trash as Trash2, ArrowRight, Signature as FileSignature, ChartLine as LineChart, UsersThree as UsersRound, Presentation } from "@phosphor-icons/react";
+import { Users, Rocket, Trash as Trash2, ArrowRight, Signature as FileSignature, ChartLine as LineChart, UsersThree as UsersRound, Presentation, Sparkle as Sparkles } from "@phosphor-icons/react";
 
 interface Stats {
   users: number; startups: number; pendingDeletions: number;
@@ -49,6 +49,22 @@ export default function AdminDashboard() {
     <AppShell>
       <main className="ost-page">
         <PageHeader eyebrow="Administration" title="Admin dashboard" subtitle="Overview of the whole platform." />
+
+        <button
+          onClick={() => navigate("/admin/ask-ai")}
+          className="group mt-8 flex w-full items-center justify-between gap-4 rounded-2xl bg-primary p-6 text-left text-white transition hover:-translate-y-0.5 hover:shadow-card-hover"
+        >
+          <div className="flex items-center gap-4">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/10 text-turq">
+              <Sparkles className="h-6 w-6" />
+            </div>
+            <div>
+              <div className="font-bold">Ask AI</div>
+              <div className="text-sm text-white/60">Ask a question about the program in plain English — startups, valuations, funding, review status.</div>
+            </div>
+          </div>
+          <ArrowRight className="h-4 w-4 shrink-0 text-white/40 group-hover:text-white" />
+        </button>
 
         <CardSection label="Needs your attention" cards={needsAttention} isLoading={isLoading} onNavigate={navigate} tone="warning" />
         <CardSection label="Platform" cards={platform} isLoading={isLoading} onNavigate={navigate} tone="neutral" />

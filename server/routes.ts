@@ -75,6 +75,7 @@ import {
   sendApplicationDecision,
   sendAdminBroadcast,
 } from "./mailer";
+import { askAi, aiChatConfigured, type ChatTurn } from "./aiChat";
 import { buildSessionIcs } from "./calendar";
 import {
   parseZoomMeetingId,
@@ -2830,6 +2831,16 @@ export function registerRoutes(app: Express) {
   app.post("/api/admin/ask", requireAdmin, ah(async (req, res) => {
     const question = String(req.body?.question || "").trim();
     if (!question) return res.status(400).json({ message: "Ask a question first" });
+
+    if (aiChatConfigured) {
+      const historyRaw = Array.isArray(req.body?.history) ? req.body.history : [];
+      const history: ChatTurn[] = historyRaw
+        .filter((t: any) => t && typeof t.question === "string" && typeof t.answer === "string")
+        .slice(-10); // enough context for a follow-up, without an unbounded request
+      const { answer, provider } = await askAi(question, history);
+      return res.json({ preview: false, provider, answer });
+    }
+
     const q = question.toLowerCase();
 
     const track: "seed" | "pre_seed" | undefined = /\bpre[\s-]?seed\b/.test(q)

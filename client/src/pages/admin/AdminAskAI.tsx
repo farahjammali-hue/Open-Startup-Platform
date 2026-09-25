@@ -11,6 +11,13 @@ interface ChatTurn {
   unmatched?: boolean;
 }
 
+interface AskResponse {
+  answer: string;
+  preview?: boolean;
+  provider?: "anthropic" | "openai";
+  unmatched?: boolean;
+}
+
 const EXAMPLE_QUESTIONS = [
   "What's the cumulative valuation of Seed startups?",
   "Which startups need attention?",
@@ -22,16 +29,25 @@ export default function AdminAskAI() {
   const [input, setInput] = useState("");
   const [turns, setTurns] = useState<ChatTurn[]>([]);
   const [asking, setAsking] = useState(false);
+  const [preview, setPreview] = useState(true);
+  const [provider, setProvider] = useState<"anthropic" | "openai" | null>(null);
 
   async function ask(question: string) {
     if (!question.trim() || asking) return;
     setAsking(true);
     setInput("");
     try {
-      const res = await api<{ answer: string; unmatched?: boolean }>("/api/admin/ask", {
+      const res = await api<AskResponse>("/api/admin/ask", {
         method: "POST",
-        body: JSON.stringify({ question }),
+        body: JSON.stringify({
+          question,
+          // Only recent turns from a real LLM reply — preview-mode turns
+          // aren't real conversational context and would just confuse it.
+          history: turns.filter((t) => !t.unmatched).slice(-10).map((t) => ({ question: t.question, answer: t.answer })),
+        }),
       });
+      setPreview(res.preview !== false);
+      setProvider(res.provider ?? null);
       setTurns((t) => [...t, { question, answer: res.answer, unmatched: res.unmatched }]);
     } catch (e: any) {
       showToast(e.message || "Couldn't get an answer");
@@ -52,13 +68,22 @@ export default function AdminAskAI() {
 
         <div className="mt-4 flex items-start gap-3 rounded-lg bg-turq-bg p-4 text-sm text-turq-text">
           <Sparkles className="mt-0.5 h-5 w-5 shrink-0" />
-          <div>
-            <b className="block">Preview mode</b>
-            This answers a curated set of questions — totals, counts, and qualitative fields like
-            stage, status, and descriptions — using keyword matching against your real data, not a
-            real LLM yet. It never reads contract/document contents. Connect an Anthropic API key
-            to let it understand any question.
-          </div>
+          {preview ? (
+            <div>
+              <b className="block">Preview mode</b>
+              This answers a curated set of questions — totals, counts, and qualitative fields like
+              stage, status, and descriptions — using keyword matching against your real data, not a
+              real LLM yet. It never reads contract/document contents. Set ANTHROPIC_API_KEY or
+              OPENAI_API_KEY on the server to let it understand any question.
+            </div>
+          ) : (
+            <div>
+              <b className="block">Powered by {provider === "openai" ? "GPT" : "Claude"}</b>
+              Understands any question about program data — startups, tracks, valuations, funding,
+              revenue, team size, and review status. It never reads contract/document contents, only
+              the same curated data an admin already sees elsewhere in the platform.
+            </div>
+          )}
         </div>
 
         <div className="mt-6 ost-card p-6">

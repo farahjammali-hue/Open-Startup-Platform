@@ -6,7 +6,7 @@ import { api } from "../lib/utils";
 import { confirmLeave } from "../lib/navGuard";
 import { useKysStatus } from "../lib/kysStatus";
 import { showToast } from "../lib/toast";
-import { SquaresFour as LayoutDashboard, Rocket, Trash as Trash2, Users, UserCheck, Lock, Wrench, Wallet, Storefront as Store, BookOpen, Chats as MessagesSquare, FolderLock, House as HomeIcon, FileText, Stack as Layers, Presentation, Handshake } from "@phosphor-icons/react";
+import { SquaresFour as LayoutDashboard, Rocket, Trash as Trash2, Users, UserCheck, Lock, Wrench, Wallet, Storefront as Store, BookOpen, Chats as MessagesSquare, FolderLock, House as HomeIcon, FileText, Stack as Layers, Presentation, Handshake, Sparkle as Sparkles } from "@phosphor-icons/react";
 
 interface Item {
   label: string;
@@ -21,7 +21,7 @@ const ADMIN_GROUPS: { label: string; items: Item[] }[] = [
     label: "Overview",
     items: [
       { label: "Dashboard", to: "/admin", icon: LayoutDashboard },
-      // Ask AI is hidden from the nav for the moment; route/page stay intact.
+      { label: "Ask AI", to: "/admin/ask-ai", icon: Sparkles },
     ],
   },
   {
