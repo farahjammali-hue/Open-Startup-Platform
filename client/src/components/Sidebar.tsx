@@ -74,6 +74,7 @@ export function Sidebar() {
     queryKey: ["startup-me"],
     queryFn: () => api("/api/startup/me"),
     enabled: !isAdmin,
+    retryOnMount: false,
   });
 
   const STARTUP_GROUPS: { label: string; items: Item[] }[] = [

@@ -39,3 +39,31 @@ describe("KysStep", () => {
     expect(api).not.toHaveBeenCalledWith("/api/kys", expect.anything());
   });
 });
+
+describe("KysStep submit (debug)", () => {
+  beforeEach(() => {
+    api.mockReset();
+    api.mockImplementation(async (url: string) =>
+      url === "/api/startups" ? { startups: [{ id: "s1", companyName: "Acme" }], activeStartupId: "s1" } : { id: "k1" },
+    );
+  });
+  it("completes when the Typeform reports a submit, and unmounts cleanly", async () => {
+    const { useState } = await import("react");
+    function Parent() {
+      const [done, setDone] = useState(false);
+      return done ? <p>DONE</p> : <KysStep initial={null} onSubmitted={() => setDone(true)} />;
+    }
+    const qc = new QueryClient();
+    const errors: any[] = [];
+    window.addEventListener("error", (e) => errors.push(e.error));
+    render(<QueryClientProvider client={qc}><Parent /></QueryClientProvider>);
+    fireEvent.click(screen.getByText("Pre-Seed Track"));
+    await waitFor(() => expect(document.querySelector("iframe")).not.toBeNull());
+    const src = document.querySelector("iframe")!.getAttribute("src")!;
+    const embedId = new URL(src).searchParams.get("typeform-embed-id");
+    window.dispatchEvent(new MessageEvent("message", { data: { type: "form-submit", embedId, responseId: "r1" } }));
+    await waitFor(() => expect(screen.getByText("DONE")).toBeTruthy());
+    expect(api).toHaveBeenCalledWith("/api/kys", expect.anything());
+    expect(errors).toEqual([]);
+  });
+});

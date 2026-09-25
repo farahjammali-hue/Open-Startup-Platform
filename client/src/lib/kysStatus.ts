@@ -58,13 +58,20 @@ export interface KysDocument {
 
 /** Real Contract & KYS status - drives the priority-lane lock/unlock everywhere. */
 export function useKysStatus() {
+  // retryOnMount: false: these fail when the account has no startup. Without
+  // it, every component mounting this hook refetches the failed query, which
+  // flips isLoading back on; Home hides its AppShell (and so the Sidebar's own
+  // copy of this hook) while loading, so the two kept remounting each other
+  // in an endless request loop that froze the page.
   const contractQuery = useQuery<{ contract: Contract | null }>({
     queryKey: ["contract"],
     queryFn: () => api("/api/contract"),
+    retryOnMount: false,
   });
   const kysQuery = useQuery<{ profile: KysProfile | null; documents: KysDocument[] }>({
     queryKey: ["kys"],
     queryFn: () => api("/api/kys"),
+    retryOnMount: false,
   });
 
   const contract = contractQuery.data?.contract ?? null;

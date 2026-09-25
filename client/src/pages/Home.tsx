@@ -8,6 +8,7 @@ import { useKysStatus } from "../lib/kysStatus";
 import { showToast } from "../lib/toast";
 import { StatusBadge, TONE_CLASSES, type StatusTone } from "../components/StatusBadge";
 import { Skeleton } from "../components/Skeleton";
+import { EmptyState } from "../components/EmptyState";
 import { FileText, SquaresFour as LayoutDashboard, FolderLock, Lock, Stack as Layers, Presentation, Handshake, Warning as AlertTriangle, CheckCircle as CheckCircle2, ArrowRight, VideoCamera as Video } from "@phosphor-icons/react";
 
 interface StartupProfile {
@@ -51,9 +52,10 @@ export default function Home() {
   const { kysSubmitted, contractRejected, kysRejected, isLoading: kysLoading } = useKysStatus();
   const needsAttention = contractRejected || kysRejected;
 
-  const { data: startup } = useQuery<StartupProfile>({
+  const { data: startup, isError: noStartup } = useQuery<StartupProfile>({
     queryKey: ["startup-me"],
     queryFn: () => api("/api/startup/me"),
+    retryOnMount: false,
   });
 
   const { data: mentorshipData, isLoading: mentorshipLoading } = useQuery<{ sessions: MentorshipSessionLite[] }>({
@@ -96,6 +98,25 @@ export default function Home() {
   }
 
   if (kysLoading) return null;
+
+  // An onboarded founder account can end up with no startup (e.g. its only
+  // startup was deleted). Everything else on Home needs one, so offer to
+  // create it instead of rendering a page of failed requests.
+  if (noStartup) {
+    return (
+      <AppShell>
+        <main className="ost-page">
+          <EmptyState
+            icon={FileText}
+            title="No startup on this account yet"
+            description="Create your startup profile to start the program: sign your contract, complete your KYS, and unlock the dashboard."
+            actionLabel="Create your startup"
+            onAction={() => navigate("/startups/new")}
+          />
+        </main>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell>
