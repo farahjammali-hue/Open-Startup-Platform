@@ -7,6 +7,7 @@ import { configureSession, configureGoogleAuth } from "./auth";
 import { registerRoutes } from "./routes";
 import { registerMcp } from "./mcp";
 import { registerTypeform } from "./typeform";
+import { registerAdobeSign } from "./adobeSign";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -33,6 +34,11 @@ process.on("uncaughtException", (err: any) => {
   console.error("[uncaughtException]", err);
 });
 
+// Adobe Sign's webhook can carry the whole signed PDF as base64, which blows
+// past the app-wide 2mb JSON limit — give just that route a larger one.
+// (Registered first: express.json skips bodies another parser already read.)
+app.use("/api/adobe-sign/webhook", express.json({ limit: "30mb" }));
+
 // Capture the raw request body alongside the parsed one — the Zoom webhook
 // needs the exact raw bytes to verify its HMAC signature; re-serializing the
 // parsed JSON wouldn't byte-match what Zoom actually signed.
@@ -50,6 +56,7 @@ configureSession(app);
 configureGoogleAuth(app);
 registerMcp(app);
 registerTypeform(app);
+registerAdobeSign(app);
 registerRoutes(app);
 
 async function start() {

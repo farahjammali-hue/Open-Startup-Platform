@@ -13,7 +13,7 @@ import { showToast } from "../../lib/toast";
 import { KYS_TYPEFORM_ID } from "../../lib/kysStatus";
 import { Buildings as Building2, Signature as FileSignature, ShieldCheck, ArrowSquareOut as ExternalLink } from "@phosphor-icons/react";
 
-interface StartupBasic { id: string; companyName: string; declarationSignedAt: string | null }
+interface StartupBasic { id: string; companyName: string; declarationSignedAt: string | null; declarationHasFile: boolean }
 
 interface ContractRow {
   id: string;
@@ -91,11 +91,22 @@ export default function AdminContractsKysStartup() {
           </h2>
           <p className="text-sm text-slate-500">
             {startup.declarationSignedAt
-              ? `Signed ${new Date(startup.declarationSignedAt).toLocaleString()}. The signed copy is in Adobe Acrobat Sign.`
+              ? `Signed ${new Date(startup.declarationSignedAt).toLocaleString()}.`
               : kysProfile
                 ? "Signed within the earlier KYC form (before the declaration became its own step)."
                 : "Not signed yet."}
+            {startup.declarationSignedAt && !startup.declarationHasFile && " The signed copy is in Adobe Acrobat Sign."}
           </p>
+          {startup.declarationHasFile && (
+            <a
+              href={`/api/admin/startups/${startup.id}/declaration/file`}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-3 inline-flex items-center gap-2 ost-btn-ghost !px-3 !py-1.5 text-xs"
+            >
+              <ExternalLink className="h-4 w-4" /> View signed declaration
+            </a>
+          )}
         </div>
 
         <div className="ost-card mt-8 p-6">

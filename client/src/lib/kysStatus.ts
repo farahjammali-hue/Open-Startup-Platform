@@ -7,7 +7,7 @@ export const KYS_TYPEFORM_ID = "O7MQvYnR";
 // Acrobat Sign web form for the Certifications & Undertakings declaration,
 // signed before the KYS form (step 1 of Contract & KYS).
 export const DECLARATION_WIDGET_URL =
-  "https://open-startup.na4.documents.adobe.com/public/esignWidget?wid=CBFCIBAA3AAABLblqZhAZAKUbBuMAO1XC2x1sZLGh39H7dW027N7wr5ZOUeTJv2i7xIjX-uaetf4z96c4UuI*&hosted=false";
+  "https://open-startup.na4.documents.adobe.com/public/esignWidget?wid=CBFCIBAA3AAABLblqZhBM_cYWGjkL2j8xk8fGaEPDlBeBf0-gRV0xTFjmqlEFTwMDVPSKbUMa11zndApsWhY*&hosted=false";
 import { api } from "./utils";
 
 export type ReviewStatus = "pending" | "approved" | "rejected";

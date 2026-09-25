@@ -91,11 +91,13 @@ export default function ContractKys() {
 
           {step === "declaration" && (
             <DeclarationStep
+              signed={declarationSigned}
               onSigned={() => {
                 setDeclarationJustSigned(true);
                 qc.invalidateQueries({ queryKey: ["startup-me"] });
                 setStep(!kysSubmitted ? "kys" : contractSigned ? "done" : "contract");
               }}
+              onContinue={() => setStep(!kysSubmitted ? "kys" : contractSigned ? "done" : "contract")}
             />
           )}
           {step === "contract" && (

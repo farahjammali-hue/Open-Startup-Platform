@@ -1498,12 +1498,13 @@ export const storage = {
     return row;
   },
 
-  /** Record the Acrobat Sign declaration as signed; keeps the first signing time. */
+  /** Record the Acrobat Sign declaration as signed. Signing again (a redo)
+   * simply refreshes the time; Adobe's webhook replaces the stored PDF. */
   async markDeclarationSigned(startupId: string): Promise<void> {
     await db
       .update(startups)
       .set({ declarationSignedAt: new Date() })
-      .where(and(eq(startups.id, startupId), isNull(startups.declarationSignedAt)));
+      .where(eq(startups.id, startupId));
   },
 
   /** Set only the track (from the KYC Typeform webhook or an admin); leaves review status alone. */

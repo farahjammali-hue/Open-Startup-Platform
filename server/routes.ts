@@ -88,6 +88,7 @@ import {
   deleteZoomMeeting,
 } from "./zoom";
 import { TRANSCRIPTS_DIR } from "./transcripts";
+import { declarationFilePath, hasDeclarationFile } from "./adobeSign";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const LOGOS_DIR = path.resolve(__dirname, "..", "uploads", "logos");
@@ -1482,12 +1483,35 @@ export function registerRoutes(app: Express) {
   }));
 
   // Step 1 of Contract & KYS: the founder signed the declaration in the
-  // embedded Acrobat Sign form (the page hears Adobe's ESIGN event).
+  // embedded Acrobat Sign form (the page hears Adobe's ESIGN event). The
+  // signed PDF itself arrives separately through the Adobe Sign webhook.
   app.post("/api/declaration/signed", requireAuth, ah(async (req, res) => {
     const startup = await requireActiveStartup(req, res);
     if (!startup) return;
     await storage.markDeclarationSigned(startup.id);
     res.json({ ok: true });
+  }));
+
+  app.get("/api/declaration/status", requireAuth, ah(async (req, res) => {
+    const startup = await requireActiveStartup(req, res);
+    if (!startup) return;
+    res.json({ signedAt: startup.declarationSignedAt, hasFile: hasDeclarationFile(startup.id) });
+  }));
+
+  // The founder's own signed declaration PDF (from the Adobe Sign webhook).
+  app.get("/api/declaration/file", requireAuth, ah(async (req, res) => {
+    const startup = await requireActiveStartup(req, res);
+    if (!startup) return;
+    if (!hasDeclarationFile(startup.id)) return res.status(404).json({ message: "No signed declaration on file yet" });
+    res.setHeader("Content-Disposition", 'inline; filename="declaration.pdf"');
+    res.type("application/pdf").sendFile(declarationFilePath(startup.id));
+  }));
+
+  app.get("/api/admin/startups/:id/declaration/file", requireAdmin, ah(async (req, res) => {
+    const startup = await storage.getStartupById(req.params.id);
+    if (!startup || !hasDeclarationFile(startup.id)) return res.status(404).json({ message: "No signed declaration on file" });
+    res.setHeader("Content-Disposition", 'inline; filename="declaration.pdf"');
+    res.type("application/pdf").sendFile(declarationFilePath(startup.id));
   }));
 
   app.post("/api/kys", requireAuth, ah(async (req, res) => {
@@ -2826,7 +2850,7 @@ export function registerRoutes(app: Express) {
         storage.listCapTableEntries(startup.id),
       ]);
     res.json({
-      startup,
+      startup: { ...startup, declarationHasFile: hasDeclarationFile(startup.id) },
       owner: owner ? toPublicUser(owner) : null,
       goals,
       monthlyUpdates,
