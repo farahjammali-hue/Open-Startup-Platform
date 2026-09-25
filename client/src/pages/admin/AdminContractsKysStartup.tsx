@@ -13,7 +13,7 @@ import { showToast } from "../../lib/toast";
 import { KYS_TYPEFORM_ID } from "../../lib/kysStatus";
 import { Buildings as Building2, Signature as FileSignature, ShieldCheck, ArrowSquareOut as ExternalLink } from "@phosphor-icons/react";
 
-interface StartupBasic { id: string; companyName: string }
+interface StartupBasic { id: string; companyName: string; declarationSignedAt: string | null }
 
 interface ContractRow {
   id: string;
@@ -84,6 +84,19 @@ export default function AdminContractsKysStartup() {
           }
           subtitle="Review this startup's signed agreement and KYS submission."
         />
+
+        <div className="ost-card mt-8 p-6">
+          <h2 className="ost-card-title mb-2 flex items-center gap-2 text-base">
+            <FileSignature className="h-4 w-4 text-secondary" /> Declaration (Acrobat Sign)
+          </h2>
+          <p className="text-sm text-slate-500">
+            {startup.declarationSignedAt
+              ? `Signed ${new Date(startup.declarationSignedAt).toLocaleString()}. The signed copy is in Adobe Acrobat Sign.`
+              : kysProfile
+                ? "Signed within the earlier KYC form (before the declaration became its own step)."
+                : "Not signed yet."}
+          </p>
+        </div>
 
         <div className="ost-card mt-8 p-6">
           <h2 className="ost-card-title mb-4 flex items-center gap-2 text-base">

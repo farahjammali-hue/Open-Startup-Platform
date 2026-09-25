@@ -1481,6 +1481,15 @@ export function registerRoutes(app: Express) {
     res.json({ profile: profile ?? null, documents });
   }));
 
+  // Step 1 of Contract & KYS: the founder signed the declaration in the
+  // embedded Acrobat Sign form (the page hears Adobe's ESIGN event).
+  app.post("/api/declaration/signed", requireAuth, ah(async (req, res) => {
+    const startup = await requireActiveStartup(req, res);
+    if (!startup) return;
+    await storage.markDeclarationSigned(startup.id);
+    res.json({ ok: true });
+  }));
+
   app.post("/api/kys", requireAuth, ah(async (req, res) => {
     const startup = await requireActiveStartup(req, res);
     if (!startup) return;

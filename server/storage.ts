@@ -1498,6 +1498,14 @@ export const storage = {
     return row;
   },
 
+  /** Record the Acrobat Sign declaration as signed; keeps the first signing time. */
+  async markDeclarationSigned(startupId: string): Promise<void> {
+    await db
+      .update(startups)
+      .set({ declarationSignedAt: new Date() })
+      .where(and(eq(startups.id, startupId), isNull(startups.declarationSignedAt)));
+  },
+
   /** Set only the track (from the KYC Typeform webhook or an admin); leaves review status alone. */
   async setKysTrack(id: string, track: "pre_seed" | "seed"): Promise<KysProfile | undefined> {
     const [row] = await db

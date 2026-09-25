@@ -3,6 +3,11 @@ import { useQuery } from "@tanstack/react-query";
 // The "Open Startup · KYC & Compliance Form" Typeform
 // (openstartup.typeform.com/prog-onboarding) that founders fill in the KYS step.
 export const KYS_TYPEFORM_ID = "O7MQvYnR";
+
+// Acrobat Sign web form for the Certifications & Undertakings declaration,
+// signed before the KYS form (step 1 of Contract & KYS).
+export const DECLARATION_WIDGET_URL =
+  "https://open-startup.na4.documents.adobe.com/public/esignWidget?wid=CBFCIBAA3AAABLblqZhAZAKUbBuMAO1XC2x1sZLGh39H7dW027N7wr5ZOUeTJv2i7xIjX-uaetf4z96c4UuI*&hosted=false";
 import { api } from "./utils";
 
 export type ReviewStatus = "pending" | "approved" | "rejected";

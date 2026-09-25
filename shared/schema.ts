@@ -437,6 +437,10 @@ export const startups = pgTable("startups", {
   // owner has asked to delete it and it is awaiting an admin decision.
   deletionRequestedAt: timestamp("deletion_requested_at"),
   deletionReason: text("deletion_reason"),
+  // When the founder signed the Certifications & Undertakings declaration in
+  // the embedded Acrobat Sign form (step 1 of Contract & KYS). The signed
+  // document itself lives in Adobe.
+  declarationSignedAt: timestamp("declaration_signed_at"),
 
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),

@@ -1053,6 +1053,9 @@ ALTER TABLE mcp_oauth_tokens ADD COLUMN IF NOT EXISTS scope text NOT NULL DEFAUL
 -- The KYS track now comes from the KYC Typeform's program question (via its
 -- webhook) instead of a separate picker, so it can be empty for a while.
 ALTER TABLE kys_profiles ALTER COLUMN track DROP NOT NULL;
+
+-- Step 1 of Contract & KYS: the Acrobat Sign declaration (signed copy in Adobe).
+ALTER TABLE startups ADD COLUMN IF NOT EXISTS declaration_signed_at timestamp;
 `;
 
 try {

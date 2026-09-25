@@ -6,6 +6,7 @@ import { BackLink, PageHeader } from "../components/PageHeader";
 import { useKysStatus } from "../lib/kysStatus";
 import { ContractStep } from "./contract-kys/ContractStep";
 import { KysStep } from "./contract-kys/KysStep";
+import { DeclarationStep } from "./contract-kys/DeclarationStep";
 import { DoneStep } from "./contract-kys/DoneStep";
 import { Check } from "@phosphor-icons/react";
 import { Skeleton } from "../components/Skeleton";
@@ -13,7 +14,7 @@ import { EmptyState } from "../components/EmptyState";
 import { FileText } from "@phosphor-icons/react";
 import { api } from "../lib/utils";
 
-type Step = "contract" | "kys" | "done";
+type Step = "declaration" | "kys" | "contract" | "done";
 
 export default function ContractKys() {
   const [, navigate] = useLocation();
@@ -21,18 +22,22 @@ export default function ContractKys() {
   const { contract, kysProfile, contractSigned, kysSubmitted, isLoading } = useKysStatus();
   // Contract & KYS are per startup; reached by URL with no startup, point
   // the founder at creating one instead of showing a form that can't save.
-  const { isError: noStartup } = useQuery({
+  const { data: startup, isError: noStartup, isLoading: startupLoading } = useQuery<{ declarationSignedAt: string | null }>({
     queryKey: ["startup-me"],
     queryFn: () => api("/api/startup/me"),
     retryOnMount: false,
   });
+  // Anyone who already submitted a KYS signed the declaration inside the old
+  // Typeform flow, so they don't have to sign it again.
+  const [declarationJustSigned, setDeclarationJustSigned] = useState(false);
+  const declarationSigned = declarationJustSigned || !!startup?.declarationSignedAt || kysSubmitted;
 
   const [step, setStep] = useState<Step | null>(null);
   useEffect(() => {
-    if (isLoading || step !== null) return;
-    setStep(!kysSubmitted ? "kys" : contractSigned ? "done" : "contract");
+    if (isLoading || startupLoading || step !== null) return;
+    setStep(!declarationSigned ? "declaration" : !kysSubmitted ? "kys" : contractSigned ? "done" : "contract");
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoading]);
+  }, [isLoading, startupLoading]);
 
   if (noStartup) {
     return (
@@ -66,23 +71,33 @@ export default function ContractKys() {
   return (
     <AppShell>
       <main className="ost-page">
-        {/* The embedded KYC Typeform gets most of the screen; the contract
-            upload and summary read better narrow. */}
-        <div className={step === "kys" ? "max-w-[1200px]" : "max-w-[720px]"}>
+        {/* The embedded Adobe and Typeform forms get most of the screen; the
+            contract upload and summary read better narrow. */}
+        <div className={step === "declaration" || step === "kys" ? "max-w-[1200px]" : "max-w-[720px]"}>
           <BackLink />
           <PageHeader
             eyebrow="Priority"
             title="Contract & KYS"
-            subtitle={step !== "done" ? "Complete your Know Your Startup (KYS) form, then sign your program agreement. Both are required to unlock your Dashboard." : undefined}
+            subtitle={step !== "done" ? "Sign the declaration, complete your Know Your Startup (KYS) form, then upload your signed program agreement. All three are required to unlock your Dashboard." : undefined}
           />
 
           {step !== "done" && (
             <div className="mb-8 mt-8 flex gap-4 border-b border-slate-200">
-              <StepTab label="Know Your Startup (KYS)" num={1} active={step === "kys"} done={kysSubmitted} onClick={() => setStep("kys")} />
-              <StepTab label="Contract" num={2} active={step === "contract"} done={contractSigned} onClick={() => kysSubmitted && setStep("contract")} />
+              <StepTab label="Declaration" num={1} active={step === "declaration"} done={declarationSigned} onClick={() => setStep("declaration")} />
+              <StepTab label="Know Your Startup (KYS)" num={2} active={step === "kys"} done={kysSubmitted} onClick={() => declarationSigned && setStep("kys")} />
+              <StepTab label="Contract" num={3} active={step === "contract"} done={contractSigned} onClick={() => kysSubmitted && setStep("contract")} />
             </div>
           )}
 
+          {step === "declaration" && (
+            <DeclarationStep
+              onSigned={() => {
+                setDeclarationJustSigned(true);
+                qc.invalidateQueries({ queryKey: ["startup-me"] });
+                setStep(!kysSubmitted ? "kys" : contractSigned ? "done" : "contract");
+              }}
+            />
+          )}
           {step === "contract" && (
             <ContractStep
               initial={contract}
