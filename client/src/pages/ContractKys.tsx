@@ -66,7 +66,9 @@ export default function ContractKys() {
   return (
     <AppShell>
       <main className="ost-page">
-        <div className="max-w-[720px]">
+        {/* The embedded KYC Typeform gets most of the screen; the contract
+            upload and summary read better narrow. */}
+        <div className={step === "kys" ? "max-w-[1200px]" : "max-w-[720px]"}>
           <BackLink />
           <PageHeader
             eyebrow="Priority"

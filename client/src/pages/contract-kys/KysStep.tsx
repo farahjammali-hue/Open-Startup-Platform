@@ -52,7 +52,7 @@ export function KysStep({
   }
 
   return (
-    <div className="ost-card p-8">
+    <div className="ost-card p-4 sm:p-8">
       <div>
         <p className="text-sm font-semibold text-primary">Complete your KYC &amp; compliance form</p>
         {!user || !startup ? (
@@ -68,7 +68,9 @@ export function KysStep({
               onSubmit={markSubmitted}
               inlineOnMobile
               className="mt-4 overflow-hidden rounded-lg border border-slate-200"
-              style={{ height: 640 }}
+              // Nearly a full window tall once scrolled to, but never so short
+              // that the form's own buttons get cramped.
+              style={{ height: "max(560px, calc(100vh - 160px))" }}
             />
           </>
         )}
