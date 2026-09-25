@@ -5,14 +5,25 @@ import { AppShell } from "../../components/AppShell";
 import { BackLink, PageHeader } from "../../components/PageHeader";
 import { SkeletonRows } from "../../components/Skeleton";
 import { showToast } from "../../lib/toast";
-import { useAuth } from "../../lib/auth";
+import { useAuth, type OnboardingStatus } from "../../lib/auth";
 
 interface U {
   id: string; name: string; email: string; role: string | null;
   isActive: boolean; emailVerified: boolean; createdAt: string;
+  onboardingStatus: OnboardingStatus;
 }
 const ROLE: Record<string, string> = {
   admin: "Admin", startup: "Startup", mentor: "Mentor", investor: "Investor",
+};
+
+// Onboarding progress, not just active/disabled — "Active" alone didn't
+// distinguish a real, fully-onboarded user from one that only just
+// registered and never got past picking a role.
+const ONBOARDING_LABEL: Record<OnboardingStatus, { text: string; className: string }> = {
+  needs_role: { text: "Account created", className: "text-slate-400" },
+  needs_profile: { text: "Onboarding", className: "text-amber-600" },
+  pending_approval: { text: "Pending approval", className: "text-amber-600" },
+  complete: { text: "Active", className: "text-secondary" },
 };
 
 export default function AdminUsers() {
@@ -90,7 +101,9 @@ export default function AdminUsers() {
                     <td className="px-5 py-3 text-slate-500">{u.emailVerified ? "Yes" : "No"}</td>
                     <td className="px-5 py-3">
                       {u.isActive ? (
-                        <span className="text-xs font-medium text-secondary">Active</span>
+                        <span className={`text-xs font-medium ${ONBOARDING_LABEL[u.onboardingStatus].className}`}>
+                          {ONBOARDING_LABEL[u.onboardingStatus].text}
+                        </span>
                       ) : (
                         <span className="text-xs font-medium text-red-500">Disabled</span>
                       )}
