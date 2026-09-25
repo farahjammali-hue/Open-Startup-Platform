@@ -21,7 +21,7 @@ export default function Crm() {
           <div className="mt-8">
             <EmptyState
               icon={Lock}
-              title="Complete your KYC to unlock the CRM"
+              title="Complete your KYS to unlock the CRM"
               description="Finish your Contract & KYS submission to access this tool."
               actionLabel="Go to Contract & KYS"
               onAction={() => navigate("/contract-kys")}

@@ -139,7 +139,7 @@ export default function Home() {
             tone="red"
             icon={AlertTriangle}
             title="Changes requested on your Contract & KYS"
-            description="The OST team asked for updates before this can move forward."
+            description="The Open Startup team asked for updates before this can move forward."
             ctaLabel="Review & resubmit"
             onCta={() => navigate("/contract-kys")}
           />

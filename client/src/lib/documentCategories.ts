@@ -11,7 +11,7 @@ export type DocumentCategory =
 
 /**
  * Shared by the founder's Data Room and the admin's cross-startup Data Room review.
- * Labels match the OST GROW 3.0 Data Room Checklist categories. "product" is kept
+ * Labels match the Open Startup GROW 3.0 Data Room Checklist categories. "product" is kept
  * only for backward compatibility with documents uploaded before the checklist
  * existed — it's not one of the checklist's own categories.
  */

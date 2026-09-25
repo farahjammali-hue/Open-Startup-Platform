@@ -104,7 +104,7 @@ export default function Mentorship() {
           <div className="mt-8">
             <EmptyState
               icon={Lock}
-              title="Complete your KYC to unlock mentorship"
+              title="Complete your KYS to unlock mentorship"
               description="Finish your Contract & KYS submission to access your sessions."
               actionLabel="Go to Contract & KYS"
               onAction={() => navigate("/contract-kys")}
@@ -166,7 +166,7 @@ function MentorTab({ mentor }: { mentor: ExpertProfile | null }) {
       <EmptyState
         icon={User}
         title="No mentor assigned yet"
-        description="Once the OST team assigns you a mentor, their profile and contact details will show up here."
+        description="Once the Open Startup team assigns you a mentor, their profile and contact details will show up here."
       />
     );
   }
@@ -216,7 +216,7 @@ function OtherExpertsTab({ experts, onOpen }: { experts: ExpertProfile[]; onOpen
       <EmptyState
         icon={Users}
         title="No experts in the catalog yet"
-        description="Experts the OST team adds will show up here for you to browse."
+        description="Experts the Open Startup team adds will show up here for you to browse."
       />
     );
   }
@@ -329,7 +329,7 @@ function SessionRecapCard({ session: s }: { session: MentorshipSession }) {
     ["Mentor comments", n.mentorComments],
     ["Needs highlighted", n.needsHighlighted],
     ["To check next meeting", n.nextMeetingCheckIns],
-    ["Action items for OST", n.actionItemsForOst],
+    ["Action items for Open Startup", n.actionItemsForOst],
   ];
 
   return (

@@ -201,7 +201,7 @@ export default function AdminApprovals() {
                       )}
                       {k && (
                         <div className="sm:col-span-2 lg:col-span-3">
-                          <p className="mb-1 text-xs font-bold uppercase tracking-wide text-slate-400">KYC</p>
+                          <p className="mb-1 text-xs font-bold uppercase tracking-wide text-slate-400">KYS</p>
                           <div className="grid gap-x-6 sm:grid-cols-3">
                             <Field label="Track" value={k.track} />
                             <Field label="Status" value={k.status} />

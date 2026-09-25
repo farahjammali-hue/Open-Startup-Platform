@@ -27,7 +27,7 @@ process.on("uncaughtException", (err: any) => {
   if (err?.code === "EADDRINUSE") {
     console.error(
       `\n  Port ${PORT} is already in use — another copy of the app is still running.\n` +
-      `  Close any other OST windows (or run stop-app.bat), then start again.\n`,
+      `  Close any other Open Startup windows (or run stop-app.bat), then start again.\n`,
     );
     process.exit(1);
   }
@@ -86,7 +86,7 @@ async function start() {
     if (err.code === "EADDRINUSE") {
       console.error(
         `\n  Port ${PORT} is already in use — another copy of the app is still running.\n` +
-        `  Close any other OST windows (or run stop-app.bat), then start again.\n`,
+        `  Close any other Open Startup windows (or run stop-app.bat), then start again.\n`,
       );
       process.exit(1);
     }
@@ -94,7 +94,7 @@ async function start() {
   });
 
   server.listen(PORT, () => {
-    console.log(`\n  OST All-in-One running at http://localhost:${PORT}\n`);
+    console.log(`\n  Open Startup All-in-One running at http://localhost:${PORT}\n`);
   });
 }
 

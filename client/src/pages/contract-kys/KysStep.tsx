@@ -54,7 +54,7 @@ export function KysStep({
   return (
     <div className="ost-card p-4 sm:p-8">
       <div>
-        <p className="text-sm font-semibold text-primary">Complete your KYC &amp; compliance form</p>
+        <p className="text-sm font-semibold text-primary">Complete your KYS form</p>
         {!user || !startup ? (
           <div className="mt-4 flex h-24 items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-slate-400" /></div>
         ) : (

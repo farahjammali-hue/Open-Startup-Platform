@@ -45,7 +45,7 @@ export default function OfficeHours() {
     <AppShell>
       <main className="ost-page">
         <BackLink />
-        <PageHeader eyebrow="Program tools" title="Office hours" subtitle="Book time with the broader OST team and ecosystem experts." />
+        <PageHeader eyebrow="Program tools" title="Office hours" subtitle="Book time with the broader Open Startup team and ecosystem experts." />
 
         {error && <div className="mt-4 rounded-lg border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">{error}</div>}
 
@@ -92,7 +92,7 @@ export default function OfficeHours() {
           </div>
         )}
         {!bookingsLoading && bookings.length === 0 && (
-          <EmptyState icon={CalendarClock} title="You haven't booked any sessions yet" description="Book a slot above to get time with the broader OST team and ecosystem experts." />
+          <EmptyState icon={CalendarClock} title="You haven't booked any sessions yet" description="Book a slot above to get time with the broader Open Startup team and ecosystem experts." />
         )}
         {!bookingsLoading && bookings.length > 0 && (
           <div className="space-y-3">

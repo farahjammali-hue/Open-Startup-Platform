@@ -52,7 +52,7 @@ export const CRM_FIELDS: CrmFieldDef[] = [
   { key: "introVia", label: "Intro Via", kind: "text" },
   { key: "lastContact", label: "Last Contact", kind: "text" },
   { key: "ctaStartup", label: "Call to Action — Startup", kind: "textarea" },
-  { key: "ctaOst", label: "Call to Action — OST", kind: "textarea" },
+  { key: "ctaOst", label: "Call to Action — Open Startup", kind: "textarea" },
   { key: "howItHelps", label: "How It Helps the Startup Scale", kind: "textarea" },
   { key: "contractValue", label: "Contract Value", kind: "text" },
   { key: "proof", label: "Proof (Screenshot, Email, Doc, etc.)", kind: "textarea" },

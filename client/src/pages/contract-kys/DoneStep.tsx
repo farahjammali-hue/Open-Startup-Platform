@@ -29,7 +29,7 @@ export function DoneStep({
         <h2 className="ost-card-title text-xl">{anyRejected ? "Changes requested" : "KYS & contract submitted"}</h2>
         <p className="ost-card-subtext">
           {anyRejected
-            ? "The OST team asked for a change before this can be approved. See the notes below."
+            ? "The Open Startup team asked for a change before this can be approved. See the notes below."
             : "Your onboarding requirements have been submitted and are awaiting review."}
         </p>
       </div>

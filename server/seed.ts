@@ -49,8 +49,8 @@ async function seedOfficeHours() {
   }
 
   await db.insert(officeHourSlots).values([
-    { hostName: "OST Program Team", topic: "General office hours", startsAt: at(3, 10, 0), endsAt: at(3, 10, 30), capacity: 3 },
-    { hostName: "OST Program Team", topic: "Fundraising Q&A", startsAt: at(7, 15, 0), endsAt: at(7, 15, 30), capacity: 2 },
+    { hostName: "Open Startup Program Team", topic: "General office hours", startsAt: at(3, 10, 0), endsAt: at(3, 10, 30), capacity: 3 },
+    { hostName: "Open Startup Program Team", topic: "Fundraising Q&A", startsAt: at(7, 15, 0), endsAt: at(7, 15, 30), capacity: 2 },
   ]);
   console.log("[seed] inserted 2 office hour slots");
 }

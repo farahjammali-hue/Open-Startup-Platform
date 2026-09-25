@@ -391,7 +391,7 @@ export default function Account() {
         <ModalShell maxWidth="max-w-md" scrollable={false}>
             <h3 className="text-lg font-bold text-primary">Request deletion of {delTarget.companyName}?</h3>
             <p className="mt-2 text-sm text-slate-500">
-              Startups can only be deleted with admin approval. This sends a request to the OST team — nothing is removed until they approve it. You can cancel the request anytime before then.
+              Startups can only be deleted with admin approval. This sends a request to the Open Startup team — nothing is removed until they approve it. You can cancel the request anytime before then.
             </p>
             <label className="ost-label mt-4">Reason (optional)</label>
             <textarea className="ost-input min-h-[80px] resize-y" value={delReason} onChange={(e) => setDelReason(e.target.value)} placeholder="Tell the admin why you'd like this removed" />

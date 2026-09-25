@@ -130,7 +130,7 @@ export default function Training() {
           <div className="mt-8">
             <EmptyState
               icon={Lock}
-              title="Complete your KYC to unlock training"
+              title="Complete your KYS to unlock training"
               description="Finish your Contract & KYS submission to access modules and sessions."
               actionLabel="Go to Contract & KYS"
               onAction={() => navigate("/contract-kys")}
@@ -197,7 +197,7 @@ function TrainerTab({ trainer }: { trainer: TrainerProfile | null }) {
       <EmptyState
         icon={User}
         title="No trainer assigned yet"
-        description="Once the OST team assigns you a trainer, their profile and contact details will show up here."
+        description="Once the Open Startup team assigns you a trainer, their profile and contact details will show up here."
       />
     );
   }

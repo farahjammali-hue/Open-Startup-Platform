@@ -19,7 +19,7 @@ export interface ChecklistCategory {
 
 /**
  * The Data Room submission checklist — categories, documents, definitions, and
- * sourcing guidance, from the OST GROW 3.0 Data Room Checklist.
+ * sourcing guidance, from the Open Startup GROW 3.0 Data Room Checklist.
  */
 export const DATA_ROOM_CHECKLIST: ChecklistCategory[] = [
   {

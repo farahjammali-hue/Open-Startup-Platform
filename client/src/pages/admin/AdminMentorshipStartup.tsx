@@ -612,7 +612,7 @@ function SessionNotesModal({
     ["Mentor comments", notes?.mentorComments ?? null],
     ["Needs highlighted", notes?.needsHighlighted ?? null],
     ["To check next meeting", notes?.nextMeetingCheckIns ?? null],
-    ["Action items for OST", notes?.actionItemsForOst ?? null],
+    ["Action items for Open Startup", notes?.actionItemsForOst ?? null],
   ];
 
   async function save() {

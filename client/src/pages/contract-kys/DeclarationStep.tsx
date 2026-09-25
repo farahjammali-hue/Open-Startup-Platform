@@ -89,7 +89,7 @@ export function DeclarationStep({ signed, onSigned, onContinue }: { signed: bool
               {status?.signedAt && `Signed ${new Date(status.signedAt).toLocaleString()}. `}
               {status?.hasFile
                 ? "Your signed copy is below."
-                : "Adobe emailed the signed copy to the signer, and the OST team keeps one in Adobe Sign."}
+                : "Adobe emailed the signed copy to the signer, and the Open Startup team keeps one in Adobe Sign."}
             </p>
           </div>
         </div>

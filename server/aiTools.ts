@@ -43,7 +43,7 @@ const RECAP_FIELDS = {
   mentorComments: "Mentor comments: strategic guidance, recommendations and feedback the mentor gave.",
   needsHighlighted: "Needs highlighted: support required, introductions needed, blockers, risks, follow-up topics.",
   nextMeetingCheckIns: "To check next meeting: specific items to review at the next check-in.",
-  actionItemsForOst: "Action items for OST: concrete actions the Open Startup team committed to (intros, documents, support).",
+  actionItemsForOst: "Action items for Open Startup: concrete actions the Open Startup team committed to (intros, documents, support).",
 } as const;
 
 const saveRecapInput = z.object({

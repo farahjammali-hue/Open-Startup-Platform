@@ -93,7 +93,7 @@ export default function AdminContractsKysStartup() {
             {startup.declarationSignedAt
               ? `Signed ${new Date(startup.declarationSignedAt).toLocaleString()}.`
               : kysProfile
-                ? "Signed within the earlier KYC form (before the declaration became its own step)."
+                ? "Signed within the earlier KYS form (before the declaration became its own step)."
                 : "Not signed yet."}
             {startup.declarationSignedAt && !startup.declarationHasFile && " The signed copy is in Adobe Acrobat Sign."}
           </p>
@@ -252,7 +252,7 @@ function KysReview({ kys, onReviewed }: { kys: KysRow; onReviewed: () => void })
       <div className="mb-4 grid gap-3 sm:grid-cols-2">
         {profile.incorporated == null ? (
           <p className="text-sm text-slate-400 sm:col-span-2">
-            Submitted through the KYC &amp; Compliance Typeform. The answers and uploads are in{" "}
+            Submitted through the KYS Typeform. The answers and uploads are in{" "}
             <a
               href={`https://admin.typeform.com/form/${KYS_TYPEFORM_ID}/results#responses`}
               target="_blank"
