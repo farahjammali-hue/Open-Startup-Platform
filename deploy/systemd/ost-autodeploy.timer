@@ -1,12 +1,13 @@
 [Unit]
-Description=Check origin/main for deployable commits every few minutes
+Description=Check origin/main for deployable commits every minute
 
 [Timer]
-# First check shortly after boot, then every 5 minutes. The check is a single
-# API call and a git fetch when nothing has changed, so this is cheap.
-OnBootSec=3min
-OnUnitActiveSec=5min
-AccuracySec=30s
+# First check shortly after boot, then every minute. The check is a single
+# API call and a git fetch when nothing has changed, so this is cheap even
+# at this interval.
+OnBootSec=1min
+OnUnitActiveSec=1min
+AccuracySec=10s
 Unit=ost-autodeploy.service
 
 [Install]

@@ -303,7 +303,7 @@ unaffected.
 
 ## Automatic deployment
 
-A systemd timer checks `origin/main` every five minutes and deploys it when
+A systemd timer checks `origin/main` every minute and deploys it when
 two conditions hold: CI passed for that commit, and the commit does not touch
 the database schema.
 
