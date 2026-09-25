@@ -26,7 +26,7 @@ export default function StartupSurvey() {
         method: "POST",
         body: JSON.stringify(payload),
       });
-      await refresh(); // onboardingStatus -> complete; App routes to dashboard
+      await refresh(); // onboardingStatus -> pending_approval; App routes to the "under review" screen
     } catch (err: any) {
       setServerError(err.message || "Couldn't submit survey");
       throw err;
@@ -45,7 +45,7 @@ export default function StartupSurvey() {
         <StartupForm
           initial={me}
           startupId={me.id}
-          submitLabel="Finish & go to dashboard"
+          submitLabel="Submit for review"
           onSubmit={handleSubmit}
           onBack={() => navigate("/onboarding/basics")}
           serverError={serverError}
