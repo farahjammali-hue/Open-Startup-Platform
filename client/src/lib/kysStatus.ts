@@ -1,4 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
+
+// The "Open Startup · KYC & Compliance Form" Typeform
+// (openstartup.typeform.com/prog-onboarding) that founders fill in the KYS step.
+export const KYS_TYPEFORM_ID = "O7MQvYnR";
 import { api } from "./utils";
 
 export type ReviewStatus = "pending" | "approved" | "rejected";

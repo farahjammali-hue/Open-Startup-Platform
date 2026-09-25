@@ -10,6 +10,7 @@ import { StatusBadge } from "../../components/StatusBadge";
 import { ReviewActions, EventHistory, Detail, TRACK_LABEL, IRS_LABEL, DOC_LABEL, type EventRow } from "../../components/admin/reviewHelpers";
 import { REVIEW_STATUS_TONES, REVIEW_STATUS_ICONS, type ReviewStatus } from "../../lib/statusTones";
 import { showToast } from "../../lib/toast";
+import { KYS_TYPEFORM_ID } from "../../lib/kysStatus";
 import { Buildings as Building2, Signature as FileSignature, ShieldCheck, ArrowSquareOut as ExternalLink } from "@phosphor-icons/react";
 
 interface StartupBasic { id: string; companyName: string }
@@ -206,7 +207,16 @@ function KysReview({ kys, onReviewed }: { kys: KysRow; onReviewed: () => void })
       <div className="mb-4 grid gap-3 sm:grid-cols-2">
         {profile.incorporated == null ? (
           <p className="text-sm text-slate-400 sm:col-span-2">
-            Submitted via the external KYS form for now — detailed fields aren't captured here yet.
+            Submitted through the KYC &amp; Compliance Typeform. The answers and uploads are in{" "}
+            <a
+              href={`https://admin.typeform.com/form/${KYS_TYPEFORM_ID}/results#responses`}
+              target="_blank"
+              rel="noreferrer"
+              className="font-semibold text-secondary hover:underline"
+            >
+              Typeform responses
+            </a>
+            ; look for this startup's name or email.
           </p>
         ) : profile.incorporated ? (
           <>
