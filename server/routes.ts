@@ -819,11 +819,22 @@ export function registerRoutes(app: Express) {
     if (user?.role !== "startup") {
       return res.status(403).json({ message: "Startup role required" });
     }
-    const startup = await storage.createStartup(req.session.userId!, {
-      companyName: parsed.data.companyName,
-      website: parsed.data.website || null,
-    });
-    await storage.setActiveStartup(req.session.userId!, startup.id);
+    // Reuse the startup from an earlier attempt at this step (e.g. after
+    // using the onboarding "Back" button and resubmitting) instead of
+    // creating a new one every time — onboarding produces exactly one
+    // startup per account; a fresh row per submission left orphaned
+    // duplicates behind that also fanned out the admin approvals queue.
+    const existing = await storage.getStartupsByUserId(user.id);
+    const startup = existing.length > 0
+      ? await storage.updateStartup(existing[0].id, {
+          companyName: parsed.data.companyName,
+          website: parsed.data.website || null,
+        })
+      : await storage.createStartup(user.id, {
+          companyName: parsed.data.companyName,
+          website: parsed.data.website || null,
+        });
+    await storage.setActiveStartup(user.id, startup.id);
     res.status(201).json(startup);
   }));
 

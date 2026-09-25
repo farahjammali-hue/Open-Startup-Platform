@@ -293,9 +293,13 @@ export const storage = {
         kys: kysProfiles,
       })
       .from(users)
-      .leftJoin(startups, eq(startups.userId, users.id))
+      // Join on the user's ACTIVE startup specifically, not every startup
+      // they've ever created — re-doing the Basics step (e.g. via Back)
+      // creates a fresh startup row each time, and joining on userId alone
+      // would fan out into one duplicate "application" per leftover startup.
+      .leftJoin(startups, eq(startups.id, users.activeStartupId))
       .leftJoin(kysProfiles, eq(kysProfiles.startupId, startups.id))
-      .where(eq(users.onboardingStatus, "pending_approval"))
+      .where(and(eq(users.onboardingStatus, "pending_approval"), eq(users.isActive, true)))
       .orderBy(asc(users.createdAt));
     return rows.map((r) => ({
       id: r.id,
