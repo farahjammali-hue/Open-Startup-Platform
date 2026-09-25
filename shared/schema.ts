@@ -952,7 +952,10 @@ export const kysProfiles = pgTable("kys_profiles", {
     .references(() => startups.id, { onDelete: "cascade" })
     .notNull()
     .unique(),
-  track: kysTrackEnum("track").notNull(),
+  // Nullable: read from the embedded KYC Typeform's program question by its
+  // webhook (server/typeform.ts), so it's empty until that arrives, and stays
+  // empty for an "Other" answer until an admin sets it.
+  track: kysTrackEnum("track"),
   // Nullable: the founder-facing form is a placeholder for now (an external
   // Typeform link, see KysStep.tsx) that doesn't ask this, so new
   // submissions leave it and every other Path A/B field below null. Old
@@ -1712,7 +1715,7 @@ export const trainingModuleHomeworkSchema = z.object({
 export const kysSubmitSchema = z.object({
   track: z.enum(["pre_seed", "seed"], {
     errorMap: () => ({ message: "Select a program track" }),
-  }),
+  }).optional(),
   incorporated: z.boolean({ invalid_type_error: "Select Yes or No" }).optional(),
 
   addressLine1: z.string().optional(),

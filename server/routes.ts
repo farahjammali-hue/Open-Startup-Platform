@@ -2776,6 +2776,16 @@ export function registerRoutes(app: Express) {
     res.json(updated);
   }));
 
+  // Set a startup's program track by hand: for an "Other" answer on the KYC
+  // Typeform, or before its webhook is set up.
+  app.post("/api/admin/kys/:id/track", requireAdmin, ah(async (req, res) => {
+    const parsed = z.object({ track: z.enum(["pre_seed", "seed"]) }).safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: "Pick Pre-Seed or Seed" });
+    const updated = await storage.setKysTrack(req.params.id, parsed.data.track);
+    if (!updated) return res.status(404).json({ message: "Not found" });
+    res.json(updated);
+  }));
+
   app.get("/api/admin/stats", requireAdmin, ah(async (_req, res) => {
     res.json(await storage.adminCounts());
   }));
@@ -3102,7 +3112,7 @@ export function registerRoutes(app: Express) {
 
   app.get("/api/admin/users", requireAdmin, ah(async (_req, res) => {
     const list = await storage.listUsers();
-    res.json({ users: list.map((u) => ({ ...toPublicUser(u), kysSubmitted: u.kysSubmitted })) });
+    res.json({ users: list.map((u) => ({ ...toPublicUser(u), onboardingDone: u.onboardingDone })) });
   }));
 
   app.post("/api/admin/users/:id/toggle-active", requireAdmin, ah(async (req, res) => {

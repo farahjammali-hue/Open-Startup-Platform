@@ -30,7 +30,7 @@ export default function ContractKys() {
   const [step, setStep] = useState<Step | null>(null);
   useEffect(() => {
     if (isLoading || step !== null) return;
-    setStep(kysSubmitted ? "done" : contractSigned ? "kys" : "contract");
+    setStep(!kysSubmitted ? "kys" : contractSigned ? "done" : "contract");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoading]);
 
@@ -71,13 +71,13 @@ export default function ContractKys() {
           <PageHeader
             eyebrow="Priority"
             title="Contract & KYS"
-            subtitle={step !== "done" ? "Sign your program agreement and complete your Know Your Startup profile. Both are required to unlock your Dashboard." : undefined}
+            subtitle={step !== "done" ? "Complete your Know Your Startup (KYS) form, then sign your program agreement. Both are required to unlock your Dashboard." : undefined}
           />
 
           {step !== "done" && (
             <div className="mb-8 mt-8 flex gap-4 border-b border-slate-200">
-              <StepTab label="Contract" num={1} active={step === "contract"} done={contractSigned} onClick={() => setStep("contract")} />
-              <StepTab label="Know Your Startup (KYS)" num={2} active={step === "kys"} done={kysSubmitted} onClick={() => contractSigned && setStep("kys")} />
+              <StepTab label="Know Your Startup (KYS)" num={1} active={step === "kys"} done={kysSubmitted} onClick={() => setStep("kys")} />
+              <StepTab label="Contract" num={2} active={step === "contract"} done={contractSigned} onClick={() => kysSubmitted && setStep("contract")} />
             </div>
           )}
 
@@ -86,7 +86,7 @@ export default function ContractKys() {
               initial={contract}
               onSigned={() => {
                 qc.invalidateQueries({ queryKey: ["contract"] });
-                setStep(kysSubmitted ? "done" : "kys");
+                setStep("done");
               }}
             />
           )}
@@ -95,7 +95,7 @@ export default function ContractKys() {
               initial={kysProfile}
               onSubmitted={() => {
                 qc.invalidateQueries({ queryKey: ["kys"] });
-                setStep("done");
+                setStep(contractSigned ? "done" : "contract");
               }}
             />
           )}

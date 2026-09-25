@@ -19,7 +19,7 @@ export interface Contract {
 
 export interface KysProfile {
   id: string;
-  track: "pre_seed" | "seed";
+  track: "pre_seed" | "seed" | null;
   incorporated: boolean | null;
   addressLine1: string | null;
   city: string | null;
@@ -83,6 +83,9 @@ export function useKysStatus() {
     kysDocuments: kysQuery.data?.documents ?? [],
     contractSigned: !!contract,
     kysSubmitted: !!kysProfile,
+    // KYS comes first and the program agreement second, so neither alone
+    // means onboarding is done; this is what unlocks the rest of the app.
+    onboardingComplete: !!kysProfile && !!contract,
     contractRejected: contract?.status === "rejected",
     kysRejected: kysProfile?.status === "rejected",
     isLoading: contractQuery.isLoading || kysQuery.isLoading,

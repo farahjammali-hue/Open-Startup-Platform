@@ -26,7 +26,7 @@ export function DoneStep({
         {anyRejected ? <XCircle className="h-6 w-6" /> : <CheckCircle2 className="h-6 w-6" />}
       </div>
       <div className="flex flex-col gap-2">
-        <h2 className="ost-card-title text-xl">{anyRejected ? "Changes requested" : "Contract & KYS submitted"}</h2>
+        <h2 className="ost-card-title text-xl">{anyRejected ? "Changes requested" : "KYS & contract submitted"}</h2>
         <p className="ost-card-subtext">
           {anyRejected
             ? "The OST team asked for a change before this can be approved. See the notes below."
@@ -36,17 +36,17 @@ export function DoneStep({
 
       <div className="my-2 flex w-full max-w-md flex-col gap-3 text-left">
         <StatusRow
+          label="Know Your Startup (KYS)"
+          status={kysProfile?.status ?? "pending"}
+          note={kysProfile?.reviewNote ?? null}
+          onEdit={onEditKys}
+        />
+        <StatusRow
           label="Contract"
           status={contract?.status ?? "pending"}
           note={contract?.reviewNote ?? null}
           onEdit={onEditContract}
           downloadUrl={contract?.fileUrl ?? undefined}
-        />
-        <StatusRow
-          label="Know Your Startup (KYS)"
-          status={kysProfile?.status ?? "pending"}
-          note={kysProfile?.reviewNote ?? null}
-          onEdit={onEditKys}
         />
       </div>
 

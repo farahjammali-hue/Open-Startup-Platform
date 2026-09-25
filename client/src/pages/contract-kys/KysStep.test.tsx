@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 const api = vi.fn();
@@ -27,10 +27,9 @@ describe("KysStep", () => {
     );
   });
 
-  it("shows the embedded Typeform after a track is picked, without completing the step", async () => {
+  it("shows the embedded Typeform straight away, without completing the step", async () => {
     const onSubmitted = renderStep();
-    expect(document.querySelector("iframe")).toBeNull();
-    fireEvent.click(screen.getByText("Seed Track"));
+    expect(screen.queryByText("Seed Track")).toBeNull();
     await waitFor(() => expect(document.querySelector("iframe")).not.toBeNull());
     const src = document.querySelector("iframe")!.getAttribute("src")!;
     expect(src).toContain("form.typeform.com/to/O7MQvYnR");
@@ -40,7 +39,7 @@ describe("KysStep", () => {
   });
 });
 
-describe("KysStep submit (debug)", () => {
+describe("KysStep submit", () => {
   beforeEach(() => {
     api.mockReset();
     api.mockImplementation(async (url: string) =>
@@ -57,13 +56,13 @@ describe("KysStep submit (debug)", () => {
     const errors: any[] = [];
     window.addEventListener("error", (e) => errors.push(e.error));
     render(<QueryClientProvider client={qc}><Parent /></QueryClientProvider>);
-    fireEvent.click(screen.getByText("Pre-Seed Track"));
     await waitFor(() => expect(document.querySelector("iframe")).not.toBeNull());
     const src = document.querySelector("iframe")!.getAttribute("src")!;
     const embedId = new URL(src).searchParams.get("typeform-embed-id");
     window.dispatchEvent(new MessageEvent("message", { data: { type: "form-submit", embedId, responseId: "r1" } }));
     await waitFor(() => expect(screen.getByText("DONE")).toBeTruthy());
-    expect(api).toHaveBeenCalledWith("/api/kys", expect.anything());
+    // No track sent: the Typeform webhook fills it from the form answer.
+    expect(api).toHaveBeenCalledWith("/api/kys", expect.objectContaining({ body: JSON.stringify({ consentAccepted: true }) }));
     expect(errors).toEqual([]);
   });
 });

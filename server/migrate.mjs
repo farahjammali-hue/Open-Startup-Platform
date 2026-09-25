@@ -1049,6 +1049,10 @@ CREATE TABLE IF NOT EXISTS mcp_oauth_tokens (
 -- What each connection was approved for. Tokens issued before recap-saving
 -- existed keep read-only access until the admin reconnects.
 ALTER TABLE mcp_oauth_tokens ADD COLUMN IF NOT EXISTS scope text NOT NULL DEFAULT 'platform:read';
+
+-- The KYS track now comes from the KYC Typeform's program question (via its
+-- webhook) instead of a separate picker, so it can be empty for a while.
+ALTER TABLE kys_profiles ALTER COLUMN track DROP NOT NULL;
 `;
 
 try {

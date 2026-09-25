@@ -6,6 +6,7 @@ import "dotenv/config";
 import { configureSession, configureGoogleAuth } from "./auth";
 import { registerRoutes } from "./routes";
 import { registerMcp } from "./mcp";
+import { registerTypeform } from "./typeform";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -48,6 +49,7 @@ app.use(express.urlencoded({ extended: true }));
 configureSession(app);
 configureGoogleAuth(app);
 registerMcp(app);
+registerTypeform(app);
 registerRoutes(app);
 
 async function start() {

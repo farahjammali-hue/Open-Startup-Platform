@@ -20,7 +20,7 @@ export function ContractStep({ initial, onSigned }: { initial?: Contract | null;
         const body = await res.json().catch(() => ({}));
         throw new Error(body.message || "Couldn't upload the signed contract");
       }
-      showToast("Contract uploaded. Continue to KYS.");
+      showToast("Contract uploaded.");
       onSigned();
     } catch (e: any) {
       setError(e.message || "Couldn't upload the signed contract");

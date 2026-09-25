@@ -49,7 +49,7 @@ const EXPLORE_TOOLS = [
 
 export default function Home() {
   const [, navigate] = useLocation();
-  const { kysSubmitted, contractRejected, kysRejected, isLoading: kysLoading } = useKysStatus();
+  const { onboardingComplete, contractRejected, kysRejected, isLoading: kysLoading } = useKysStatus();
   const needsAttention = contractRejected || kysRejected;
 
   const { data: startup, isError: noStartup } = useQuery<StartupProfile>({
@@ -61,7 +61,7 @@ export default function Home() {
   const { data: mentorshipData, isLoading: mentorshipLoading } = useQuery<{ sessions: MentorshipSessionLite[] }>({
     queryKey: ["mentorship"],
     queryFn: () => api("/api/mentorship"),
-    enabled: kysSubmitted,
+    enabled: onboardingComplete,
   });
 
   const { data: officeHoursData, isLoading: officeHoursLoading } = useQuery<{ bookings: OfficeHourBookingLite[] }>({
@@ -69,7 +69,7 @@ export default function Home() {
     queryFn: () => api("/api/office-hours/bookings"),
   });
 
-  const upcomingLoading = officeHoursLoading || (kysSubmitted && mentorshipLoading);
+  const upcomingLoading = officeHoursLoading || (onboardingComplete && mentorshipLoading);
 
   const upcoming = useMemo<UpcomingItem[]>(() => {
     const now = Date.now();
@@ -143,12 +143,12 @@ export default function Home() {
             ctaLabel="Review & resubmit"
             onCta={() => navigate("/contract-kys")}
           />
-        ) : !kysSubmitted ? (
+        ) : !onboardingComplete ? (
           <NextActionHero
             tone="amber"
             icon={FileText}
-            title="Complete your Contract & KYS"
-            description="Sign your program agreement and submit your startup profile to unlock the rest of the platform."
+            title="Complete your KYS & Contract"
+            description="Fill in your Know Your Startup form, then sign your program agreement, to unlock the rest of the platform."
             ctaLabel="Start now"
             onCta={() => navigate("/contract-kys")}
           />
@@ -189,14 +189,14 @@ export default function Home() {
         ) : null}
 
         {/* Tier 3 — Progress */}
-        <ProgressSummary kysSubmitted={kysSubmitted} needsAttention={needsAttention} />
+        <ProgressSummary onboardingComplete={onboardingComplete} needsAttention={needsAttention} />
 
         {/* Tier 4 — Explore tools */}
         <section className="mt-10">
           <h2 className="ost-section-label mb-3">Explore tools</h2>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {EXPLORE_TOOLS.map((t) => {
-              const locked = t.gated && !kysSubmitted;
+              const locked = t.gated && !onboardingComplete;
               return (
                 <button
                   key={t.title}
@@ -294,16 +294,16 @@ function UpcomingRow({ item }: { item: UpcomingItem }) {
   );
 }
 
-function ProgressSummary({ kysSubmitted, needsAttention }: { kysSubmitted: boolean; needsAttention: boolean }) {
+function ProgressSummary({ onboardingComplete, needsAttention }: { onboardingComplete: boolean; needsAttention: boolean }) {
   const items: { label: string; tone: StatusTone; text: string }[] = [
     {
       label: "Contract & KYS",
-      tone: needsAttention ? "red" : kysSubmitted ? "teal" : "amber",
-      text: needsAttention ? "Changes requested" : kysSubmitted ? "Complete" : "Action needed",
+      tone: needsAttention ? "red" : onboardingComplete ? "teal" : "amber",
+      text: needsAttention ? "Changes requested" : onboardingComplete ? "Complete" : "Action needed",
     },
-    { label: "Dashboard", tone: kysSubmitted ? "teal" : "gray", text: kysSubmitted ? "Available" : "Locked" },
-    { label: "Data room", tone: kysSubmitted ? "teal" : "gray", text: kysSubmitted ? "Available" : "Locked" },
-    { label: "Mentorship", tone: kysSubmitted ? "teal" : "gray", text: kysSubmitted ? "Available" : "Locked" },
+    { label: "Dashboard", tone: onboardingComplete ? "teal" : "gray", text: onboardingComplete ? "Available" : "Locked" },
+    { label: "Data room", tone: onboardingComplete ? "teal" : "gray", text: onboardingComplete ? "Available" : "Locked" },
+    { label: "Mentorship", tone: onboardingComplete ? "teal" : "gray", text: onboardingComplete ? "Available" : "Locked" },
   ];
 
   return (

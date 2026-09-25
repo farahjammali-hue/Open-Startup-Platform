@@ -69,7 +69,7 @@ export function Sidebar() {
   const { user } = useAuth();
   const [location, navigate] = useLocation();
   const isAdmin = useEffectiveRole() === "admin";
-  const { kysSubmitted } = useKysStatus();
+  const { onboardingComplete } = useKysStatus();
   const { data: startup, isError: noStartup } = useQuery<StartupProfile>({
     queryKey: ["startup-me"],
     queryFn: () => api("/api/startup/me"),
@@ -89,16 +89,16 @@ export function Sidebar() {
     {
       label: "Startups data",
       items: [
-        { label: "Dashboard", to: "/dashboard", icon: LayoutDashboard, lockedIf: !kysSubmitted },
-        { label: "Data Room", to: "/data-room", icon: FolderLock, lockedIf: !kysSubmitted },
-        { label: "CRM", to: "/crm", icon: Handshake, lockedIf: !kysSubmitted },
+        { label: "Dashboard", to: "/dashboard", icon: LayoutDashboard, lockedIf: !onboardingComplete },
+        { label: "Data Room", to: "/data-room", icon: FolderLock, lockedIf: !onboardingComplete },
+        { label: "CRM", to: "/crm", icon: Handshake, lockedIf: !onboardingComplete },
       ],
     },
     {
       label: "Program resources",
       items: [
-        { label: "Training", to: "/training", icon: Presentation, lockedIf: !kysSubmitted },
-        { label: "Mentorship", to: "/mentorship", icon: Layers, lockedIf: !kysSubmitted },
+        { label: "Training", to: "/training", icon: Presentation, lockedIf: !onboardingComplete },
+        { label: "Mentorship", to: "/mentorship", icon: Layers, lockedIf: !onboardingComplete },
         // KPI Visualizations, Office Hours, and Open Startup School are
         // hidden from the nav for now; routes/pages stay intact.
       ],
@@ -149,7 +149,7 @@ export function Sidebar() {
     );
   }
 
-  const onboardingPct = kysSubmitted ? 100 : 35;
+  const onboardingPct = onboardingComplete ? 100 : 35;
 
   return (
     <aside className="brand-tokens-root hidden w-60 shrink-0 flex-col border-r border-white/10 bg-primary md:flex">
@@ -167,7 +167,7 @@ export function Sidebar() {
             </div>
             <div className="min-w-0">
               <div className="truncate text-sm font-bold text-white">{startup.companyName}</div>
-              <div className="truncate text-[11px] text-white/50">{kysSubmitted ? "Onboarding complete" : "Onboarding in progress"}</div>
+              <div className="truncate text-[11px] text-white/50">{onboardingComplete ? "Onboarding complete" : "Onboarding in progress"}</div>
             </div>
           </div>
           <div className="mb-1 flex items-center justify-between text-[11px] font-semibold text-white/50">

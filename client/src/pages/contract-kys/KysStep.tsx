@@ -3,15 +3,16 @@ import { useQuery } from "@tanstack/react-query";
 import { Widget } from "@typeform/embed-react";
 import { api } from "../../lib/utils";
 import { useAuth } from "../../lib/auth";
-import { Field } from "../../components/fields";
 import { showToast } from "../../lib/toast";
 import { type KysProfile, KYS_TYPEFORM_ID } from "../../lib/kysStatus";
 import { CircleNotch as Loader2 } from "@phosphor-icons/react";
 
 // KYS answers are collected by the embedded Typeform (see KYS_TYPEFORM_ID).
 // Answers stay in Typeform; the platform only records that it was submitted.
-// The hidden fields let the team match each response to a startup; Typeform
-// ignores any that the form doesn't define.
+// The form asks the program itself, and its webhook (server/typeform.ts)
+// stores that as the track, so there's no separate track picker here. The
+// hidden fields let that webhook and the team match each response to a
+// startup; Typeform ignores any that the form doesn't define.
 
 export function KysStep({
   initial,
@@ -20,7 +21,6 @@ export function KysStep({
   initial?: KysProfile | null;
   onSubmitted: () => void;
 }) {
-  const [track, setTrack] = useState<"pre_seed" | "seed" | null>(initial?.track ?? null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
@@ -34,13 +34,13 @@ export function KysStep({
   // Only called from the Typeform's own submit event, so the step completes
   // when the form is actually sent, not when it's merely opened.
   async function markSubmitted() {
-    if (!track || submitting) return;
+    if (submitting) return;
     setSubmitting(true);
     setError(null);
     try {
       await api("/api/kys", {
         method: "POST",
-        body: JSON.stringify({ track, consentAccepted: true }),
+        body: JSON.stringify({ consentAccepted: true }),
       });
       showToast("KYS submitted.");
       onSubmitted();
@@ -53,18 +53,9 @@ export function KysStep({
 
   return (
     <div className="ost-card p-8">
-      <Field label="Program track" required>
-        <div className="flex flex-wrap gap-2">
-          <RadioChip label="Pre-Seed Track" selected={track === "pre_seed"} onClick={() => setTrack("pre_seed")} />
-          <RadioChip label="Seed Track" selected={track === "seed"} onClick={() => setTrack("seed")} />
-        </div>
-      </Field>
-
-      <div className="mt-6">
+      <div>
         <p className="text-sm font-semibold text-primary">Complete your KYC &amp; compliance form</p>
-        {!track ? (
-          <p className="mt-1 text-sm text-slate-500">Select your program track above to open the form.</p>
-        ) : !user || !startup ? (
+        {!user || !startup ? (
           <div className="mt-4 flex h-24 items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-slate-400" /></div>
         ) : (
           <>
@@ -96,16 +87,3 @@ export function KysStep({
   );
 }
 
-function RadioChip({ label, selected, onClick }: { label: string; selected: boolean; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`rounded-lg border px-4 py-2 text-sm font-semibold transition ${
-        selected ? "border-primary bg-primary text-white" : "border-slate-200 bg-white text-slate-500 hover:border-primary/40"
-      }`}
-    >
-      {label}
-    </button>
-  );
-}

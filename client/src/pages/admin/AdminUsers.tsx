@@ -14,7 +14,7 @@ interface U {
   /** Whether their startup has submitted Contract & KYS — the post-approval
    * step onboardingStatus itself never reflects (it's stuck at "complete"
    * from the moment an admin approves them onward). */
-  kysSubmitted: boolean;
+  onboardingDone: boolean;
 }
 const ROLE: Record<string, string> = {
   admin: "Admin", startup: "Startup", mentor: "Mentor", investor: "Investor",
@@ -24,7 +24,7 @@ const ROLE: Record<string, string> = {
  * Progress, not just active/disabled. Before approval, "needs_role" and
  * "needs_profile" both just mean "signed up, hasn't been reviewed yet" — one
  * label. After approval ("complete"), onboardingStatus can't tell "still
- * filling in Contract & KYS" from "fully active", so kysSubmitted decides
+ * filling in Contract & KYS" from "fully active", so onboardingDone decides
  * that split instead.
  */
 function statusLabel(u: U): { text: string; className: string } {
@@ -35,7 +35,7 @@ function statusLabel(u: U): { text: string; className: string } {
   if (u.onboardingStatus !== "complete") {
     return { text: "Account created", className: "text-slate-400" };
   }
-  return u.kysSubmitted
+  return u.onboardingDone
     ? { text: "Active", className: "text-secondary" }
     : { text: "Onboarding", className: "text-amber-600" };
 }

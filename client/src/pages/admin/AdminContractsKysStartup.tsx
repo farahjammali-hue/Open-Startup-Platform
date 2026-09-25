@@ -188,6 +188,17 @@ function KysReview({ kys, onReviewed }: { kys: KysRow; onReviewed: () => void })
     }
   }
 
+  async function handleTrack(track: string) {
+    if (track !== "pre_seed" && track !== "seed") return;
+    try {
+      await api(`/api/admin/kys/${kys.id}/track`, { method: "POST", body: JSON.stringify({ track }) });
+      qc.invalidateQueries({ queryKey: ["admin-kys-detail", kys.id] });
+      showToast("Track updated.");
+    } catch (e: any) {
+      showToast(e.message || "Couldn't update the track");
+    }
+  }
+
   const profile = data?.profile;
   const documents = data?.documents ?? [];
 
@@ -197,7 +208,17 @@ function KysReview({ kys, onReviewed }: { kys: KysRow; onReviewed: () => void })
     <>
       <div className="mb-4 flex items-center justify-between rounded-lg border border-slate-200 p-4">
         <div className="text-sm text-slate-500">
-          {TRACK_LABEL[profile.track] || profile.track} track
+          {/* Filled from the KYC Typeform's program answer; editable for "Other" or a missed webhook. */}
+          <select
+            value={profile.track ?? ""}
+            onChange={(e) => handleTrack(e.target.value)}
+            className="rounded-md border border-slate-200 bg-white px-2 py-1 text-sm text-primary"
+            aria-label="Program track"
+          >
+            {!profile.track && <option value="">Track not set</option>}
+            <option value="pre_seed">{TRACK_LABEL.pre_seed} track</option>
+            <option value="seed">{TRACK_LABEL.seed} track</option>
+          </select>
           {profile.incorporated != null && ` · ${profile.incorporated ? "Incorporated" : "Not incorporated"}`}
           {" "}· submitted {new Date(profile.submittedAt).toLocaleString()}
         </div>

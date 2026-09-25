@@ -771,19 +771,20 @@ export const storage = {
   },
 
   /**
-   * kysSubmitted here drives the admin Users status column's post-approval
+   * onboardingDone (KYS and contract both in) drives the admin Users status column's post-approval
    * "Onboarding" (filling in Contract & KYS) vs "Active" split — onboardingStatus
    * alone only tracks the pre-approval steps and never changes again after
    * approveUser sets it to "complete".
    */
-  async listUsers(): Promise<(User & { kysSubmitted: boolean })[]> {
+  async listUsers(): Promise<(User & { onboardingDone: boolean })[]> {
     const rows = await db
-      .select({ user: users, kysProfileId: kysProfiles.id })
+      .select({ user: users, kysProfileId: kysProfiles.id, contractId: contracts.id })
       .from(users)
       .leftJoin(startups, eq(startups.id, users.activeStartupId))
       .leftJoin(kysProfiles, eq(kysProfiles.startupId, startups.id))
+      .leftJoin(contracts, eq(contracts.startupId, startups.id))
       .orderBy(desc(users.createdAt));
-    return rows.map((r) => ({ ...r.user, kysSubmitted: !!r.kysProfileId }));
+    return rows.map((r) => ({ ...r.user, onboardingDone: !!r.kysProfileId && !!r.contractId }));
   },
 
   async setUserActive(id: string, active: boolean): Promise<User> {
@@ -1494,6 +1495,16 @@ export const storage = {
 
   async getKysProfile(startupId: string): Promise<KysProfile | undefined> {
     const [row] = await db.select().from(kysProfiles).where(eq(kysProfiles.startupId, startupId));
+    return row;
+  },
+
+  /** Set only the track (from the KYC Typeform webhook or an admin); leaves review status alone. */
+  async setKysTrack(id: string, track: "pre_seed" | "seed"): Promise<KysProfile | undefined> {
+    const [row] = await db
+      .update(kysProfiles)
+      .set({ track, updatedAt: new Date() })
+      .where(eq(kysProfiles.id, id))
+      .returning();
     return row;
   },
 

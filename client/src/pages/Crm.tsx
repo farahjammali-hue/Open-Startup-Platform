@@ -8,11 +8,11 @@ import { Lock } from "@phosphor-icons/react";
 
 export default function Crm() {
   const [, navigate] = useLocation();
-  const { kysSubmitted, isLoading: kysLoading } = useKysStatus();
+  const { onboardingComplete, isLoading: kysLoading } = useKysStatus();
 
   if (kysLoading) return null;
 
-  if (!kysSubmitted) {
+  if (!onboardingComplete) {
     return (
       <AppShell>
         <main className="ost-page">
