@@ -45,6 +45,9 @@ import {
   startupPartnerStats,
   startupPartnerDetails,
   aiChatSessions,
+  mcpOauthClients,
+  mcpOauthTokens,
+  type McpOauthClient,
   type AiChatSession,
   type AiChatMessage,
   type User,
@@ -2236,6 +2239,65 @@ export const storage = {
 
   async deleteAiChatSession(id: string, userId: string): Promise<void> {
     await db.delete(aiChatSessions).where(and(eq(aiChatSessions.id, id), eq(aiChatSessions.userId, userId)));
+  },
+
+  /* ---------------- Claude connector (MCP) OAuth ---------------- */
+  async getMcpClient(clientId: string): Promise<McpOauthClient | undefined> {
+    const [row] = await db.select().from(mcpOauthClients).where(eq(mcpOauthClients.clientId, clientId));
+    return row;
+  },
+
+  async createMcpClient(data: typeof mcpOauthClients.$inferInsert): Promise<McpOauthClient> {
+    const [row] = await db.insert(mcpOauthClients).values(data).returning();
+    return row;
+  },
+
+  async createMcpToken(data: typeof mcpOauthTokens.$inferInsert): Promise<void> {
+    await db.insert(mcpOauthTokens).values(data);
+    // Opportunistic cleanup, so expired tokens don't pile up forever.
+    await db.delete(mcpOauthTokens).where(sql`${mcpOauthTokens.expiresAt} < now()`);
+  },
+
+  /** A still-valid token of the given kind, with its owner's current access. */
+  async findMcpToken(tokenHash: string, kind: "access" | "refresh") {
+    const [row] = await db
+      .select({
+        id: mcpOauthTokens.id,
+        userId: mcpOauthTokens.userId,
+        clientId: mcpOauthTokens.clientId,
+        expiresAt: mcpOauthTokens.expiresAt,
+        userRole: users.role,
+        userActive: users.isActive,
+        userEmail: users.email,
+      })
+      .from(mcpOauthTokens)
+      .innerJoin(users, eq(users.id, mcpOauthTokens.userId))
+      .where(
+        and(
+          eq(mcpOauthTokens.tokenHash, tokenHash),
+          eq(mcpOauthTokens.kind, kind),
+          sql`${mcpOauthTokens.expiresAt} > now()`,
+        ),
+      );
+    return row;
+  },
+
+  async deleteMcpToken(id: string): Promise<void> {
+    await db.delete(mcpOauthTokens).where(eq(mcpOauthTokens.id, id));
+  },
+
+  /** Distinct apps (Claude clients) currently holding a valid token for this user. */
+  async countMcpConnections(userId: string): Promise<number> {
+    const [row] = await db
+      .select({ c: sql<number>`count(distinct ${mcpOauthTokens.clientId})::int` })
+      .from(mcpOauthTokens)
+      .where(and(eq(mcpOauthTokens.userId, userId), sql`${mcpOauthTokens.expiresAt} > now()`));
+    return row?.c ?? 0;
+  },
+
+  /** Instantly disconnects every Claude connection for this user. */
+  async deleteMcpTokensForUser(userId: string): Promise<void> {
+    await db.delete(mcpOauthTokens).where(eq(mcpOauthTokens.userId, userId));
   },
 
   /** The founder who owns a specific startup — normally exactly one. */

@@ -362,6 +362,57 @@ export async function sendAdminBroadcast(opts: {
   return sent;
 }
 
+/* ---------------- Claude connector security notice ---------------- */
+
+/**
+ * Sent every time Claude is newly connected to an admin's account, so an
+ * approval the admin didn't make themselves gets noticed straight away.
+ */
+export async function sendMcpConnectedNotice(opts: {
+  to: string;
+  name: string;
+  appName: string;
+  disconnectUrl: string;
+}): Promise<void> {
+  const when = new Date().toUTCString();
+  const subject = "Claude was connected to your Open Startup Platform account";
+  if (!transporter) {
+    console.log(`[mailer] (SMTP not configured) ${subject}: ${opts.to} via ${opts.appName} at ${when}`);
+    return;
+  }
+  const safeApp = opts.appName.replace(/[<>&"']/g, "");
+  await transporter.sendMail({
+    from: `"Open Startup" <${FROM}>`,
+    to: opts.to,
+    subject,
+    text: [
+      `Hi ${opts.name},`,
+      `${safeApp} was connected to your Open Startup Platform account on ${when}. It can read platform data (not contract/document files) as you.`,
+      `If this wasn't you, disconnect it immediately: ${opts.disconnectUrl}`,
+    ].join("\n\n"),
+    html: `
+  <div style="font-family:Montserrat,Arial,sans-serif;max-width:520px;margin:0 auto;color:${BRAND}">
+    <div style="background:${BRAND};border-radius:14px 14px 0 0;padding:28px 32px;color:#fff">
+      <div style="font-size:20px;font-weight:800">Open Startup</div>
+      <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:${ACCENT}">Platform</div>
+    </div>
+    <div style="border:1px solid #eef0f6;border-top:0;border-radius:0 0 14px 14px;padding:32px">
+      <h1 style="font-size:20px;margin:0 0 12px">Claude was connected to your account</h1>
+      <p style="font-size:14px;line-height:1.6;color:#475569">
+        Hi ${opts.name}, <strong>${safeApp}</strong> was connected to your Open Startup Platform account on ${when}.
+        It can read platform data (never contract or document files) as you.
+      </p>
+      <p style="font-size:14px;line-height:1.6;color:#475569">If this was you, there's nothing to do.</p>
+      <p style="margin:24px 0">
+        <a href="${opts.disconnectUrl}" style="background:#dc2626;color:#fff;text-decoration:none;padding:12px 22px;border-radius:10px;font-weight:700;font-size:14px;display:inline-block">
+          This wasn't me: disconnect it
+        </a>
+      </p>
+    </div>
+  </div>`,
+  });
+}
+
 /* ---------------- Signup approval ---------------- */
 
 /**

@@ -1198,6 +1198,33 @@ export const aiChatSessions = pgTable("ai_chat_sessions", {
 });
 
 /* =========================================================
+ * Claude connector (MCP) — OAuth clients that registered themselves
+ * (dynamic client registration) and the tokens issued to admins.
+ * Tokens are stored only as SHA-256 hashes, never in plain text.
+ * =======================================================*/
+export const mcpOauthClients = pgTable("mcp_oauth_clients", {
+  clientId: text("client_id").primaryKey(),
+  clientSecretHash: text("client_secret_hash"), // null = public client (PKCE only)
+  clientName: text("client_name"),
+  redirectUris: text("redirect_uris").array().notNull(),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const mcpOauthTokens = pgTable("mcp_oauth_tokens", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  tokenHash: text("token_hash").notNull().unique(),
+  kind: text("kind").$type<"access" | "refresh">().notNull(),
+  userId: uuid("user_id")
+    .references(() => users.id, { onDelete: "cascade" })
+    .notNull(),
+  clientId: text("client_id")
+    .references(() => mcpOauthClients.clientId, { onDelete: "cascade" })
+    .notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+/* =========================================================
  * Session store (connect-pg-simple)
  * =======================================================*/
 export const session = pgTable("session", {
@@ -1810,6 +1837,8 @@ export type StartupClientDetail = typeof startupClientDetails.$inferSelect;
 export type StartupPartnerStat = typeof startupPartnerStats.$inferSelect;
 export type StartupPartnerDetail = typeof startupPartnerDetails.$inferSelect;
 export type AiChatSession = typeof aiChatSessions.$inferSelect;
+export type McpOauthClient = typeof mcpOauthClients.$inferSelect;
+export type McpOauthToken = typeof mcpOauthTokens.$inferSelect;
 
 export type GoalInput = z.infer<typeof goalSchema>;
 export type MetricEntryInput = z.infer<typeof metricEntrySchema>;

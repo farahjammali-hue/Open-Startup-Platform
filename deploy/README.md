@@ -301,6 +301,52 @@ unaffected.
 
 ---
 
+## Claude connector (MCP)
+
+`https://platform.open-startup.org/mcp` is a remote MCP server the team adds
+to Claude (claude.ai, Desktop, Cowork) as a custom connector. Usage runs on
+the team's Claude seats, not on API credits. Code: `server/mcp.ts`, tests:
+`server/mcp.test.ts`.
+
+**Who can use it:** only active admins with an `@open-startup.org` email
+(`MCP_ALLOWED_EMAIL_DOMAINS`). This is re-checked on every request, so
+disabling a user or removing admin rights cuts access immediately.
+
+**What it can do:** read-only lookups (the same ones as the in-app chat,
+`server/aiTools.ts`). No contract/document file contents, no writes.
+
+**Security model:** OAuth 2.1 with PKCE (S256 only), approval on a platform
+page by a signed-in admin, approvals returned only to Claude's hosts
+(`MCP_ALLOWED_REDIRECT_HOSTS`) or local callbacks, 1-hour access tokens,
+single-use rotating refresh tokens, tokens stored only as SHA-256 hashes,
+rate limits, an email to the admin on every new connection, and a
+"Disconnect" button on the Chats page that revokes everything for that
+admin. Every lookup is logged as `[mcp] <email> called <tool>`.
+
+**Proxy requirement:** Claude discovers the login flow through
+`/.well-known/oauth-protected-resource` and
+`/.well-known/oauth-authorization-server`. CloudPanel vhosts often answer
+`/.well-known/` from disk (for Let's Encrypt), which hides these. Check:
+
+```bash
+curl -s https://platform.open-startup.org/.well-known/oauth-authorization-server
+```
+
+It must print JSON containing `"issuer"`. If it returns a 404 page instead,
+add this to the site's Vhost in CloudPanel, above any other `.well-known`
+block, then reload Nginx:
+
+```nginx
+location ^~ /.well-known/oauth- {
+  proxy_pass http://127.0.0.1:5100;
+  proxy_set_header Host $host;
+  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+  proxy_set_header X-Forwarded-Proto $scheme;
+}
+```
+
+---
+
 ## Automatic deployment
 
 A systemd timer checks `origin/main` every minute and deploys it when

@@ -59,6 +59,8 @@ function Loading() {
  * Flow controller: login -> role -> basics -> survey -> app.
  * Once onboarding is complete the full app routes are available.
  */
+const OAUTH_NEXT_KEY = "ost-oauth-next";
+
 export default function App() {
   const { user, loading } = useAuth();
   const effectiveRole = useEffectiveRole();
@@ -81,6 +83,21 @@ export default function App() {
       cancelled = true;
     };
   }, [inAdminStartupPreview]);
+
+  // Claude connector approval: the server's /oauth/authorize page sends
+  // signed-out admins to /login?next=..., then back once they're signed in.
+  // Only that exact server path is accepted, so this can't redirect elsewhere.
+  useEffect(() => {
+    const next = new URLSearchParams(window.location.search).get("next");
+    if (next?.startsWith("/oauth/authorize?")) sessionStorage.setItem(OAUTH_NEXT_KEY, next);
+  }, []);
+  useEffect(() => {
+    if (!user?.emailVerified) return;
+    const next = sessionStorage.getItem(OAUTH_NEXT_KEY);
+    if (!next) return;
+    sessionStorage.removeItem(OAUTH_NEXT_KEY);
+    if (next.startsWith("/oauth/authorize?")) window.location.assign(next);
+  }, [user]);
 
   // Public, unauthenticated — never gated behind login, loading state, or onboarding.
   if (location.startsWith("/share/data-room/")) {

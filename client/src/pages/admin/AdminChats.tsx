@@ -11,7 +11,71 @@ import {
   type AiChatListResponse,
   type AiChatMessage,
 } from "../../components/AiChat";
-import { Plus, ChatCircle as ChatIcon, Trash as Trash2 } from "@phosphor-icons/react";
+import { Plus, ChatCircle as ChatIcon, Trash as Trash2, Copy, Plugs } from "@phosphor-icons/react";
+
+interface ConnectorStatus {
+  url: string;
+  allowed: boolean;
+  connections: number;
+}
+
+/** How to add the platform to Claude (claude.ai / Desktop / Cowork), and an off switch. */
+function ClaudeConnectorPanel() {
+  const qc = useQueryClient();
+  const { data } = useQuery<ConnectorStatus>({
+    queryKey: ["mcp-connector"],
+    queryFn: () => api("/api/admin/mcp-connector"),
+  });
+  if (!data) return null;
+
+  async function disconnect() {
+    if (!confirm("Disconnect Claude from your account? Claude will need to be connected again to read platform data.")) return;
+    try {
+      await api("/api/admin/mcp-connector/connections", { method: "DELETE" });
+      qc.invalidateQueries({ queryKey: ["mcp-connector"] });
+      showToast("Claude disconnected.");
+    } catch (e: any) {
+      showToast(e.message || "Couldn't disconnect");
+    }
+  }
+
+  return (
+    <div className="m-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-500">
+      <p className="mb-1 flex items-center gap-1.5 font-bold text-primary">
+        <Plugs className="h-4 w-4" /> Use in Claude
+      </p>
+      {data.allowed ? (
+        <>
+          <p className="mb-2">
+            In Claude, add a custom connector with this URL, then approve it here. It's read-only and only works for
+            @open-startup.org admins.
+          </p>
+          <button
+            onClick={() => {
+              void navigator.clipboard.writeText(data.url);
+              showToast("Connector URL copied.");
+            }}
+            className="mb-2 flex w-full items-center gap-1.5 truncate rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-left font-mono text-[11px] text-primary hover:border-secondary"
+          >
+            <Copy className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">{data.url}</span>
+          </button>
+          <div className="flex items-center justify-between">
+            <span>
+              {data.connections === 0 ? "Not connected" : `Connected (${data.connections} app${data.connections > 1 ? "s" : ""})`}
+            </span>
+            {data.connections > 0 && (
+              <button onClick={disconnect} className="font-semibold text-red-500 hover:underline">
+                Disconnect
+              </button>
+            )}
+          </div>
+        </>
+      ) : (
+        <p>Only @open-startup.org admin accounts can connect Claude to the platform.</p>
+      )}
+    </div>
+  );
+}
 
 interface AiChat {
   id: string;
@@ -144,6 +208,7 @@ export default function AdminChats() {
               </div>
             ))}
           </div>
+          <ClaudeConnectorPanel />
         </aside>
 
         {/* Conversation */}

@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
 import "dotenv/config";
-import { storage } from "./storage";
+import { AI_TOOLS as TOOLS, executeAiTool as executeTool } from "./aiTools";
 
 /**
  * "Ask AI" tool-use chat: an admin asks a plain-English question about the
@@ -53,108 +53,6 @@ if (!aiChatConfigured) {
 export interface ChatTurn {
   question: string;
   answer: string;
-}
-
-/* ---------------- Curated, read-only tool catalog ----------------
- * Every tool here maps 1:1 to an existing storage aggregate/qualitative
- * function that already excludes admin demo startups and never touches
- * document/contract file contents. */
-
-interface ToolDef {
-  name: string;
-  description: string;
-  parameters: {
-    type: "object";
-    properties: Record<string, unknown>;
-    required: string[];
-  };
-}
-
-const TOOLS: ToolDef[] = [
-  {
-    name: "count_startups",
-    description: "Count how many real startups are in the program, optionally filtered to one KYS track.",
-    parameters: {
-      type: "object",
-      properties: { track: { type: "string", enum: ["seed", "pre_seed"], description: "Omit for every track." } },
-      required: [],
-    },
-  },
-  {
-    name: "startup_metric_summary",
-    description: "Sum a numeric metric (valuation, amount raised, or total revenue) across startups, optionally filtered to one track.",
-    parameters: {
-      type: "object",
-      properties: {
-        metric: { type: "string", enum: ["lastValuation", "amountRaised", "totalRevenueSinceFounding"] },
-        track: { type: "string", enum: ["seed", "pre_seed"], description: "Omit for every track." },
-      },
-      required: ["metric"],
-    },
-  },
-  {
-    name: "average_team_size",
-    description: "Average team size across every startup in the program.",
-    parameters: { type: "object", properties: {}, required: [] },
-  },
-  {
-    name: "list_startup_names",
-    description: "List every real startup's id, company name, and stage. Use this first to find a startup's id before calling get_startup_profile.",
-    parameters: { type: "object", properties: {}, required: [] },
-  },
-  {
-    name: "list_startups_by_track",
-    description: "List startup company names and stage for one KYS track.",
-    parameters: {
-      type: "object",
-      properties: { track: { type: "string", enum: ["seed", "pre_seed"] } },
-      required: ["track"],
-    },
-  },
-  {
-    name: "list_startups_needing_attention",
-    description: "List startups whose latest quarterly update is flagged at-risk/off-track, or that asked for support.",
-    parameters: { type: "object", properties: {}, required: [] },
-  },
-  {
-    name: "list_startups_with_pending_reviews",
-    description: "List startups with a Contract and/or KYS submission still awaiting admin review.",
-    parameters: { type: "object", properties: {}, required: [] },
-  },
-  {
-    name: "get_startup_profile",
-    description: "Get one startup's qualitative profile (description, location, markets, stage, track, team size, contract/KYS status) by id. Never returns document/file contents.",
-    parameters: {
-      type: "object",
-      properties: { startupId: { type: "string" } },
-      required: ["startupId"],
-    },
-  },
-];
-
-async function executeTool(name: string, input: any): Promise<unknown> {
-  switch (name) {
-    case "count_startups":
-      return { count: await storage.countStartups(input?.track) };
-    case "startup_metric_summary":
-      return storage.startupMetricSummary(input.metric, input?.track);
-    case "average_team_size":
-      return storage.averageTeamSize();
-    case "list_startup_names":
-      return storage.listStartupNames();
-    case "list_startups_by_track":
-      return storage.listStartupNamesByTrack(input.track);
-    case "list_startups_needing_attention":
-      return storage.listStartupsNeedingAttention();
-    case "list_startups_with_pending_reviews":
-      return storage.listStartupsWithPendingReviews();
-    case "get_startup_profile": {
-      const profile = await storage.getStartupQualitativeProfile(input.startupId);
-      return profile ?? { error: "No startup with that id" };
-    }
-    default:
-      return { error: `Unknown tool: ${name}` };
-  }
 }
 
 const SYSTEM_PROMPT =

@@ -1038,6 +1038,25 @@ CREATE TABLE IF NOT EXISTS ai_chat_sessions (
   updated_at timestamp NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS ai_chat_sessions_user_updated_idx ON ai_chat_sessions (user_id, updated_at DESC);
+
+-- Claude connector (MCP) OAuth: self-registered clients + hashed tokens.
+-- New tables only, nothing existing touched.
+CREATE TABLE IF NOT EXISTS mcp_oauth_clients (
+  client_id text PRIMARY KEY,
+  client_secret_hash text,
+  client_name text,
+  redirect_uris text[] NOT NULL,
+  created_at timestamp NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS mcp_oauth_tokens (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  token_hash text NOT NULL UNIQUE,
+  kind text NOT NULL,
+  user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  client_id text NOT NULL REFERENCES mcp_oauth_clients(client_id) ON DELETE CASCADE,
+  expires_at timestamp NOT NULL,
+  created_at timestamp NOT NULL DEFAULT now()
+);
 `;
 
 try {

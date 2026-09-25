@@ -5,6 +5,7 @@ import { createServer } from "http";
 import "dotenv/config";
 import { configureSession, configureGoogleAuth } from "./auth";
 import { registerRoutes } from "./routes";
+import { registerMcp } from "./mcp";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -46,6 +47,7 @@ app.use(express.urlencoded({ extended: true }));
 
 configureSession(app);
 configureGoogleAuth(app);
+registerMcp(app);
 registerRoutes(app);
 
 async function start() {
