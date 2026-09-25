@@ -43,9 +43,6 @@ export function DeclarationStep({ signed, onSigned, onContinue }: { signed: bool
     queryKey: ["declaration-status"],
     queryFn: () => api("/api/declaration/status"),
     retryOnMount: false,
-    // The webhook's PDF can arrive shortly after the signature: poll briefly
-    // while signed-but-fileless so the buttons appear without a manual reload.
-    refetchInterval: (q) => (q.state.data && q.state.data.signedAt && !q.state.data.hasFile ? 5000 : false),
   });
 
   async function markSigned() {
@@ -92,7 +89,7 @@ export function DeclarationStep({ signed, onSigned, onContinue }: { signed: bool
               {status?.signedAt && `Signed ${new Date(status.signedAt).toLocaleString()}. `}
               {status?.hasFile
                 ? "Your signed copy is below."
-                : "Your signed copy is on its way from Adobe — it appears here shortly, and Adobe also emails it to the signer."}
+                : "Adobe emailed the signed copy to the signer, and the OST team keeps one in Adobe Sign."}
             </p>
           </div>
         </div>
