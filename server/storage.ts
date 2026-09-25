@@ -876,27 +876,44 @@ export const storage = {
       .orderBy(desc(startups.deletionRequestedAt));
   },
 
+  // Startup-related counts leave out the admins' demo startups (owner role
+  // "admin"), which exist only to power the admin Startup view.
   async adminCounts() {
     const [u] = await db.select({ c: sql<number>`count(*)::int` }).from(users);
-    const [s] = await db.select({ c: sql<number>`count(*)::int` }).from(startups);
+    const [s] = await db
+      .select({ c: sql<number>`count(*)::int` })
+      .from(startups)
+      .innerJoin(users, eq(users.id, startups.userId))
+      .where(ne(users.role, "admin"));
     const [d] = await db
       .select({ c: sql<number>`count(*)::int` })
       .from(startups)
-      .where(isNotNull(startups.deletionRequestedAt));
+      .innerJoin(users, eq(users.id, startups.userId))
+      .where(and(isNotNull(startups.deletionRequestedAt), ne(users.role, "admin")));
     const [pc] = await db
       .select({ c: sql<number>`count(*)::int` })
       .from(contracts)
-      .where(eq(contracts.status, "pending"));
+      .innerJoin(startups, eq(startups.id, contracts.startupId))
+      .innerJoin(users, eq(users.id, startups.userId))
+      .where(and(eq(contracts.status, "pending"), ne(users.role, "admin")));
     const [pk] = await db
       .select({ c: sql<number>`count(*)::int` })
       .from(kysProfiles)
-      .where(eq(kysProfiles.status, "pending"));
+      .innerJoin(startups, eq(startups.id, kysProfiles.startupId))
+      .innerJoin(users, eq(users.id, startups.userId))
+      .where(and(eq(kysProfiles.status, "pending"), ne(users.role, "admin")));
     const now = new Date();
     const currentPeriod = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
     const [reported] = await db
       .select({ c: sql<number>`count(distinct ${startupMetricEntries.startupId})::int` })
       .from(startupMetricEntries)
-      .where(and(eq(startupMetricEntries.period, currentPeriod), sql`${startupMetricEntries.values} != '{}'::jsonb`));
+      .innerJoin(startups, eq(startups.id, startupMetricEntries.startupId))
+      .innerJoin(users, eq(users.id, startups.userId))
+      .where(and(
+        eq(startupMetricEntries.period, currentPeriod),
+        sql`${startupMetricEntries.values} != '{}'::jsonb`,
+        ne(users.role, "admin"),
+      ));
     const [ms] = await db
       .select({ c: sql<number>`count(*)::int` })
       .from(mentorshipModuleSessions)

@@ -137,8 +137,11 @@ while :; do
 done
 
 # ---------------------------------------------------------------- tidy
-log "pruning unused images"
+log "pruning unused images and old build cache"
 sudo docker image prune -f >/dev/null || true
+# Each build leaves layers in the build cache; left alone it grows by several GB
+# on this 38 GB disk. Keep the last week's worth so rebuilds stay fast.
+sudo docker builder prune -f --filter until=168h >/dev/null || true
 
 log "deployed ${TARGET:0:7} successfully"
 df -h / | tail -1
