@@ -767,8 +767,20 @@ export const storage = {
     return row;
   },
 
-  async listUsers(): Promise<User[]> {
-    return db.select().from(users).orderBy(desc(users.createdAt));
+  /**
+   * kysSubmitted here drives the admin Users status column's post-approval
+   * "Onboarding" (filling in Contract & KYS) vs "Active" split — onboardingStatus
+   * alone only tracks the pre-approval steps and never changes again after
+   * approveUser sets it to "complete".
+   */
+  async listUsers(): Promise<(User & { kysSubmitted: boolean })[]> {
+    const rows = await db
+      .select({ user: users, kysProfileId: kysProfiles.id })
+      .from(users)
+      .leftJoin(startups, eq(startups.id, users.activeStartupId))
+      .leftJoin(kysProfiles, eq(kysProfiles.startupId, startups.id))
+      .orderBy(desc(users.createdAt));
+    return rows.map((r) => ({ ...r.user, kysSubmitted: !!r.kysProfileId }));
   },
 
   async setUserActive(id: string, active: boolean): Promise<User> {

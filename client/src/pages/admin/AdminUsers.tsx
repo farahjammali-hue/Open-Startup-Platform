@@ -11,20 +11,34 @@ interface U {
   id: string; name: string; email: string; role: string | null;
   isActive: boolean; emailVerified: boolean; createdAt: string;
   onboardingStatus: OnboardingStatus;
+  /** Whether their startup has submitted Contract & KYS — the post-approval
+   * step onboardingStatus itself never reflects (it's stuck at "complete"
+   * from the moment an admin approves them onward). */
+  kysSubmitted: boolean;
 }
 const ROLE: Record<string, string> = {
   admin: "Admin", startup: "Startup", mentor: "Mentor", investor: "Investor",
 };
 
-// Onboarding progress, not just active/disabled — "Active" alone didn't
-// distinguish a real, fully-onboarded user from one that only just
-// registered and never got past picking a role.
-const ONBOARDING_LABEL: Record<OnboardingStatus, { text: string; className: string }> = {
-  needs_role: { text: "Account created", className: "text-slate-400" },
-  needs_profile: { text: "Onboarding", className: "text-amber-600" },
-  pending_approval: { text: "Pending approval", className: "text-amber-600" },
-  complete: { text: "Active", className: "text-secondary" },
-};
+/**
+ * Progress, not just active/disabled. Before approval, "needs_role" and
+ * "needs_profile" both just mean "signed up, hasn't been reviewed yet" — one
+ * label. After approval ("complete"), onboardingStatus can't tell "still
+ * filling in Contract & KYS" from "fully active", so kysSubmitted decides
+ * that split instead.
+ */
+function statusLabel(u: U): { text: string; className: string } {
+  if (!u.isActive) return { text: "Disabled", className: "text-red-500" };
+  if (u.onboardingStatus === "pending_approval") {
+    return { text: "Pending approval", className: "text-amber-600" };
+  }
+  if (u.onboardingStatus !== "complete") {
+    return { text: "Account created", className: "text-slate-400" };
+  }
+  return u.kysSubmitted
+    ? { text: "Active", className: "text-secondary" }
+    : { text: "Onboarding", className: "text-amber-600" };
+}
 
 export default function AdminUsers() {
   const qc = useQueryClient();
@@ -100,13 +114,9 @@ export default function AdminUsers() {
                     </td>
                     <td className="px-5 py-3 text-slate-500">{u.emailVerified ? "Yes" : "No"}</td>
                     <td className="px-5 py-3">
-                      {u.isActive ? (
-                        <span className={`text-xs font-medium ${ONBOARDING_LABEL[u.onboardingStatus].className}`}>
-                          {ONBOARDING_LABEL[u.onboardingStatus].text}
-                        </span>
-                      ) : (
-                        <span className="text-xs font-medium text-red-500">Disabled</span>
-                      )}
+                      <span className={`text-xs font-medium ${statusLabel(u).className}`}>
+                        {statusLabel(u).text}
+                      </span>
                     </td>
                     <td className="px-5 py-3 text-right">
                       <div className="flex justify-end gap-2">

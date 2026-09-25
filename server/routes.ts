@@ -3269,7 +3269,7 @@ export function registerRoutes(app: Express) {
 
   app.get("/api/admin/users", requireAdmin, ah(async (_req, res) => {
     const list = await storage.listUsers();
-    res.json({ users: list.map(toPublicUser) });
+    res.json({ users: list.map((u) => ({ ...toPublicUser(u), kysSubmitted: u.kysSubmitted })) });
   }));
 
   app.post("/api/admin/users/:id/toggle-active", requireAdmin, ah(async (req, res) => {
