@@ -1027,6 +1027,17 @@ ALTER TABLE team_members ADD COLUMN IF NOT EXISTS current_involvement text;
 -- Each target market (Initial Data Card 11) can now carry its own GTM
 -- strategy link, separate from the startup-wide one.
 ALTER TABLE startup_target_markets ADD COLUMN IF NOT EXISTS strategy_link text;
+
+-- Ask AI: saved admin conversations (new table only, nothing existing touched).
+CREATE TABLE IF NOT EXISTS ai_chat_sessions (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  title text NOT NULL,
+  messages jsonb NOT NULL DEFAULT '[]'::jsonb,
+  created_at timestamp NOT NULL DEFAULT now(),
+  updated_at timestamp NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS ai_chat_sessions_user_updated_idx ON ai_chat_sessions (user_id, updated_at DESC);
 `;
 
 try {

@@ -6,7 +6,8 @@ import { api } from "../lib/utils";
 import { confirmLeave } from "../lib/navGuard";
 import { useKysStatus } from "../lib/kysStatus";
 import { showToast } from "../lib/toast";
-import { SquaresFour as LayoutDashboard, Rocket, Trash as Trash2, Users, UserCheck, Lock, Wrench, Wallet, Storefront as Store, BookOpen, Chats as MessagesSquare, FolderLock, House as HomeIcon, FileText, Stack as Layers, Presentation, Handshake, Sparkle as Sparkles } from "@phosphor-icons/react";
+import { SquaresFour as LayoutDashboard, Rocket, Trash as Trash2, Users, UserCheck, Lock, Wrench, Wallet, Storefront as Store, BookOpen, Chats as MessagesSquare, FolderLock, House as HomeIcon, FileText, Stack as Layers, Presentation, Handshake, ChatCircle, DotsThree } from "@phosphor-icons/react";
+import type { AiChatListResponse } from "./AiChat";
 
 interface Item {
   label: string;
@@ -14,14 +15,17 @@ interface Item {
   icon: any;
   soon?: boolean;
   lockedIf?: boolean;
+  /** Only highlight on this exact path, not on sub-paths. */
+  exact?: boolean;
 }
+
+const RECENT_CHATS_IN_NAV = 5;
 
 const ADMIN_GROUPS: { label: string; items: Item[] }[] = [
   {
     label: "Overview",
     items: [
       { label: "Dashboard", to: "/admin", icon: LayoutDashboard },
-      { label: "Ask AI", to: "/admin/ask-ai", icon: Sparkles },
     ],
   },
   {
@@ -104,7 +108,24 @@ export function Sidebar() {
     },
   ];
 
-  const groups = isAdmin ? ADMIN_GROUPS : STARTUP_GROUPS;
+  const { data: chatList } = useQuery<AiChatListResponse>({
+    queryKey: ["ai-chats"],
+    queryFn: () => api("/api/admin/ai-chats"),
+    enabled: isAdmin,
+  });
+  const chatGroup: { label: string; items: Item[] } = {
+    label: "Chats",
+    items: [
+      ...(chatList?.chats ?? []).slice(0, RECENT_CHATS_IN_NAV).map((c) => ({
+        label: c.title,
+        to: `/admin/chats/${c.id}`,
+        icon: ChatCircle,
+      })),
+      { label: "All chats", to: "/admin/chats", icon: DotsThree, exact: true },
+    ],
+  };
+
+  const groups = isAdmin ? [ADMIN_GROUPS[0], chatGroup, ...ADMIN_GROUPS.slice(1)] : STARTUP_GROUPS;
 
   function go(to?: string, lockedIf?: boolean) {
     if (!to) return;
@@ -117,7 +138,7 @@ export function Sidebar() {
 
   function renderItem(it: Item) {
     const Icon = it.icon;
-    const active = it.to && (location === it.to || (it.to !== "/admin" && it.to !== "/" && location.startsWith(it.to)));
+    const active = it.to && (location === it.to || (!it.exact && it.to !== "/admin" && it.to !== "/" && location.startsWith(it.to)));
     if (it.soon) {
       return (
         <div key={it.label} className="flex cursor-not-allowed items-center justify-between rounded-lg px-3 py-2 text-sm font-medium text-white/30">
@@ -134,7 +155,7 @@ export function Sidebar() {
     // exactly the white-pill-with-turquoise-bar look it's meant to produce.
     return (
       <button
-        key={it.label}
+        key={it.to ?? it.label}
         onClick={() => go(it.to, it.lockedIf)}
         aria-current={active ? "page" : undefined}
         style={active ? undefined : { color: it.lockedIf ? "rgba(255,255,255,.3)" : "rgba(255,255,255,.7)" }}
@@ -142,7 +163,7 @@ export function Sidebar() {
           active ? "" : "hover:bg-white/5 hover:!text-white"
         }`}
       >
-        <Icon className="h-5 w-5" /> {it.label}
+        <Icon className="h-5 w-5 shrink-0" /> <span className="min-w-0 truncate">{it.label}</span>
         {it.lockedIf && <Lock className="ml-auto h-4 w-4" />}
       </button>
     );

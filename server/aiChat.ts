@@ -18,7 +18,16 @@ const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-6-astra";
 
 const anthropicKey = process.env.ANTHROPIC_API_KEY;
 const openaiKey = process.env.OPENAI_API_KEY;
-const anthropicClient = anthropicKey ? new Anthropic({ apiKey: anthropicKey }) : null;
+// Some Anthropic API keys (workspace-scoped, e.g. under an org) reject every
+// request with a 400 unless this header names which workspace to bill/run
+// against — the SDK has no automatic way to infer it for a plain API key.
+const anthropicWorkspaceId = process.env.ANTHROPIC_WORKSPACE_ID;
+const anthropicClient = anthropicKey
+  ? new Anthropic({
+      apiKey: anthropicKey,
+      defaultHeaders: anthropicWorkspaceId ? { "anthropic-workspace-id": anthropicWorkspaceId } : undefined,
+    })
+  : null;
 const openaiClient = openaiKey ? new OpenAI({ apiKey: openaiKey }) : null;
 
 export type ChatProvider = "anthropic" | "openai";
@@ -152,8 +161,9 @@ const SYSTEM_PROMPT =
   "You are the Open Startup Platform's internal admin assistant. Answer questions about the accelerator " +
   "program (startup counts, valuations, funding, revenue, team sizes, tracks, review status, and individual " +
   "startups' qualitative profiles) using the tools provided. Always call a tool rather than guessing a number. " +
-  "Keep answers short, factual, and in plain English — a sentence or two, not a report. If a question isn't " +
-  "about program data (e.g. it asks for document/contract contents, which no tool exposes), say so plainly.";
+  "Keep answers short, factual, and in plain English. Write plain text: short \"- \" bullet lists are fine for " +
+  "listing several startups, but no markdown headings, bold, or tables (the chat window shows raw text). If a " +
+  "question isn't about program data (e.g. it asks for document/contract contents, which no tool exposes), say so plainly.";
 
 const MAX_TOOL_ROUNDS = 6;
 
@@ -254,7 +264,16 @@ async function askOpenAI(question: string, history: ChatTurn[]): Promise<string>
   return "That question needed more steps than I could take — try asking something narrower.";
 }
 
-/** Throws if aiChatConfigured is false — callers should check that first and fall back to preview mode. */
+/** Admin-facing explanation of a provider failure (bad key, missing workspace, rate limit...). */
+export function describeAiError(error: unknown): string {
+  if (error instanceof Anthropic.APIError || error instanceof OpenAI.APIError) {
+    const inner = (error as any).error?.error?.message ?? (error as any).error?.message;
+    return `The AI service rejected the request (${error.status ?? "no status"}): ${inner || error.message}`;
+  }
+  return error instanceof Error ? error.message : "The AI service failed unexpectedly.";
+}
+
+/** Throws if aiChatConfigured is false — callers should check that first. */
 export async function askAi(question: string, history: ChatTurn[] = []): Promise<{ answer: string; provider: ChatProvider }> {
   if (configuredProvider === "anthropic") {
     return { answer: await askAnthropic(question, history), provider: "anthropic" };

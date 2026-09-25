@@ -25,7 +25,7 @@ import Crm from "./pages/Crm";
 import OfficeHours from "./pages/OfficeHours";
 import OpenStartupSchool from "./pages/OpenStartupSchool";
 import AdminDashboard from "./pages/admin/AdminDashboard";
-import AdminAskAI from "./pages/admin/AdminAskAI";
+import AdminChats from "./pages/admin/AdminChats";
 import AdminStartups from "./pages/admin/AdminStartups";
 import AdminStartupDetail from "./pages/admin/AdminStartupDetail";
 import AdminStartupDashboard from "./pages/admin/AdminStartupDashboard";
@@ -106,7 +106,8 @@ export default function App() {
     return (
       <Switch>
         <Route path="/admin" component={AdminDashboard} />
-        <Route path="/admin/ask-ai" component={AdminAskAI} />
+        <Route path="/admin/chats" component={AdminChats} />
+        <Route path="/admin/chats/:id" component={AdminChats} />
         <Route path="/admin/startups" component={AdminStartups} />
         <Route path="/admin/startups/:id" component={AdminStartupDetail} />
         <Route path="/admin/startups/:id/dashboard" component={AdminStartupDashboard} />

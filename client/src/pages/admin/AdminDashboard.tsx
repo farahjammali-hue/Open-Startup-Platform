@@ -1,9 +1,15 @@
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { api } from "../../lib/utils";
+import { useAuth } from "../../lib/auth";
 import { AppShell } from "../../components/AppShell";
-import { PageHeader } from "../../components/PageHeader";
-import { Users, Rocket, Trash as Trash2, ArrowRight, Signature as FileSignature, ChartLine as LineChart, UsersThree as UsersRound, Presentation, Sparkle as Sparkles } from "@phosphor-icons/react";
+import { ChatComposer, providerLabel, type AiChatListResponse } from "../../components/AiChat";
+import { Users, Rocket, Trash as Trash2, ArrowRight, Signature as FileSignature, ChartLine as LineChart, UsersThree as UsersRound, Presentation, ClockCounterClockwise } from "@phosphor-icons/react";
+
+function greeting() {
+  const h = new Date().getHours();
+  return h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
+}
 
 interface Stats {
   users: number; startups: number; pendingDeletions: number;
@@ -21,10 +27,16 @@ interface CardDef {
 
 export default function AdminDashboard() {
   const [, navigate] = useLocation();
+  const { user } = useAuth();
   const { data, isLoading } = useQuery<Stats>({
     queryKey: ["admin-stats"],
     queryFn: () => api("/api/admin/stats"),
   });
+  const { data: chatList } = useQuery<AiChatListResponse>({
+    queryKey: ["ai-chats"],
+    queryFn: () => api("/api/admin/ai-chats"),
+  });
+  const recentChat = chatList?.chats[0];
 
   const pendingReviews = (data?.pendingContracts ?? 0) + (data?.pendingKys ?? 0);
 
@@ -48,23 +60,24 @@ export default function AdminDashboard() {
   return (
     <AppShell>
       <main className="ost-page">
-        <PageHeader eyebrow="Administration" title="Admin dashboard" subtitle="Overview of the whole platform." />
+        <h1 className="ost-page-title">{greeting()}, {user?.name?.split(" ")[0]}.</h1>
 
-        <button
-          onClick={() => navigate("/admin/ask-ai")}
-          className="group mt-8 flex w-full items-center justify-between gap-4 rounded-2xl bg-primary p-6 text-left text-white transition hover:-translate-y-0.5 hover:shadow-card-hover"
-        >
-          <div className="flex items-center gap-4">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/10 text-turq">
-              <Sparkles className="h-6 w-6" />
-            </div>
-            <div>
-              <div className="font-bold">Ask AI</div>
-              <div className="text-sm text-white/60">Ask a question about the program in plain English — startups, valuations, funding, review status.</div>
-            </div>
-          </div>
-          <ArrowRight className="h-4 w-4 shrink-0 text-white/40 group-hover:text-white" />
-        </button>
+        <div className="mt-6 max-w-3xl">
+          {recentChat && (
+            <button
+              onClick={() => navigate(`/admin/chats/${recentChat.id}`)}
+              className="mb-2 flex max-w-full items-center gap-1.5 truncate text-left text-xs text-slate-400 hover:text-primary"
+            >
+              <ClockCounterClockwise className="h-3.5 w-3.5 shrink-0" />
+              Recent chat · <span className="truncate font-semibold text-slate-500">{recentChat.title}</span>
+            </button>
+          )}
+          <ChatComposer
+            onSend={(q) => navigate(`/admin/chats?q=${encodeURIComponent(q)}`)}
+            disabled={chatList ? !chatList.configured : false}
+            footerLabel={providerLabel(chatList?.provider ?? null)}
+          />
+        </div>
 
         <CardSection label="Needs your attention" cards={needsAttention} isLoading={isLoading} onNavigate={navigate} tone="warning" />
         <CardSection label="Platform" cards={platform} isLoading={isLoading} onNavigate={navigate} tone="neutral" />

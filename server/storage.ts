@@ -44,6 +44,9 @@ import {
   startupClientDetails,
   startupPartnerStats,
   startupPartnerDetails,
+  aiChatSessions,
+  type AiChatSession,
+  type AiChatMessage,
   type User,
   type Startup,
   type PublicUser,
@@ -2198,6 +2201,41 @@ export const storage = {
       seen.add(key);
       return true;
     });
+  },
+
+  /* ---------------- Ask AI saved conversations (per admin) ---------------- */
+  async listAiChatSessions(userId: string): Promise<{ id: string; title: string; updatedAt: Date }[]> {
+    return db
+      .select({ id: aiChatSessions.id, title: aiChatSessions.title, updatedAt: aiChatSessions.updatedAt })
+      .from(aiChatSessions)
+      .where(eq(aiChatSessions.userId, userId))
+      .orderBy(desc(aiChatSessions.updatedAt));
+  },
+
+  async getAiChatSession(id: string, userId: string): Promise<AiChatSession | undefined> {
+    const [row] = await db
+      .select()
+      .from(aiChatSessions)
+      .where(and(eq(aiChatSessions.id, id), eq(aiChatSessions.userId, userId)));
+    return row;
+  },
+
+  async createAiChatSession(userId: string, title: string, messages: AiChatMessage[]): Promise<AiChatSession> {
+    const [row] = await db.insert(aiChatSessions).values({ userId, title, messages }).returning();
+    return row;
+  },
+
+  async updateAiChatMessages(id: string, messages: AiChatMessage[]): Promise<AiChatSession> {
+    const [row] = await db
+      .update(aiChatSessions)
+      .set({ messages, updatedAt: new Date() })
+      .where(eq(aiChatSessions.id, id))
+      .returning();
+    return row;
+  },
+
+  async deleteAiChatSession(id: string, userId: string): Promise<void> {
+    await db.delete(aiChatSessions).where(and(eq(aiChatSessions.id, id), eq(aiChatSessions.userId, userId)));
   },
 
   /** The founder who owns a specific startup — normally exactly one. */
