@@ -1,4 +1,4 @@
-import { eq, and, desc, asc, isNotNull, sql, count, inArray } from "drizzle-orm";
+import { eq, ne, and, desc, asc, isNotNull, sql, count, inArray } from "drizzle-orm";
 import { db } from "./db";
 import {
   users,
@@ -845,11 +845,14 @@ export const storage = {
         trainerName: trainers.name,
       })
       .from(startups)
-      .leftJoin(users, eq(startups.userId, users.id))
+      .innerJoin(users, eq(startups.userId, users.id))
       .leftJoin(kysProfiles, eq(kysProfiles.startupId, startups.id))
       .leftJoin(contracts, eq(contracts.startupId, startups.id))
       .leftJoin(experts, eq(experts.id, startups.mentorId))
       .leftJoin(trainers, eq(trainers.id, startups.trainerId))
+      // Excludes every admin's auto-provisioned "Startup view" demo startup —
+      // owned by whichever admin toggled into it, never a real founder.
+      .where(ne(users.role, "admin"))
       .orderBy(desc(startups.createdAt));
   },
 
@@ -935,8 +938,9 @@ export const storage = {
         countTotal: sql<number>`count(distinct ${startups.id})::int`,
       })
       .from(startups)
+      .innerJoin(users, eq(users.id, startups.userId))
       .leftJoin(kysProfiles, eq(kysProfiles.startupId, startups.id))
-      .where(track ? eq(kysProfiles.track, track) : undefined);
+      .where(and(ne(users.role, "admin"), track ? eq(kysProfiles.track, track) : undefined));
     return { total: Number(row?.total ?? 0), countWithData: row?.countWithData ?? 0, countTotal: row?.countTotal ?? 0 };
   },
 
@@ -944,14 +948,24 @@ export const storage = {
     const [row] = await db
       .select({ c: sql<number>`count(distinct ${startups.id})::int` })
       .from(startups)
+      .innerJoin(users, eq(users.id, startups.userId))
       .leftJoin(kysProfiles, eq(kysProfiles.startupId, startups.id))
-      .where(track ? eq(kysProfiles.track, track) : undefined);
+      .where(and(ne(users.role, "admin"), track ? eq(kysProfiles.track, track) : undefined));
     return row?.c ?? 0;
   },
 
   async averageTeamSize(): Promise<{ avg: number; totalMembers: number; totalStartups: number }> {
-    const [tm] = await db.select({ c: sql<number>`count(*)::int` }).from(teamMembers);
-    const [s] = await db.select({ c: sql<number>`count(*)::int` }).from(startups);
+    const [tm] = await db
+      .select({ c: sql<number>`count(*)::int` })
+      .from(teamMembers)
+      .innerJoin(startups, eq(startups.id, teamMembers.startupId))
+      .innerJoin(users, eq(users.id, startups.userId))
+      .where(ne(users.role, "admin"));
+    const [s] = await db
+      .select({ c: sql<number>`count(*)::int` })
+      .from(startups)
+      .innerJoin(users, eq(users.id, startups.userId))
+      .where(ne(users.role, "admin"));
     const totalMembers = tm?.c ?? 0;
     const totalStartups = s?.c ?? 0;
     return { avg: totalStartups > 0 ? totalMembers / totalStartups : 0, totalMembers, totalStartups };
@@ -961,7 +975,11 @@ export const storage = {
   // enough (a handful of dozen rows) to fetch every name once and search
   // client-side rather than write a fuzzy-match SQL query.
   async listStartupNames(): Promise<{ id: string; companyName: string }[]> {
-    return db.select({ id: startups.id, companyName: startups.companyName }).from(startups);
+    return db
+      .select({ id: startups.id, companyName: startups.companyName })
+      .from(startups)
+      .innerJoin(users, eq(users.id, startups.userId))
+      .where(ne(users.role, "admin"));
   },
 
   // Qualitative, per-startup profile — text fields and statuses only, never
@@ -1026,8 +1044,9 @@ export const storage = {
     return db
       .select({ companyName: startups.companyName, stage: startups.stage })
       .from(startups)
+      .innerJoin(users, eq(users.id, startups.userId))
       .innerJoin(kysProfiles, eq(kysProfiles.startupId, startups.id))
-      .where(eq(kysProfiles.track, track))
+      .where(and(ne(users.role, "admin"), eq(kysProfiles.track, track)))
       .orderBy(asc(startups.companyName));
   },
 
