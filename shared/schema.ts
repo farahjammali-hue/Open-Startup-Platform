@@ -1182,22 +1182,6 @@ export const startupPartnerDetails = pgTable("startup_partner_details", {
 });
 
 /* =========================================================
- * Ask AI — one row per admin conversation, full transcript as jsonb.
- * =======================================================*/
-export type AiChatMessage = { role: "user" | "assistant"; content: string };
-
-export const aiChatSessions = pgTable("ai_chat_sessions", {
-  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: uuid("user_id")
-    .references(() => users.id, { onDelete: "cascade" })
-    .notNull(),
-  title: text("title").notNull(),
-  messages: jsonb("messages").$type<AiChatMessage[]>().notNull().default([]),
-  createdAt: timestamp("created_at").notNull().default(sql`now()`),
-  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
-});
-
-/* =========================================================
  * Claude connector (MCP) — OAuth clients that registered themselves
  * (dynamic client registration) and the tokens issued to admins.
  * Tokens are stored only as SHA-256 hashes, never in plain text.
@@ -1836,7 +1820,6 @@ export type StartupClientStat = typeof startupClientStats.$inferSelect;
 export type StartupClientDetail = typeof startupClientDetails.$inferSelect;
 export type StartupPartnerStat = typeof startupPartnerStats.$inferSelect;
 export type StartupPartnerDetail = typeof startupPartnerDetails.$inferSelect;
-export type AiChatSession = typeof aiChatSessions.$inferSelect;
 export type McpOauthClient = typeof mcpOauthClients.$inferSelect;
 export type McpOauthToken = typeof mcpOauthTokens.$inferSelect;
 

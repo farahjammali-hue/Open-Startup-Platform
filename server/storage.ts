@@ -44,12 +44,9 @@ import {
   startupClientDetails,
   startupPartnerStats,
   startupPartnerDetails,
-  aiChatSessions,
   mcpOauthClients,
   mcpOauthTokens,
   type McpOauthClient,
-  type AiChatSession,
-  type AiChatMessage,
   type User,
   type Startup,
   type PublicUser,
@@ -925,7 +922,7 @@ export const storage = {
     };
   },
 
-  /* ---------------- Ask AI (curated business-metric lookups) ---------------- */
+  /* ---------------- Curated business-metric lookups (Claude connector) ---------------- */
   // Sums a single numeric startups column, optionally scoped to a KYS track,
   // and reports how many startups actually have that field filled in — the
   // fields here are founder-entered and often incomplete.
@@ -2204,41 +2201,6 @@ export const storage = {
       seen.add(key);
       return true;
     });
-  },
-
-  /* ---------------- Ask AI saved conversations (per admin) ---------------- */
-  async listAiChatSessions(userId: string): Promise<{ id: string; title: string; updatedAt: Date }[]> {
-    return db
-      .select({ id: aiChatSessions.id, title: aiChatSessions.title, updatedAt: aiChatSessions.updatedAt })
-      .from(aiChatSessions)
-      .where(eq(aiChatSessions.userId, userId))
-      .orderBy(desc(aiChatSessions.updatedAt));
-  },
-
-  async getAiChatSession(id: string, userId: string): Promise<AiChatSession | undefined> {
-    const [row] = await db
-      .select()
-      .from(aiChatSessions)
-      .where(and(eq(aiChatSessions.id, id), eq(aiChatSessions.userId, userId)));
-    return row;
-  },
-
-  async createAiChatSession(userId: string, title: string, messages: AiChatMessage[]): Promise<AiChatSession> {
-    const [row] = await db.insert(aiChatSessions).values({ userId, title, messages }).returning();
-    return row;
-  },
-
-  async updateAiChatMessages(id: string, messages: AiChatMessage[]): Promise<AiChatSession> {
-    const [row] = await db
-      .update(aiChatSessions)
-      .set({ messages, updatedAt: new Date() })
-      .where(eq(aiChatSessions.id, id))
-      .returning();
-    return row;
-  },
-
-  async deleteAiChatSession(id: string, userId: string): Promise<void> {
-    await db.delete(aiChatSessions).where(and(eq(aiChatSessions.id, id), eq(aiChatSessions.userId, userId)));
   },
 
   /* ---------------- Claude connector (MCP) OAuth ---------------- */

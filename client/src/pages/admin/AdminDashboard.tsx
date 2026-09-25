@@ -3,8 +3,8 @@ import { useLocation } from "wouter";
 import { api } from "../../lib/utils";
 import { useAuth } from "../../lib/auth";
 import { AppShell } from "../../components/AppShell";
-import { ChatComposer, providerLabel, type AiChatListResponse } from "../../components/AiChat";
-import { Users, Rocket, Trash as Trash2, ArrowRight, Signature as FileSignature, ChartLine as LineChart, UsersThree as UsersRound, Presentation, ClockCounterClockwise } from "@phosphor-icons/react";
+import { ClaudeConnectorPanel } from "../../components/ClaudeConnectorPanel";
+import { Users, Rocket, Trash as Trash2, ArrowRight, Signature as FileSignature, ChartLine as LineChart, UsersThree as UsersRound, Presentation } from "@phosphor-icons/react";
 
 function greeting() {
   const h = new Date().getHours();
@@ -32,11 +32,6 @@ export default function AdminDashboard() {
     queryKey: ["admin-stats"],
     queryFn: () => api("/api/admin/stats"),
   });
-  const { data: chatList } = useQuery<AiChatListResponse>({
-    queryKey: ["ai-chats"],
-    queryFn: () => api("/api/admin/ai-chats"),
-  });
-  const recentChat = chatList?.chats[0];
 
   const pendingReviews = (data?.pendingContracts ?? 0) + (data?.pendingKys ?? 0);
 
@@ -62,21 +57,8 @@ export default function AdminDashboard() {
       <main className="ost-page">
         <h1 className="ost-page-title">{greeting()}, {user?.name?.split(" ")[0]}.</h1>
 
-        <div className="mt-6 max-w-3xl">
-          {recentChat && (
-            <button
-              onClick={() => navigate(`/admin/chats/${recentChat.id}`)}
-              className="mb-2 flex max-w-full items-center gap-1.5 truncate text-left text-xs text-slate-400 hover:text-primary"
-            >
-              <ClockCounterClockwise className="h-3.5 w-3.5 shrink-0" />
-              Recent chat · <span className="truncate font-semibold text-slate-500">{recentChat.title}</span>
-            </button>
-          )}
-          <ChatComposer
-            onSend={(q) => navigate(`/admin/chats?q=${encodeURIComponent(q)}`)}
-            disabled={chatList ? !chatList.configured : false}
-            footerLabel={providerLabel(chatList?.provider ?? null)}
-          />
+        <div className="mt-6">
+          <ClaudeConnectorPanel />
         </div>
 
         <CardSection label="Needs your attention" cards={needsAttention} isLoading={isLoading} onNavigate={navigate} tone="warning" />

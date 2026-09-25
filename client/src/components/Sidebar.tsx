@@ -6,8 +6,7 @@ import { api } from "../lib/utils";
 import { confirmLeave } from "../lib/navGuard";
 import { useKysStatus } from "../lib/kysStatus";
 import { showToast } from "../lib/toast";
-import { SquaresFour as LayoutDashboard, Rocket, Trash as Trash2, Users, UserCheck, Lock, Wrench, Wallet, Storefront as Store, BookOpen, Chats as MessagesSquare, FolderLock, House as HomeIcon, FileText, Stack as Layers, Presentation, Handshake, ChatCircle, DotsThree } from "@phosphor-icons/react";
-import type { AiChatListResponse } from "./AiChat";
+import { SquaresFour as LayoutDashboard, Rocket, Trash as Trash2, Users, UserCheck, Lock, Wrench, Wallet, Storefront as Store, BookOpen, Chats as MessagesSquare, FolderLock, House as HomeIcon, FileText, Stack as Layers, Presentation, Handshake } from "@phosphor-icons/react";
 
 interface Item {
   label: string;
@@ -15,11 +14,7 @@ interface Item {
   icon: any;
   soon?: boolean;
   lockedIf?: boolean;
-  /** Only highlight on this exact path, not on sub-paths. */
-  exact?: boolean;
 }
-
-const RECENT_CHATS_IN_NAV = 5;
 
 const ADMIN_GROUPS: { label: string; items: Item[] }[] = [
   {
@@ -108,24 +103,7 @@ export function Sidebar() {
     },
   ];
 
-  const { data: chatList } = useQuery<AiChatListResponse>({
-    queryKey: ["ai-chats"],
-    queryFn: () => api("/api/admin/ai-chats"),
-    enabled: isAdmin,
-  });
-  const chatGroup: { label: string; items: Item[] } = {
-    label: "Chats",
-    items: [
-      ...(chatList?.chats ?? []).slice(0, RECENT_CHATS_IN_NAV).map((c) => ({
-        label: c.title,
-        to: `/admin/chats/${c.id}`,
-        icon: ChatCircle,
-      })),
-      { label: "All chats", to: "/admin/chats", icon: DotsThree, exact: true },
-    ],
-  };
-
-  const groups = isAdmin ? [ADMIN_GROUPS[0], chatGroup, ...ADMIN_GROUPS.slice(1)] : STARTUP_GROUPS;
+  const groups = isAdmin ? ADMIN_GROUPS : STARTUP_GROUPS;
 
   function go(to?: string, lockedIf?: boolean) {
     if (!to) return;
@@ -138,7 +116,7 @@ export function Sidebar() {
 
   function renderItem(it: Item) {
     const Icon = it.icon;
-    const active = it.to && (location === it.to || (!it.exact && it.to !== "/admin" && it.to !== "/" && location.startsWith(it.to)));
+    const active = it.to && (location === it.to || (it.to !== "/admin" && it.to !== "/" && location.startsWith(it.to)));
     if (it.soon) {
       return (
         <div key={it.label} className="flex cursor-not-allowed items-center justify-between rounded-lg px-3 py-2 text-sm font-medium text-white/30">

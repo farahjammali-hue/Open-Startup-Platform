@@ -63,7 +63,6 @@ import {
   partnerStatSchema,
   partnerDetailSchema,
   type StartupProfileOverviewInput,
-  type AiChatMessage,
 } from "@shared/schema";
 import { ALL_METRIC_KEYS } from "@shared/metricsCatalog";
 import {
@@ -76,7 +75,6 @@ import {
   sendApplicationDecision,
   sendAdminBroadcast,
 } from "./mailer";
-import { askAi, aiChatConfigured, aiChatProvider, describeAiError, type ChatTurn } from "./aiChat";
 import { buildSessionIcs } from "./calendar";
 import {
   parseZoomMeetingId,
@@ -2814,88 +2812,6 @@ export function registerRoutes(app: Express) {
 
   app.get("/api/admin/stats", requireAdmin, ah(async (_req, res) => {
     res.json(await storage.adminCounts());
-  }));
-
-  /* ---------------- Admin: Ask AI (saved conversations) ----------------
-   * Each admin has their own list of chats. Answers come from a real model
-   * (see server/aiChat.ts) calling read-only, curated data lookups; it never
-   * reads contract/document contents. */
-  const aiQuestionSchema = z.object({ question: z.string().trim().min(1, "Ask a question first").max(2000) });
-  const HISTORY_TURNS = 10;
-
-  function toTurns(messages: AiChatMessage[]): ChatTurn[] {
-    const turns: ChatTurn[] = [];
-    for (let i = 0; i + 1 < messages.length; i += 2) {
-      if (messages[i].role === "user" && messages[i + 1].role === "assistant") {
-        turns.push({ question: messages[i].content, answer: messages[i + 1].content });
-      }
-    }
-    return turns.slice(-HISTORY_TURNS);
-  }
-
-  function chatTitle(question: string): string {
-    const clean = question.replace(/\s+/g, " ").trim();
-    return clean.length > 60 ? `${clean.slice(0, 57)}...` : clean;
-  }
-
-  app.get("/api/admin/ai-chats", requireAdmin, ah(async (req, res) => {
-    res.json({
-      configured: aiChatConfigured,
-      provider: aiChatProvider,
-      chats: await storage.listAiChatSessions(req.session.userId!),
-    });
-  }));
-
-  app.get("/api/admin/ai-chats/:id", requireAdmin, ah(async (req, res) => {
-    const chat = await storage.getAiChatSession(req.params.id, req.session.userId!);
-    if (!chat) return res.status(404).json({ message: "Chat not found" });
-    res.json(chat);
-  }));
-
-  // Starts a new chat with its first question.
-  app.post("/api/admin/ai-chats", requireAdmin, ah(async (req, res) => {
-    if (!aiChatConfigured) return res.status(503).json({ message: "Ask AI isn't configured on the server yet." });
-    const parsed = aiQuestionSchema.safeParse(req.body);
-    if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
-    let answer: string;
-    try {
-      ({ answer } = await askAi(parsed.data.question, []));
-    } catch (error) {
-      console.error("[ai-chat]", error);
-      return res.status(502).json({ message: describeAiError(error) });
-    }
-    const chat = await storage.createAiChatSession(req.session.userId!, chatTitle(parsed.data.question), [
-      { role: "user", content: parsed.data.question },
-      { role: "assistant", content: answer },
-    ]);
-    res.status(201).json(chat);
-  }));
-
-  // Continues an existing chat.
-  app.post("/api/admin/ai-chats/:id/messages", requireAdmin, ah(async (req, res) => {
-    if (!aiChatConfigured) return res.status(503).json({ message: "Ask AI isn't configured on the server yet." });
-    const parsed = aiQuestionSchema.safeParse(req.body);
-    if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
-    const chat = await storage.getAiChatSession(req.params.id, req.session.userId!);
-    if (!chat) return res.status(404).json({ message: "Chat not found" });
-    let answer: string;
-    try {
-      ({ answer } = await askAi(parsed.data.question, toTurns(chat.messages)));
-    } catch (error) {
-      console.error("[ai-chat]", error);
-      return res.status(502).json({ message: describeAiError(error) });
-    }
-    const updated = await storage.updateAiChatMessages(chat.id, [
-      ...chat.messages,
-      { role: "user", content: parsed.data.question },
-      { role: "assistant", content: answer },
-    ]);
-    res.json(updated);
-  }));
-
-  app.delete("/api/admin/ai-chats/:id", requireAdmin, ah(async (req, res) => {
-    await storage.deleteAiChatSession(req.params.id, req.session.userId!);
-    res.json({ ok: true });
   }));
 
   app.get("/api/admin/startups", requireAdmin, ah(async (_req, res) => {

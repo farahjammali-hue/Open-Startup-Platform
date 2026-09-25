@@ -1,8 +1,8 @@
 import { storage } from "./storage";
 
 /**
- * Curated, read-only data lookups shared by the in-app Ask AI chat
- * (server/aiChat.ts) and the Claude connector (server/mcp.ts). Every tool maps
+ * Curated, read-only data lookups exposed through the Claude connector
+ * (server/mcp.ts). Every tool maps
  * to an existing storage query that already excludes admin demo startups and
  * never touches document/contract file contents, so anything reachable here is
  * data an admin can already see in the platform.

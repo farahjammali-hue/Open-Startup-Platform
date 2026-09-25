@@ -312,15 +312,14 @@ the team's Claude seats, not on API credits. Code: `server/mcp.ts`, tests:
 (`MCP_ALLOWED_EMAIL_DOMAINS`). This is re-checked on every request, so
 disabling a user or removing admin rights cuts access immediately.
 
-**What it can do:** read-only lookups (the same ones as the in-app chat,
-`server/aiTools.ts`). No contract/document file contents, no writes.
+**What it can do:** read-only lookups (`server/aiTools.ts`). No contract/document file contents, no writes.
 
 **Security model:** OAuth 2.1 with PKCE (S256 only), approval on a platform
 page by a signed-in admin, approvals returned only to Claude's hosts
 (`MCP_ALLOWED_REDIRECT_HOSTS`) or local callbacks, 1-hour access tokens,
 single-use rotating refresh tokens, tokens stored only as SHA-256 hashes,
 rate limits, an email to the admin on every new connection, and a
-"Disconnect" button on the Chats page that revokes everything for that
+"Disconnect" button on the Admin Dashboard that revokes everything for that
 admin. Every lookup is logged as `[mcp] <email> called <tool>`.
 
 **Proxy requirement:** Claude discovers the login flow through

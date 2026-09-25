@@ -10,8 +10,8 @@ import { sendMcpConnectedNotice } from "./mailer";
 
 /**
  * Claude connector: a remote MCP server at /mcp that lets an admin's own
- * Claude (claude.ai, Desktop, Cowork) read platform data through the same
- * curated, read-only lookups as the in-app chat. Usage runs on the team's
+ * Claude (claude.ai, Desktop, Cowork) read platform data through the
+ * curated, read-only lookups in server/aiTools.ts. Usage runs on the team's
  * Claude seats, not on API credits.
  *
  * Claude requires OAuth for custom connectors, so this also implements a
@@ -389,7 +389,7 @@ export function registerMcp(app: Express) {
         to: user.email,
         name: (user.name ?? "").split(" ")[0] || "there",
         appName: client.clientName || "An app",
-        disconnectUrl: `${APP_URL}/admin/chats`,
+        disconnectUrl: `${APP_URL}/admin`,
       }).catch((error) => console.error("[mcp] connection notice failed:", error));
       console.log(`[mcp] ${user.email} connected ${client.clientName || client.clientId}`);
       return;

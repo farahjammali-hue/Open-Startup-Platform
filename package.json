@@ -34,7 +34,6 @@
     "express-session": "^1.18.1",
     "multer": "^2.1.1",
     "nodemailer": "^6.9.16",
-    "openai": "^6.49.0",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
     "pdf-lib": "^1.17.1",
