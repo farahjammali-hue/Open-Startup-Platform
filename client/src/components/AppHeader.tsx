@@ -64,15 +64,21 @@ function StartupAvatar({ startup, size }: { startup: StartupLite | undefined; si
 
 export function AppHeader() {
   const { user, logout } = useAuth();
+  const { viewMode } = useViewMode();
   const [, navigate] = useLocation();
   const go = (to: string) => { if (confirmLeave()) navigate(to); };
   const qc = useQueryClient();
+  // Admins have their own demo startup once they've ever toggled to Startup
+  // view, but there's nothing to switch between while looking at the admin
+  // console itself — so only show (and fetch) this in Startup view.
+  const showStartupSwitcher = user?.role !== "admin" || viewMode === "startup";
   const { data } = useQuery<StartupsResponse>({
     queryKey: ["startups"],
     queryFn: () => api("/api/startups"),
+    enabled: showStartupSwitcher,
   });
 
-  const startups = data?.startups ?? [];
+  const startups = showStartupSwitcher ? data?.startups ?? [] : [];
   const active =
     startups.find((s) => s.id === data?.activeStartupId) ?? startups[0];
 
