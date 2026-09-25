@@ -70,7 +70,7 @@ export function Sidebar() {
   const [location, navigate] = useLocation();
   const isAdmin = useEffectiveRole() === "admin";
   const { kysSubmitted } = useKysStatus();
-  const { data: startup } = useQuery<StartupProfile>({
+  const { data: startup, isError: noStartup } = useQuery<StartupProfile>({
     queryKey: ["startup-me"],
     queryFn: () => api("/api/startup/me"),
     enabled: !isAdmin,
@@ -82,7 +82,8 @@ export function Sidebar() {
     {
       label: "Onboarding",
       items: [
-        { label: "Contract & KYS", to: "/contract-kys", icon: FileText },
+        // Contract & KYS belong to a startup, so they stay locked until one exists.
+        { label: "Contract & KYS", to: "/contract-kys", icon: FileText, lockedIf: noStartup },
       ],
     },
     {
@@ -109,7 +110,7 @@ export function Sidebar() {
   function go(to?: string, lockedIf?: boolean) {
     if (!to) return;
     if (lockedIf) {
-      showToast("Complete Contract & KYS first to unlock this.");
+      showToast(noStartup ? "Create your startup first to unlock this." : "Complete Contract & KYS first to unlock this.");
       return;
     }
     if (confirmLeave()) navigate(to);

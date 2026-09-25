@@ -38,6 +38,18 @@ compose() { sudo docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" "$@"; 
 
 cd "$REPO_DIR" || fail "repo not found at $REPO_DIR"
 
+# One deploy at a time. A manual run overlapping the auto-deploy timer made
+# each one see the other's container restart as a failed health check and
+# roll the site back to the older commit. A second run waits here, then finds
+# the work already done ("already at ...") and exits.
+# Locking the repo's .git directory (opened read-only) works whichever user
+# runs this, manual or the timer, without a shared writable lock file.
+exec 9<"$REPO_DIR/.git"
+if ! flock -n 9; then
+  log "another deploy is running; waiting for it to finish"
+  flock 9
+fi
+
 # ---------------------------------------------------------------- resolve target
 log "fetching origin"
 git fetch --quiet origin main

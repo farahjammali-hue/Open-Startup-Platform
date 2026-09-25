@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AppShell } from "../components/AppShell";
 import { BackLink, PageHeader } from "../components/PageHeader";
 import { useKysStatus } from "../lib/kysStatus";
@@ -9,6 +9,9 @@ import { KysStep } from "./contract-kys/KysStep";
 import { DoneStep } from "./contract-kys/DoneStep";
 import { Check } from "@phosphor-icons/react";
 import { Skeleton } from "../components/Skeleton";
+import { EmptyState } from "../components/EmptyState";
+import { FileText } from "@phosphor-icons/react";
+import { api } from "../lib/utils";
 
 type Step = "contract" | "kys" | "done";
 
@@ -16,6 +19,13 @@ export default function ContractKys() {
   const [, navigate] = useLocation();
   const qc = useQueryClient();
   const { contract, kysProfile, contractSigned, kysSubmitted, isLoading } = useKysStatus();
+  // Contract & KYS are per startup; reached by URL with no startup, point
+  // the founder at creating one instead of showing a form that can't save.
+  const { isError: noStartup } = useQuery({
+    queryKey: ["startup-me"],
+    queryFn: () => api("/api/startup/me"),
+    retryOnMount: false,
+  });
 
   const [step, setStep] = useState<Step | null>(null);
   useEffect(() => {
@@ -23,6 +33,22 @@ export default function ContractKys() {
     setStep(kysSubmitted ? "done" : contractSigned ? "kys" : "contract");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoading]);
+
+  if (noStartup) {
+    return (
+      <AppShell>
+        <main className="ost-page">
+          <EmptyState
+            icon={FileText}
+            title="Create your startup first"
+            description="Your contract and KYS are tied to a startup. Create your startup profile, then come back here to complete them."
+            actionLabel="Create your startup"
+            onAction={() => navigate("/startups/new")}
+          />
+        </main>
+      </AppShell>
+    );
+  }
 
   if (step === null) {
     return (
