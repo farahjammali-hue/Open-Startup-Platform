@@ -1046,6 +1046,9 @@ CREATE TABLE IF NOT EXISTS mcp_oauth_tokens (
   expires_at timestamp NOT NULL,
   created_at timestamp NOT NULL DEFAULT now()
 );
+-- What each connection was approved for. Tokens issued before recap-saving
+-- existed keep read-only access until the admin reconnects.
+ALTER TABLE mcp_oauth_tokens ADD COLUMN IF NOT EXISTS scope text NOT NULL DEFAULT 'platform:read';
 `;
 
 try {

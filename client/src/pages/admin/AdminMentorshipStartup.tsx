@@ -601,11 +601,9 @@ function SessionNotesModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const qc = useQueryClient();
   const [mentorRating, setMentorRating] = useState(notes?.mentorRating ? String(notes.mentorRating) : "");
   const [mentorFeedback, setMentorFeedback] = useState(notes?.mentorFeedback ?? "");
   const [saving, setSaving] = useState(false);
-  const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const recapRows: [string, string | null][] = [
@@ -616,20 +614,6 @@ function SessionNotesModal({
     ["To check next meeting", notes?.nextMeetingCheckIns ?? null],
     ["Action items for OST", notes?.actionItemsForOst ?? null],
   ];
-
-  async function generateRecap() {
-    setGenerating(true);
-    setError(null);
-    try {
-      await api(`/api/admin/startups/${startupId}/mentorship-sessions/${sessionId}/generate-recap`, { method: "POST" });
-      showToast("Recap generated");
-      qc.invalidateQueries({ queryKey: ["admin-startup-basic", startupId] });
-    } catch (e: any) {
-      setError(e.message || "Couldn't generate the recap");
-    } finally {
-      setGenerating(false);
-    }
-  }
 
   async function save() {
     setSaving(true);
@@ -658,18 +642,7 @@ function SessionNotesModal({
 
       <div className="mb-2 flex items-center justify-between">
         <p className="ost-label !mb-0">Session recap</p>
-        <div className="flex items-center gap-2">
-          {notes?.aiGeneratedAt && <span className="text-xs text-slate-400">Generated {new Date(notes.aiGeneratedAt).toLocaleDateString()}</span>}
-          <button
-            onClick={generateRecap}
-            disabled={generating || !hasTranscript}
-            title={hasTranscript ? "Generate or refresh the AI recap from this session's transcript" : "No transcript available for this session yet"}
-            className="ost-btn-ghost !px-2.5 !py-1 text-xs disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-            {notes?.aiGeneratedAt ? "Regenerate" : "Generate"}
-          </button>
-        </div>
+        {notes?.aiGeneratedAt && <span className="text-xs text-slate-400">Saved {new Date(notes.aiGeneratedAt).toLocaleDateString()}</span>}
       </div>
       {notes?.aiGeneratedAt ? (
         <div className="mb-4 overflow-x-auto rounded-lg border border-slate-100">
@@ -685,9 +658,14 @@ function SessionNotesModal({
           </table>
         </div>
       ) : (
-        <p className="mb-4 text-sm text-slate-400">
-          {hasTranscript ? "Not generated yet." : "No transcript available yet — the recap generates automatically once one is captured."}
-        </p>
+        <div className="mb-4 flex items-start gap-2 rounded-lg bg-slate-50 p-3 text-sm text-slate-500">
+          <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-secondary" />
+          <p>
+            {hasTranscript
+              ? <>No recap yet. In Claude, with the Platform connector on, ask: <em>"Recap the mentorship session {title}."</em> Claude drafts it from the transcript, you check it, and it's saved here.</>
+              : "No transcript yet. Once Zoom captures one, ask Claude (with the Platform connector) to recap this session."}
+          </p>
+        </div>
       )}
 
       <p className="ost-label mb-2">Startup's comments</p>

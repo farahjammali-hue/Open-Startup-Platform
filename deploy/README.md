@@ -312,7 +312,17 @@ the team's Claude seats, not on API credits. Code: `server/mcp.ts`, tests:
 (`MCP_ALLOWED_EMAIL_DOMAINS`). This is re-checked on every request, so
 disabling a user or removing admin rights cuts access immediately.
 
-**What it can do:** read-only lookups (`server/aiTools.ts`). No contract/document file contents, no writes.
+**What it can do** (`server/aiTools.ts`): read-only lookups over startups,
+founders, metrics, review status and mentorship sessions (including their Zoom
+transcripts), plus exactly one write, `save_session_recap`, which fills a
+mentorship session's six recap fields. That is how session recaps are made:
+an admin asks their Claude to recap a session, checks the draft, and Claude
+saves it. It won't replace an existing recap unless explicitly asked. No
+contract/document file contents, nothing else can be changed or deleted.
+
+Connections approved before recap-saving existed stay read-only (their tokens
+carry only the `platform:read` scope) until the admin reconnects and
+approves the updated permissions.
 
 **Security model:** OAuth 2.1 with PKCE (S256 only), approval on a platform
 page by a signed-in admin, approvals returned only to Claude's hosts

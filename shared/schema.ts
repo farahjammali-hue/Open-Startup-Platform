@@ -1198,6 +1198,9 @@ export const mcpOauthTokens = pgTable("mcp_oauth_tokens", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   tokenHash: text("token_hash").notNull().unique(),
   kind: text("kind").$type<"access" | "refresh">().notNull(),
+  // Space-separated grants: "platform:read" and, for connections approved
+  // after recap-saving was added, "recaps:write".
+  scope: text("scope").notNull().default("platform:read"),
   userId: uuid("user_id")
     .references(() => users.id, { onDelete: "cascade" })
     .notNull(),

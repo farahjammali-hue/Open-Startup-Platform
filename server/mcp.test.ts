@@ -12,13 +12,20 @@ const fake = vi.hoisted(() => {
   const clients = new Map<string, any>();
   const tokens: any[] = [];
   const notices: any[] = [];
-  return { users, clients, tokens, notices };
+  const sessions = new Map<string, any>();
+  const notes = new Map<string, any>();
+  return { users, clients, tokens, notices, sessions, notes };
 });
 
 vi.mock("./mailer", () => ({
   sendMcpConnectedNotice: async (opts: any) => {
     fake.notices.push(opts);
   },
+}));
+
+vi.mock("./transcripts", () => ({
+  readTranscriptFile: (url: string) => (url === "/uploads/transcripts/s1.vtt" ? "WEBVTT\n\n1\n00:00:01.000 --> 00:00:03.000\nMentor: Ship the pilot.\n" : null),
+  vttToPlainText: (vtt: string) => vtt.split("\n").filter((l) => l.includes(":") && !l.includes("-->")).join("\n"),
 }));
 
 vi.mock("./storage", () => ({
@@ -36,13 +43,21 @@ vi.mock("./storage", () => ({
       const t = fake.tokens.find((x) => x.tokenHash === tokenHash && x.kind === kind && x.expiresAt > new Date());
       if (!t) return undefined;
       const u = fake.users.get(t.userId)!;
-      return { id: t.id, userId: t.userId, clientId: t.clientId, expiresAt: t.expiresAt, userRole: u.role, userActive: u.isActive, userEmail: u.email };
+      return { id: t.id, userId: t.userId, clientId: t.clientId, expiresAt: t.expiresAt, scope: t.scope ?? "platform:read", userRole: u.role, userActive: u.isActive, userEmail: u.email };
     },
     deleteMcpToken: async (id: string) => {
       const i = fake.tokens.findIndex((x) => x.id === id);
       if (i >= 0) fake.tokens.splice(i, 1);
     },
     countStartups: async () => 7,
+    getMentorshipModuleSessionById: async (id: string) => fake.sessions.get(id),
+    getMentorshipSessionNotes: async (sessionId: string, startupId: string) => fake.notes.get(`${sessionId}:${startupId}`),
+    upsertMentorshipSessionNotes: async (sessionId: string, startupId: string, data: any) => {
+      const key = `${sessionId}:${startupId}`;
+      const row = { ...(fake.notes.get(key) ?? {}), sessionId, startupId, ...data };
+      fake.notes.set(key, row);
+      return row;
+    },
     countMcpConnections: async (userId: string) => new Set(fake.tokens.filter((t) => t.userId === userId).map((t) => t.clientId)).size,
     deleteMcpTokensForUser: async (userId: string) => {
       for (let i = fake.tokens.length - 1; i >= 0; i--) if (fake.tokens[i].userId === userId) fake.tokens.splice(i, 1);
@@ -53,6 +68,7 @@ vi.mock("./storage", () => ({
 const { registerMcp } = await import("./mcp");
 
 const CLAUDE_CALLBACK = "https://claude.ai/api/mcp/auth_callback";
+const SESSION_ID = "11111111-2222-4333-8444-555555555555";
 let server: HttpServer;
 let base: string;
 
@@ -77,6 +93,9 @@ beforeEach(() => {
   fake.clients.clear();
   fake.tokens.length = 0;
   fake.notices.length = 0;
+  fake.sessions.clear();
+  fake.notes.clear();
+  fake.sessions.set(SESSION_ID, { id: SESSION_ID, startupId: "startup-1", title: "Go-to-market review", scheduledAt: new Date(), transcriptUrl: "/uploads/transcripts/s1.vtt" });
   fake.users.set("admin", { id: "admin", email: "ghazi@open-startup.org", role: "admin", isActive: true });
   fake.users.set("gmail-admin", { id: "gmail-admin", email: "someone@gmail.com", role: "admin", isActive: true });
   fake.users.set("founder", { id: "founder", email: "founder@open-startup.org", role: "startup", isActive: true });
@@ -183,7 +202,8 @@ describe("Claude connector: happy path", () => {
     const list = await (await mcp(access_token, "tools/list")).json();
     const names = list.result.tools.map((t: any) => t.name);
     expect(names).toContain("list_startups");
-    expect(list.result.tools.every((t: any) => t.annotations.readOnlyHint === true)).toBe(true);
+    const writers = list.result.tools.filter((t: any) => t.annotations.readOnlyHint !== true).map((t: any) => t.name);
+    expect(writers).toEqual(["save_session_recap"]);
 
     const call = await (await mcp(access_token, "tools/call", { name: "count_startups", arguments: {} })).json();
     expect(JSON.parse(call.result.content[0].text)).toEqual({ count: 7 });
@@ -338,5 +358,88 @@ describe("Claude connector: noticing and stopping a connection", () => {
   it("reports non-company-domain admins as not allowed to connect", async () => {
     const status = await (await fetch(`${base}/api/admin/mcp-connector`, { headers: { "x-test-user": "gmail-admin" } })).json();
     expect(status.allowed).toBe(false);
+  });
+});
+
+const RECAP = {
+  teamMembersPresence: "Amara, Tunde, Ivy",
+  progressHighlights: "- Pilot signed",
+  mentorComments: "- Ship the pilot",
+  needsHighlighted: "None noted",
+  nextMeetingCheckIns: "- Pilot results",
+  actionItemsForOst: "- Intro to PanAfricom",
+};
+
+async function callTool(accessToken: string, name: string, args: object) {
+  const body = await (await mcp(accessToken, "tools/call", { name, arguments: args })).json();
+  return { isError: body.result.isError === true, data: JSON.parse(body.result.content[0].text) };
+}
+
+describe("Claude connector: session recaps (the only write)", () => {
+  it("lists sessions and returns a readable transcript", async () => {
+    const { access_token } = await connect();
+    const t = await callTool(access_token, "get_session_transcript", { sessionId: SESSION_ID });
+    expect(t.isError).toBe(false);
+    expect(t.data.transcript).toContain("Mentor: Ship the pilot.");
+    expect(t.data.transcript).not.toContain("-->");
+  });
+
+  it("saves a recap for a new connection, attributed in the notes", async () => {
+    const { access_token } = await connect();
+    const saved = await callTool(access_token, "save_session_recap", { sessionId: SESSION_ID, ...RECAP });
+    expect(saved).toMatchObject({ isError: false, data: { ok: true, replacedExisting: false } });
+    const row = fake.notes.get(`${SESSION_ID}:startup-1`);
+    expect(row.progressHighlights).toBe("- Pilot signed");
+    expect(row.aiGeneratedAt).toBeInstanceOf(Date);
+  });
+
+  it("won't replace an existing recap unless explicitly told to", async () => {
+    const { access_token } = await connect();
+    await callTool(access_token, "save_session_recap", { sessionId: SESSION_ID, ...RECAP });
+    const again = await callTool(access_token, "save_session_recap", { sessionId: SESSION_ID, ...RECAP, mentorComments: "- changed" });
+    expect(again.isError).toBe(true);
+    expect(fake.notes.get(`${SESSION_ID}:startup-1`).mentorComments).toBe("- Ship the pilot");
+    const replaced = await callTool(access_token, "save_session_recap", { sessionId: SESSION_ID, ...RECAP, mentorComments: "- changed", overwrite: true });
+    expect(replaced.data.replacedExisting).toBe(true);
+    expect(fake.notes.get(`${SESSION_ID}:startup-1`).mentorComments).toBe("- changed");
+  });
+
+  it("keeps connections approved before recap-saving read-only until reconnected", async () => {
+    const { access_token } = await connect();
+    // Simulate a token issued under the old read-only approval.
+    for (const t of fake.tokens) t.scope = "platform:read";
+    const res = await callTool(access_token, "save_session_recap", { sessionId: SESSION_ID, ...RECAP });
+    expect(res.isError).toBe(true);
+    expect(res.data.error).toMatch(/reconnect/i);
+    expect(fake.notes.size).toBe(0);
+    // Reads still work.
+    expect((await callTool(access_token, "count_startups", {})).data).toEqual({ count: 7 });
+  });
+
+  it("keeps the old grant when a read-only connection refreshes", async () => {
+    const { clientId, refresh_token } = await connect();
+    for (const t of fake.tokens) t.scope = "platform:read";
+    const renewed = await (await exchange({ grant_type: "refresh_token", refresh_token, client_id: clientId })).json();
+    expect(renewed.scope).toBe("platform:read");
+    const res = await callTool(renewed.access_token, "save_session_recap", { sessionId: SESSION_ID, ...RECAP });
+    expect(res.isError).toBe(true);
+  });
+
+  it("rejects incomplete, oversized or malformed recaps", async () => {
+    const { access_token } = await connect();
+    const missing = await callTool(access_token, "save_session_recap", { sessionId: SESSION_ID, progressHighlights: "x" });
+    expect(missing.isError).toBe(true);
+    const huge = await callTool(access_token, "save_session_recap", { sessionId: SESSION_ID, ...RECAP, mentorComments: "x".repeat(7000) });
+    expect(huge.isError).toBe(true);
+    const badId = await callTool(access_token, "save_session_recap", { sessionId: "../../etc/passwd", ...RECAP });
+    expect(badId.isError).toBe(true);
+    expect(fake.notes.size).toBe(0);
+  });
+
+  it("says upfront on the approval page that recaps can be saved", async () => {
+    const { client_id } = await (await registerClient()).json();
+    const html = await (await authorizePage(client_id, pkce().challenge, "admin")).text();
+    expect(html).toContain("Save mentorship session recaps (nothing else)");
+    expect(html).not.toContain("No ability to change anything");
   });
 });

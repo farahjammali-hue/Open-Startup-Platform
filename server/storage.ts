@@ -1,4 +1,4 @@
-import { eq, ne, and, desc, asc, isNotNull, sql, count, inArray } from "drizzle-orm";
+import { eq, ne, and, desc, asc, isNotNull, isNull, sql, count, inArray } from "drizzle-orm";
 import { db } from "./db";
 import {
   users,
@@ -2228,6 +2228,7 @@ export const storage = {
         userId: mcpOauthTokens.userId,
         clientId: mcpOauthTokens.clientId,
         expiresAt: mcpOauthTokens.expiresAt,
+        scope: mcpOauthTokens.scope,
         userRole: users.role,
         userActive: users.isActive,
         userEmail: users.email,
@@ -2246,6 +2247,48 @@ export const storage = {
 
   async deleteMcpToken(id: string): Promise<void> {
     await db.delete(mcpOauthTokens).where(eq(mcpOauthTokens.id, id));
+  },
+
+  /**
+   * Mentorship sessions for the Claude connector's recap workflow, newest
+   * first, with whether a transcript exists and when a recap was saved.
+   * Admin demo startups are excluded, like every other portfolio-wide list.
+   */
+  async listMentorshipSessionsForConnector(opts: { needsRecap?: boolean; startupId?: string; limit: number }) {
+    return db
+      .select({
+        sessionId: mentorshipModuleSessions.id,
+        startupId: startups.id,
+        companyName: startups.companyName,
+        number: mentorshipModuleSessions.number,
+        title: mentorshipModuleSessions.title,
+        scheduledAt: mentorshipModuleSessions.scheduledAt,
+        status: mentorshipModuleSessions.status,
+        experts: mentorshipModuleSessions.experts,
+        transcriptUrl: mentorshipModuleSessions.transcriptUrl,
+        recapSavedAt: mentorshipSessionNotes.aiGeneratedAt,
+      })
+      .from(mentorshipModuleSessions)
+      .innerJoin(startups, eq(startups.id, mentorshipModuleSessions.startupId))
+      .innerJoin(users, eq(users.id, startups.userId))
+      .leftJoin(
+        mentorshipSessionNotes,
+        and(
+          eq(mentorshipSessionNotes.sessionId, mentorshipModuleSessions.id),
+          eq(mentorshipSessionNotes.startupId, mentorshipModuleSessions.startupId),
+        ),
+      )
+      .where(
+        and(
+          ne(users.role, "admin"),
+          opts.startupId ? eq(startups.id, opts.startupId) : undefined,
+          opts.needsRecap
+            ? and(isNotNull(mentorshipModuleSessions.transcriptUrl), isNull(mentorshipSessionNotes.aiGeneratedAt))
+            : undefined,
+        ),
+      )
+      .orderBy(desc(mentorshipModuleSessions.scheduledAt))
+      .limit(opts.limit);
   },
 
   /** Distinct apps (Claude clients) currently holding a valid token for this user. */

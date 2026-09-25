@@ -5,7 +5,7 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { storage } from "./storage";
-import { AI_TOOLS, executeAiTool } from "./aiTools";
+import { AI_TOOLS, RECAP_WRITE_SCOPE, executeAiTool } from "./aiTools";
 import { sendMcpConnectedNotice } from "./mailer";
 
 /**
@@ -24,7 +24,11 @@ import { sendMcpConnectedNotice } from "./mailer";
 
 const APP_URL = (process.env.APP_URL || "http://localhost:5000").replace(/\/+$/, "");
 const MCP_URL = `${APP_URL}/mcp`;
-const SCOPE = "platform:read";
+const READ_SCOPE = "platform:read";
+// What an admin grants by clicking Allow on the approval page (the page lists
+// exactly this). Connections approved before recap-saving existed carry only
+// READ_SCOPE and stay read-only until reconnected.
+const GRANTED_SCOPE = `${READ_SCOPE} ${RECAP_WRITE_SCOPE}`;
 const ACCESS_TTL_S = 60 * 60; // 1 hour
 const REFRESH_TTL_S = 60 * 60 * 24 * 30; // 30 days
 const CODE_TTL_MS = 10 * 60 * 1000;
@@ -61,6 +65,7 @@ interface PendingConsent {
   clientId: string;
   redirectUri: string;
   codeChallenge: string;
+  scope: string;
   state?: string;
   expiresAt: number;
 }
@@ -69,6 +74,7 @@ interface AuthCode {
   clientId: string;
   redirectUri: string;
   codeChallenge: string;
+  scope: string;
   expiresAt: number;
 }
 const pendingConsents = new Map<string, PendingConsent>();
@@ -136,13 +142,14 @@ async function currentAdmin(req: Request) {
   return isAllowedConnectorUser(user) ? user! : null;
 }
 
-async function issueTokens(res: Response, userId: string, clientId: string) {
+async function issueTokens(res: Response, userId: string, clientId: string, scope: string) {
   const accessToken = randomToken();
   const refreshToken = randomToken();
   const now = Date.now();
   await storage.createMcpToken({
     tokenHash: sha256(accessToken),
     kind: "access",
+    scope,
     userId,
     clientId,
     expiresAt: new Date(now + ACCESS_TTL_S * 1000),
@@ -150,6 +157,7 @@ async function issueTokens(res: Response, userId: string, clientId: string) {
   await storage.createMcpToken({
     tokenHash: sha256(refreshToken),
     kind: "refresh",
+    scope,
     userId,
     clientId,
     expiresAt: new Date(now + REFRESH_TTL_S * 1000),
@@ -159,7 +167,7 @@ async function issueTokens(res: Response, userId: string, clientId: string) {
     token_type: "Bearer",
     expires_in: ACCESS_TTL_S,
     refresh_token: refreshToken,
-    scope: SCOPE,
+    scope,
   });
 }
 
@@ -218,7 +226,7 @@ export function registerMcp(app: Express) {
   const protectedResource = {
     resource: MCP_URL,
     authorization_servers: [APP_URL],
-    scopes_supported: [SCOPE],
+    scopes_supported: [READ_SCOPE, RECAP_WRITE_SCOPE],
     bearer_methods_supported: ["header"],
     resource_name: "Open Startup Platform",
   };
@@ -235,7 +243,7 @@ export function registerMcp(app: Express) {
       grant_types_supported: ["authorization_code", "refresh_token"],
       code_challenge_methods_supported: ["S256"],
       token_endpoint_auth_methods_supported: ["none", "client_secret_basic", "client_secret_post"],
-      scopes_supported: [SCOPE],
+      scopes_supported: [READ_SCOPE, RECAP_WRITE_SCOPE],
     }),
   );
 
@@ -271,7 +279,7 @@ export function registerMcp(app: Express) {
       token_endpoint_auth_method: method,
       grant_types: ["authorization_code", "refresh_token"],
       response_types: ["code"],
-      scope: SCOPE,
+      scope: GRANTED_SCOPE,
     });
   }));
 
@@ -312,16 +320,18 @@ export function registerMcp(app: Express) {
       clientId: client.clientId,
       redirectUri,
       codeChallenge: q.code_challenge,
+      scope: GRANTED_SCOPE,
       state: q.state,
       expiresAt: Date.now() + CODE_TTL_MS,
     });
     const appName = client.clientName ? escapeHtml(client.clientName) : "An app";
     return page(res, 200, "Connect Claude", `<h1>Connect to the Open Startup Platform?</h1>
-      <p><strong>${appName}</strong> wants to read platform data as <strong>${escapeHtml(admin.email)}</strong>.</p>
+      <p><strong>${appName}</strong> wants to use the platform as <strong>${escapeHtml(admin.email)}</strong>.</p>
       <ul>
-        <li>Read startups, founders, tracks, metrics and review status</li>
+        <li>Read startups, founders, tracks, metrics, review status and mentorship session transcripts</li>
+        <li>Save mentorship session recaps (nothing else)</li>
         <li>No access to contract or document files</li>
-        <li>No ability to change anything</li>
+        <li>Can't change or delete anything else</li>
       </ul>
       <p class="muted">You'll be sent back to ${escapeHtml(new URL(redirectUri).host)}. Only continue if you started this from Claude.</p>
       <form method="post" action="/oauth/authorize">
@@ -352,6 +362,7 @@ export function registerMcp(app: Express) {
       clientId: pending.clientId,
       redirectUri: pending.redirectUri,
       codeChallenge: pending.codeChallenge,
+      scope: pending.scope,
       expiresAt: Date.now() + CODE_TTL_MS,
     });
     res.redirect(withParams(pending.redirectUri, { code, state: pending.state }));
@@ -384,7 +395,7 @@ export function registerMcp(app: Express) {
       if (!user || !isAllowedConnectorUser(user)) {
         return oauthError(res, 400, "invalid_grant", "This account can no longer use the connector");
       }
-      await issueTokens(res, user.id, client.clientId);
+      await issueTokens(res, user.id, client.clientId, entry.scope);
       void sendMcpConnectedNotice({
         to: user.email,
         name: (user.name ?? "").split(" ")[0] || "there",
@@ -401,7 +412,7 @@ export function registerMcp(app: Express) {
         return oauthError(res, 400, "invalid_grant", "Refresh token is invalid or expired");
       }
       await storage.deleteMcpToken(token.id); // rotate: each refresh token works once
-      return issueTokens(res, token.userId, client.clientId);
+      return issueTokens(res, token.userId, client.clientId, token.scope);
     }
 
     return oauthError(res, 400, "unsupported_grant_type", "Only authorization_code and refresh_token are supported");
@@ -452,10 +463,13 @@ export function registerMcp(app: Express) {
       {
         capabilities: { tools: {} },
         instructions:
-          "Read-only access to the Open Startup Platform, a Pan-African startup accelerator: startups, founders " +
-          "and their contact emails, KYS tracks (seed / pre_seed), stages, metrics, review status, and who needs " +
-          "attention. Use list_startups to find a startup's id before get_startup_profile. Contract and document " +
-          "file contents are never available.",
+          "Access to the Open Startup Platform, a Pan-African startup accelerator: startups, founders and their " +
+          "contact emails, KYS tracks (seed / pre_seed), stages, metrics, review status, who needs attention, and " +
+          "mentorship sessions with their Zoom transcripts. Use list_startups to find a startup's id before " +
+          "get_startup_profile. To recap a session: list_mentorship_sessions (needsRecap: true), " +
+          "get_session_transcript, draft the recap, show it to the user, and only then save_session_recap. " +
+          "Saving recaps is the only change this connector can make. Contract and document file contents are " +
+          "never available.",
       },
     );
     server.setRequestHandler(ListToolsRequestSchema, async () => ({
@@ -463,15 +477,21 @@ export function registerMcp(app: Express) {
         name: t.name,
         description: t.description,
         inputSchema: t.parameters,
-        annotations: { readOnlyHint: true, openWorldHint: false },
+        annotations: t.readOnly
+          ? { readOnlyHint: true, openWorldHint: false }
+          : { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
       })),
     }));
     server.setRequestHandler(CallToolRequestSchema, async (request) => {
       try {
         // Audit trail: who looked up what, visible in the container logs.
         console.log(`[mcp] ${token.userEmail} called ${request.params.name}`);
-        const result = await executeAiTool(request.params.name, request.params.arguments ?? {});
-        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+        const result = await executeAiTool(request.params.name, request.params.arguments ?? {}, {
+          userEmail: token.userEmail,
+          scopes: token.scope.split(" "),
+        });
+        const failed = !!result && typeof result === "object" && "error" in result;
+        return { isError: failed, content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
       } catch (error: any) {
         console.error("[mcp] tool failed:", request.params.name, error);
         return { isError: true, content: [{ type: "text", text: `Lookup failed: ${error?.message ?? error}` }] };
