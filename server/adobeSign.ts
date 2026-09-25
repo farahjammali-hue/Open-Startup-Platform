@@ -64,7 +64,12 @@ export function registerAdobeSign(app: Express) {
   app.get(route, (req, res) => {
     const clientId = process.env.ADOBE_SIGN_WEBHOOK_CLIENT_ID || "";
     const got = req.get("X-AdobeSign-ClientId") ?? "";
-    if (!clientId || got !== clientId) return res.status(401).json({ message: "Unknown client id" });
+    if (!clientId || got !== clientId) {
+      // Chicken-and-egg helper: Adobe only reveals its client id by sending
+      // it here, so log what arrived for the admin to copy into .env.
+      console.warn(`[adobe-sign] webhook check refused: header client id "${got || "(none)"}" doesn't match ADOBE_SIGN_WEBHOOK_CLIENT_ID${clientId ? "" : " (which is not set)"}`);
+      return res.status(401).json({ message: "Unknown client id" });
+    }
     res.set("X-AdobeSign-ClientId", clientId).json({ xAdobeSignClientId: clientId });
   });
 
