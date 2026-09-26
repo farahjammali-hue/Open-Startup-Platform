@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import { api } from "../../lib/utils";
 import { AppShell } from "../../components/AppShell";
 import { BackLink, PageHeader } from "../../components/PageHeader";
@@ -38,12 +38,15 @@ function csvCell(v: string): string {
 
 export default function AdminStartups() {
   const [, navigate] = useLocation();
+  const searchParams = useSearch();
+  // Set by the dashboard's "missing this month's update" tile.
+  const missingUpdate = new URLSearchParams(searchParams).get("missingUpdate");
   const [stageFilter, setStageFilter] = useState<StageFilter>("all");
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<{ key: string; dir: 1 | -1 } | null>(null);
   const { data, isLoading } = useQuery<{ startups: Row[] }>({
-    queryKey: ["admin-startups"],
-    queryFn: () => api("/api/admin/startups"),
+    queryKey: ["admin-startups", missingUpdate],
+    queryFn: () => api(missingUpdate ? `/api/admin/startups?missingUpdate=${missingUpdate}` : "/api/admin/startups"),
   });
   const allRows = data?.startups ?? [];
   const rows = useMemo(() => {
@@ -83,7 +86,7 @@ export default function AdminStartups() {
         <BackLink to="/admin" label="Back to Admin Dashboard" />
         <PageHeader
           eyebrow="Administration"
-          title="All startups"
+          title={missingUpdate ? `Missing the ${missingUpdate} update` : "All startups"}
           subtitle={`${rows.length} of ${allRows.length} total`}
           action={
             <div className="flex flex-wrap items-center gap-2">
@@ -117,6 +120,13 @@ export default function AdminStartups() {
             </div>
           }
         />
+
+        {missingUpdate && (
+          <div className="mt-4 flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
+            <span>Showing only startups that haven't saved any {missingUpdate} metrics.</span>
+            <button onClick={() => navigate("/admin/startups")} className="font-semibold text-secondary hover:underline">Show all startups</button>
+          </div>
+        )}
 
         <div className="ost-card mt-8 overflow-hidden">
           <div className="overflow-x-auto">

@@ -826,6 +826,17 @@ export const storage = {
     await db.delete(startups).where(eq(startups.id, id));
   },
 
+  /** Startups that saved any metric value for the period ("2026-09") — the
+   * same non-empty-jsonb rule adminCounts uses for its missing-update tile,
+   * so the tile's number and the filtered list always agree. */
+  async listStartupIdsWithMetricEntry(period: string): Promise<string[]> {
+    const rows = await db
+      .select({ id: startupMetricEntries.startupId })
+      .from(startupMetricEntries)
+      .where(and(eq(startupMetricEntries.period, period), sql`${startupMetricEntries.values} != '{}'::jsonb`));
+    return rows.map((r) => r.id);
+  },
+
   async listStartupsWithOwners() {
     return db
       .select({

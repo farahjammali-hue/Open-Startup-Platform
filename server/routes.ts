@@ -2891,8 +2891,16 @@ export function registerRoutes(app: Express) {
     res.json(await storage.adminCounts());
   }));
 
-  app.get("/api/admin/startups", requireAdmin, ah(async (_req, res) => {
-    res.json({ startups: await storage.listStartupsWithOwners() });
+  app.get("/api/admin/startups", requireAdmin, ah(async (req, res) => {
+    const list = await storage.listStartupsWithOwners();
+    // A5: the dashboard's "missing this month's update" tile links here with
+    // ?missingUpdate=YYYY-MM; keep only the startups without a saved entry.
+    const missing = typeof req.query.missingUpdate === "string" ? req.query.missingUpdate : "";
+    if (/^\d{4}-\d{2}$/.test(missing)) {
+      const reported = new Set(await storage.listStartupIdsWithMetricEntry(missing));
+      return res.json({ startups: list.filter((s) => !reported.has(s.id)), missingUpdate: missing });
+    }
+    res.json({ startups: list });
   }));
 
   // Portfolio-wide monthly update stream (achieved/blocked/focus-next) across every startup.

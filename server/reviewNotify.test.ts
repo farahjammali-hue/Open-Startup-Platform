@@ -148,3 +148,29 @@ describe("review decisions email the founder (A1)", () => {
     expect(res.status).toBe(200);
   });
 });
+
+describe("admin startups ?missingUpdate filter (A5)", () => {
+  it("keeps only startups without a saved entry for the period", async () => {
+    Object.assign(fake.storage, {
+      listStartupsWithOwners: async () => [
+        { id: "s1", companyName: "Acme" },
+        { id: "s2", companyName: "Verdant" },
+      ],
+      listStartupIdsWithMetricEntry: async (period: string) => (period === "2026-09" ? ["s2"] : []),
+    });
+    const res = await fetch(`${base}/api/admin/startups?missingUpdate=2026-09`);
+    const body = await res.json();
+    expect(body.startups.map((s: any) => s.id)).toEqual(["s1"]);
+    expect(body.missingUpdate).toBe("2026-09");
+  });
+
+  it("ignores a malformed period and returns everyone", async () => {
+    Object.assign(fake.storage, {
+      listStartupsWithOwners: async () => [{ id: "s1" }, { id: "s2" }],
+    });
+    const res = await fetch(`${base}/api/admin/startups?missingUpdate=DROP TABLE`);
+    const body = await res.json();
+    expect(body.startups).toHaveLength(2);
+    expect(body.missingUpdate).toBeUndefined();
+  });
+});

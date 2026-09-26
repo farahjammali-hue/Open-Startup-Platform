@@ -38,7 +38,8 @@ export default function AdminDashboard() {
   const needsAttention: CardDef[] = [
     { label: "Pending deletions", value: data?.pendingDeletions, icon: Trash2, to: "/admin/deletion-requests" },
     { label: "Contracts & KYS to review", value: pendingReviews, icon: FileSignature, to: "/admin/contracts-kys" },
-    { label: "Startups missing this month's update", value: data?.startupsMissingMetrics, icon: LineChart, to: "/admin/startups" },
+    // Deep-links the same period the count was computed for.
+    { label: "Startups missing this month's update", value: data?.startupsMissingMetrics, icon: LineChart, to: `/admin/startups?missingUpdate=${new Date().toISOString().slice(0, 7)}` },
   ];
 
   const platform: CardDef[] = [

@@ -64,6 +64,17 @@ export default function Home() {
     enabled: onboardingComplete,
   });
 
+  // A5: nudge for the current month's metrics. Same emptiness rule as the
+  // admin side: an entry with at least one value counts as submitted.
+  const currentPeriod = new Date().toISOString().slice(0, 7);
+  const { data: metricsData } = useQuery<{ entries: { period: string; values: Record<string, unknown> }[] }>({
+    queryKey: ["metrics-panel", "/api/metrics"],
+    queryFn: () => api("/api/metrics"),
+    enabled: onboardingComplete,
+  });
+  const monthlyUpdateMissing =
+    !!metricsData && !metricsData.entries.some((e) => e.period === currentPeriod && Object.keys(e.values ?? {}).length > 0);
+
   const { data: officeHoursData, isLoading: officeHoursLoading } = useQuery<{ bookings: OfficeHourBookingLite[] }>({
     queryKey: ["office-hours-bookings"],
     queryFn: () => api("/api/office-hours/bookings"),
@@ -151,6 +162,15 @@ export default function Home() {
             description="Fill in your Know Your Startup form, then sign your program agreement, to unlock the rest of the platform."
             ctaLabel="Start now"
             onCta={() => navigate("/contract-kys")}
+          />
+        ) : monthlyUpdateMissing ? (
+          <NextActionHero
+            tone="amber"
+            icon={LayoutDashboard}
+            title={`Submit your ${new Date().toLocaleString(undefined, { month: "long" })} update`}
+            description="Your monthly metrics for this month haven't been saved yet. It takes a few minutes and keeps your progress visible to the program team."
+            ctaLabel="Fill it in"
+            onCta={() => navigate("/dashboard")}
           />
         ) : nextUp ? (
           <NextActionHero
