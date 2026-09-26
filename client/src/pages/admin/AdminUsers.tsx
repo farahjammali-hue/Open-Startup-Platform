@@ -80,13 +80,31 @@ export default function AdminUsers() {
     }
   }
 
-  const users = data?.users ?? [];
+  const [search, setSearch] = useState("");
+  const q = search.trim().toLowerCase();
+  const users = (data?.users ?? []).filter(
+    (u) => !q || u.name?.toLowerCase().includes(q) || u.email?.toLowerCase().includes(q),
+  );
 
   return (
     <AppShell>
       <main className="ost-page">
         <BackLink to="/admin" label="Back to Admin Dashboard" />
-        <PageHeader eyebrow="Administration" title="Users" subtitle={`${users.length} total`} />
+        <PageHeader
+          eyebrow="Administration"
+          title="Users"
+          subtitle={q ? `${users.length} of ${data?.users?.length ?? 0}` : `${users.length} total`}
+          action={
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search name or email…"
+              className="ost-input w-56 !py-1.5 text-sm"
+              aria-label="Search users"
+            />
+          }
+        />
 
         <div className="ost-card mt-8 overflow-hidden">
           <div className="overflow-x-auto">
