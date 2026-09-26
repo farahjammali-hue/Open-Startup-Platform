@@ -731,8 +731,19 @@ DROP TABLE IF EXISTS mentors;
 -- mentoring), replacing the old shared/cohort-wide session catalog. The two
 -- pre-existing shared sessions had zero real per-startup recap data attached
 -- and are removed per the admin's explicit call, rather than guessed at.
-DELETE FROM mentorship_session_notes;
-DELETE FROM mentorship_module_sessions;
+-- FENCED (one-time): this reset must only ever run on the pre-reorg shape,
+-- i.e. while the old module_id column still exists. Databases already
+-- reorganized — and fresh installs, whose tables are born with startup_id —
+-- skip it entirely, so re-running this script can never delete session data.
+DO $$ BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'mentorship_module_sessions' AND column_name = 'module_id'
+  ) THEN
+    DELETE FROM mentorship_session_notes;
+    DELETE FROM mentorship_module_sessions;
+  END IF;
+END $$;
 ALTER TABLE mentorship_module_sessions ADD COLUMN IF NOT EXISTS startup_id uuid REFERENCES startups(id) ON DELETE CASCADE;
 ALTER TABLE mentorship_module_sessions ALTER COLUMN startup_id SET NOT NULL;
 ALTER TABLE mentorship_module_sessions DROP COLUMN IF EXISTS module_id;
@@ -1104,9 +1115,9 @@ ALTER TABLE training_session_notes ADD COLUMN IF NOT EXISTS ai_generated_at time
 -- and mentorship but gain the investment application.
 ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'alumni';
 
-DO $ BEGIN
+DO $$ BEGIN
   CREATE TYPE investment_app_status AS ENUM ('draft', 'submitted', 'under_review', 'accepted', 'rejected');
-EXCEPTION WHEN duplicate_object THEN NULL; END $;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- Repeatable per startup (own table, not users.onboarding_status). "snapshot"
 -- freezes headline data + the readiness report at submit time.
