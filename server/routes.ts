@@ -74,7 +74,7 @@ import {
   sendApplicationNotice,
   sendApplicationDecision,
   sendAdminBroadcast, sendReviewDecision } from "./mailer";
-import { buildSessionIcs } from "./calendar";
+import { dispatchSessionInvite, createMentorshipSessionCore, createTrainingSessionCore } from "./sessions";
 import {
   parseZoomMeetingId,
   verifyZoomWebhookSignature,
@@ -335,95 +335,8 @@ const requireAdmin = async (req: Request, res: Response, next: NextFunction) => 
  * so enabling two puts the same session in founders' calendars twice. Zoom's
  * own calendar sync is a third mechanism and lives entirely in Zoom's settings
  * -- leave it off while this is set to anything but "off". */
-const CALENDAR_INVITES = (process.env.CALENDAR_INVITES || "off").trim().toLowerCase();
-const icsInvitesEnabled = CALENDAR_INVITES === "ics";
-const CALENDAR_ORGANIZER =
-  process.env.SMTP_FROM || process.env.SMTP_USER || "no-reply@open-startup.org";
-
-/** Host portion of APP_URL, used to build stable iCalendar UIDs. */
-function appHost(): string {
-  try {
-    return new URL(APP_URL).hostname;
-  } catch {
-    return "open-startup.org";
-  }
-}
-
-/**
- * Email a calendar invite (or cancellation) for a session.
- *
- * Best-effort and never throws: the admin's save is already committed by the
- * time this runs, so a mail problem must not surface as a failed save. It is
- * also deliberately not awaited before responding, because SMTP is slow and
- * scales with the size of the cohort.
- */
-async function dispatchSessionInvite(
-  kind: "Mentorship" | "Training",
-  session: {
-    id: string;
-    title: string;
-    description?: string | null;
-    meetingLink?: string | null;
-    scheduledAt: Date | string;
-    durationMinutes: number;
-    calendarSequence?: number | null;
-    zoomHostEmail?: string | null;
-    startupId?: string | null;
-  },
-  opts: { cancelled?: boolean; sequence?: number; updated?: boolean } = {},
-): Promise<void> {
-  if (!icsInvitesEnabled) return;
-  try {
-    // Mentorship sessions belong to one startup; Training is programme-wide.
-    // Inviting the whole cohort to a 1:1 session would disclose who is being
-    // mentored and when.
-    const recipients = session.startupId
-      ? await storage.listStartupSessionInviteRecipients(session.startupId)
-      : await storage.listSessionInviteRecipients();
-
-    // The Zoom host needs it in their own calendar too, and they may not have
-    // a platform account at all. Deduplicated case-insensitively, since a
-    // host who is also an admin would otherwise be invited twice.
-    if (session.zoomHostEmail) {
-      const seen = new Set(recipients.map((r) => r.email.toLowerCase()));
-      if (!seen.has(session.zoomHostEmail.toLowerCase())) {
-        recipients.push({ email: session.zoomHostEmail, name: null });
-      }
-    }
-
-    if (!recipients.length) return;
-
-    const startsAt = new Date(session.scheduledAt);
-    const ics = buildSessionIcs({
-      uid: `session-${session.id}@${appHost()}`,
-      sequence: opts.sequence ?? session.calendarSequence ?? 0,
-      title: session.title,
-      description: session.description ?? null,
-      joinUrl: session.meetingLink ?? null,
-      startsAt,
-      durationMinutes: session.durationMinutes,
-      organizerName: "Open Startup",
-      organizerEmail: CALENDAR_ORGANIZER,
-      attendees: recipients,
-      cancelled: opts.cancelled,
-    });
-
-    const sent = await sendSessionInvite({
-      recipients,
-      kind,
-      title: session.title,
-      startsAt,
-      durationMinutes: session.durationMinutes,
-      joinUrl: session.meetingLink ?? null,
-      ics,
-      cancelled: opts.cancelled,
-      updated: opts.updated,
-    });
-    console.log(`[calendar] ${opts.cancelled ? "cancellation" : opts.updated ? "update" : "invite"} for ${kind} session ${session.id}: ${sent}/${recipients.length} sent`);
-  } catch (error) {
-    console.error("[calendar] invite dispatch failed:", error);
-  }
-}
+// Session creation + calendar-invite dispatch moved to server/sessions.ts so
+// the Claude connector's scheduling tools share the exact same code path.
 
 const RECAPTCHA_SECRET = process.env.RECAPTCHA_SECRET_KEY || "";
 const captchaEnabled = !!(process.env.RECAPTCHA_SITE_KEY && RECAPTCHA_SECRET);
@@ -2368,46 +2281,12 @@ export function registerRoutes(app: Express) {
     if (!parsed.success) {
       return res.status(400).json({ message: parsed.error.errors[0].message });
     }
-    const hostEmail = parsed.data.zoomHostEmail || null;
-    let meetingLink = parsed.data.meetingLink || null;
-    let zoomMeetingId = parseZoomMeetingId(meetingLink);
-    let createdMeetingId: string | null = null;
-    if (hostEmail) {
-      const meeting = await createZoomMeeting(hostEmail, {
-        topic: parsed.data.title,
-        scheduledAt: new Date(parsed.data.scheduledAt),
-        durationMinutes: parsed.data.durationMinutes ?? 120,
-      });
-      meetingLink = meeting.joinUrl;
-      zoomMeetingId = meeting.id;
-      createdMeetingId = meeting.id;
-    }
-    try {
-      const session = await storage.createMentorshipModuleSession({
-        startupId: startup.id,
-        number: parsed.data.number,
-        title: parsed.data.title,
-        description: parsed.data.description || null,
-        scheduledAt: new Date(parsed.data.scheduledAt),
-        durationMinutes: parsed.data.durationMinutes ?? 120,
-        experts: parsed.data.experts || null,
-        status: parsed.data.status ?? "upcoming",
-        meetingLink,
-        recordingUrl: parsed.data.recordingUrl || null,
-        transcriptUrl: parsed.data.transcriptUrl || null,
-        materialsUrl: parsed.data.materialsUrl || null,
-        mentorBio: parsed.data.mentorBio || null,
-        zoomMeetingId,
-        zoomHostEmail: hostEmail,
-        visibilityTrack: parsed.data.visibilityTrack || null,
-      });
-      if (parsed.data.startupIds) await storage.setMentorshipSessionStartups(session.id, parsed.data.startupIds);
-      res.status(201).json(session);
-      void dispatchSessionInvite("Mentorship", session);
-    } catch (error) {
-      if (createdMeetingId) await deleteZoomMeeting(createdMeetingId).catch(() => undefined);
-      throw error;
-    }
+    const session = await createMentorshipSessionCore(startup.id, {
+      ...parsed.data,
+      scheduledAt: new Date(parsed.data.scheduledAt),
+      visibilityTrack: parsed.data.visibilityTrack || null,
+    });
+    res.status(201).json(session);
   }));
 
   app.patch("/api/admin/startups/:startupId/mentorship-sessions/:id", requireAdmin, ah(async (req, res) => {
@@ -2553,45 +2432,12 @@ export function registerRoutes(app: Express) {
     }
     const module = await storage.getTrainingModuleById(parsed.data.moduleId);
     if (!module) return res.status(404).json({ message: "Module not found" });
-    const hostEmail = parsed.data.zoomHostEmail || null;
-    let meetingLink = parsed.data.meetingLink || null;
-    let zoomMeetingId = parseZoomMeetingId(meetingLink);
-    let createdMeetingId: string | null = null;
-    if (hostEmail) {
-      const meeting = await createZoomMeeting(hostEmail, {
-        topic: parsed.data.title,
-        scheduledAt: new Date(parsed.data.scheduledAt),
-        durationMinutes: parsed.data.durationMinutes ?? 120,
-      });
-      meetingLink = meeting.joinUrl;
-      zoomMeetingId = meeting.id;
-      createdMeetingId = meeting.id;
-    }
-    try {
-      const session = await storage.createTrainingModuleSession(module.id, {
-        number: parsed.data.number,
-        title: parsed.data.title,
-        description: parsed.data.description || null,
-        scheduledAt: new Date(parsed.data.scheduledAt),
-        durationMinutes: parsed.data.durationMinutes ?? 120,
-        experts: parsed.data.experts || null,
-        status: parsed.data.status ?? "upcoming",
-        meetingLink,
-        presentationUrl: parsed.data.presentationUrl || null,
-        recordingUrl: parsed.data.recordingUrl || null,
-        transcriptUrl: parsed.data.transcriptUrl || null,
-        trainerBio: parsed.data.trainerBio || null,
-        zoomMeetingId,
-        zoomHostEmail: hostEmail,
-        visibilityTrack: parsed.data.visibilityTrack || null,
-      });
-      if (parsed.data.startupIds) await storage.setTrainingSessionStartups(session.id, parsed.data.startupIds);
-      res.status(201).json(session);
-      void dispatchSessionInvite("Training", session);
-    } catch (error) {
-      if (createdMeetingId) await deleteZoomMeeting(createdMeetingId).catch(() => undefined);
-      throw error;
-    }
+    const session = await createTrainingSessionCore(module.id, {
+      ...parsed.data,
+      scheduledAt: new Date(parsed.data.scheduledAt),
+      visibilityTrack: parsed.data.visibilityTrack || null,
+    });
+    res.status(201).json(session);
   }));
 
   app.patch("/api/admin/training/sessions/:id", requireAdmin, ah(async (req, res) => {

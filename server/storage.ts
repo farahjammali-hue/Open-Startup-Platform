@@ -2754,6 +2754,14 @@ export const storage = {
     return row;
   },
 
+  async listTrainingModuleSessionsByModule(moduleId: string): Promise<TrainingModuleSession[]> {
+    return db
+      .select()
+      .from(trainingModuleSessions)
+      .where(eq(trainingModuleSessions.moduleId, moduleId))
+      .orderBy(asc(trainingModuleSessions.number));
+  },
+
   async getTrainingModuleSessionByZoomMeetingId(zoomMeetingId: string): Promise<TrainingModuleSession | undefined> {
     const [row] = await db
       .select()

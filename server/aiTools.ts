@@ -3,6 +3,8 @@ import { storage } from "./storage";
 import { readTranscriptFile, vttToPlainText } from "./transcripts";
 import { ALL_METRIC_KEYS } from "@shared/metricsCatalog";
 import { postOps } from "./notify";
+import { sendAdminBroadcast } from "./mailer";
+import { createMentorshipSessionCore, createTrainingSessionCore } from "./sessions";
 
 /**
  * The data lookups (and one narrow write) exposed through the Claude
@@ -17,6 +19,7 @@ export const READ_SCOPE = "platform:read";
 export const RECAP_WRITE_SCOPE = "recaps:write";
 export const METRICS_WRITE_SCOPE = "metrics:write";
 export const SESSIONS_WRITE_SCOPE = "sessions:write";
+export const MESSAGES_WRITE_SCOPE = "messages:write";
 
 /**
  * B1: the single source of truth for connector scopes. The OAuth server
@@ -31,7 +34,8 @@ export const SCOPE_REGISTRY: { id: string; consent: string }[] = [
   { id: READ_SCOPE, consent: "Read startups, founders, tracks, metrics, review status and session transcripts" },
   { id: RECAP_WRITE_SCOPE, consent: "Save mentorship and training session recaps" },
   { id: METRICS_WRITE_SCOPE, consent: "Record a startup's monthly metrics (the same numbers founders type in)" },
-  { id: SESSIONS_WRITE_SCOPE, consent: "Mark held sessions as completed" },
+  { id: SESSIONS_WRITE_SCOPE, consent: "Schedule mentorship and training sessions (with Zoom and calendar invites) and mark held ones completed" },
+  { id: MESSAGES_WRITE_SCOPE, consent: "Email founders (a cohort or one startup) — every send previews first and needs an explicit confirm" },
 ];
 
 export interface AiToolDef {
@@ -239,6 +243,100 @@ export const AI_TOOLS: AiToolDef[] = [
     parameters: { type: "object", properties: { sessionId: { type: "string" } }, required: ["sessionId"] },
   },
   {
+    name: "send_startup_message",
+    readOnly: false,
+    requiredScope: MESSAGES_WRITE_SCOPE,
+    description:
+      "Email one startup's founder from the platform. DRY-RUN BY DEFAULT: without confirm:true it only returns " +
+      "the resolved recipients and the exact subject/body so the user can check them. Set confirm:true ONLY after " +
+      "the user has seen that preview in chat and explicitly said to send. Sends are rate-limited and logged in " +
+      "the admin message history as coming from Claude.",
+    parameters: {
+      type: "object",
+      properties: {
+        startupId: { type: "string", description: "From list_startups." },
+        subject: { type: "string" },
+        body: { type: "string", description: "Plain text; keep it short and human." },
+        asSelf: { type: "boolean", description: "true = shown as the connected admin (replies go to them); false/omitted = shown as Open Startup." },
+        confirm: { type: "boolean", description: "true actually sends. Only after the user approved the previewed message." },
+      },
+      required: ["startupId", "subject", "body"],
+    },
+  },
+  {
+    name: "send_cohort_message",
+    readOnly: false,
+    requiredScope: MESSAGES_WRITE_SCOPE,
+    description:
+      "Email a whole cohort of founders (seed, pre_seed, or all). DRY-RUN BY DEFAULT: without confirm:true it " +
+      "returns the recipient count and the exact subject/body for the user to check. Set confirm:true ONLY after " +
+      "the user has seen that preview in chat and explicitly said to send. Rate-limited and logged in the admin " +
+      "message history as coming from Claude.",
+    parameters: {
+      type: "object",
+      properties: {
+        track: { type: "string", enum: ["seed", "pre_seed", "all"] },
+        subject: { type: "string" },
+        body: { type: "string" },
+        asSelf: { type: "boolean" },
+        confirm: { type: "boolean", description: "true actually sends. Only after the user approved the previewed message." },
+      },
+      required: ["track", "subject", "body"],
+    },
+  },
+  {
+    name: "list_training_modules",
+    readOnly: true,
+    description: "List training modules (id, title, track, session count) — needed to schedule a training session.",
+    parameters: { type: "object", properties: {}, required: [] },
+  },
+  {
+    name: "schedule_mentorship_session",
+    readOnly: false,
+    requiredScope: SESSIONS_WRITE_SCOPE,
+    description:
+      "Create a mentorship session for one startup — the same thing an admin does in the UI, including the Zoom " +
+      "meeting (when zoomHostEmail is a configured Zoom host) and calendar invites to the startup and admins. " +
+      "Confirm the details with the user before calling. Returns the join link so the user can verify. Session " +
+      "numbers auto-increment when omitted.",
+    parameters: {
+      type: "object",
+      properties: {
+        startupId: { type: "string", description: "From list_startups." },
+        title: { type: "string" },
+        scheduledAt: { type: "string", description: "ISO 8601 date-time with timezone, e.g. 2026-10-02T14:00:00Z." },
+        durationMinutes: { type: "number", description: "Default 120." },
+        description: { type: "string" },
+        zoomHostEmail: { type: "string", description: "A configured Zoom host's email; omit to create without a Zoom meeting." },
+        number: { type: "number", description: "Session number; omitted = next in sequence." },
+      },
+      required: ["startupId", "title", "scheduledAt"],
+    },
+  },
+  {
+    name: "schedule_training_session",
+    readOnly: false,
+    requiredScope: SESSIONS_WRITE_SCOPE,
+    description:
+      "Create a cohort training session under a training module (list_training_modules for the id) — same as the " +
+      "admin UI, including the Zoom meeting (when zoomHostEmail is set) and calendar invites to the whole cohort. " +
+      "Confirm the details with the user before calling. Returns the join link. Session numbers auto-increment " +
+      "when omitted.",
+    parameters: {
+      type: "object",
+      properties: {
+        moduleId: { type: "string", description: "From list_training_modules." },
+        title: { type: "string" },
+        scheduledAt: { type: "string", description: "ISO 8601 date-time with timezone." },
+        durationMinutes: { type: "number", description: "Default 120." },
+        description: { type: "string" },
+        zoomHostEmail: { type: "string" },
+        number: { type: "number" },
+      },
+      required: ["moduleId", "title", "scheduledAt"],
+    },
+  },
+  {
     name: "save_session_recap",
     readOnly: false,
     requiredScope: RECAP_WRITE_SCOPE,
@@ -321,6 +419,84 @@ async function auditToolCall(name: string, input: any, ctx: AiToolContext, resul
   } catch (e) {
     console.error("[mcp] audit write failed:", e);
   }
+}
+
+/** B3: 10 real sends per connected admin per hour — a stuck loop can't spam founders. */
+const SEND_LIMIT = 10;
+const SEND_WINDOW_MS = 60 * 60 * 1000;
+const sendTimestamps = new Map<string, number[]>();
+function sendAllowed(email: string): boolean {
+  const now = Date.now();
+  const recent = (sendTimestamps.get(email) ?? []).filter((t) => now - t < SEND_WINDOW_MS);
+  if (recent.length >= SEND_LIMIT) {
+    sendTimestamps.set(email, recent);
+    return false;
+  }
+  recent.push(now);
+  sendTimestamps.set(email, recent);
+  return true;
+}
+/** Test hook. */
+export function __resetMcpSendLimiter(): void {
+  sendTimestamps.clear();
+}
+
+const messageInput = z.object({
+  subject: z.string().trim().min(1).max(200),
+  body: z.string().trim().min(1).max(5000),
+  asSelf: z.boolean().optional(),
+  confirm: z.boolean().optional(),
+});
+
+async function sendConnectorMessage(
+  ctx: AiToolContext,
+  opts: {
+    kind: "cohort_message" | "startup_message";
+    recipients: { email: string; name: string | null }[];
+    audienceLabel: string;
+    startupId?: string;
+    subject: string;
+    body: string;
+    asSelf: boolean;
+    confirm: boolean;
+    meta: Record<string, unknown>;
+  },
+): Promise<unknown> {
+  if (opts.recipients.length === 0) return { error: "No eligible recipients — nothing to send." };
+  if (!opts.confirm) {
+    return {
+      dryRun: true,
+      wouldSendTo: opts.recipients.map((r) => r.email),
+      audience: opts.audienceLabel,
+      subject: opts.subject,
+      body: opts.body,
+      sentAs: opts.asSelf ? ctx.userEmail : "Open Startup (platform)",
+      note: "Nothing was sent. Show this preview to the user; only call again with confirm:true after they approve it.",
+    };
+  }
+  if (!sendAllowed(ctx.userEmail)) {
+    return { error: `Rate limit: at most ${SEND_LIMIT} sends per hour per admin through the connector. Try later or send from the admin UI.` };
+  }
+  const admin = await storage.getUserByEmail(ctx.userEmail);
+  const sent = await sendAdminBroadcast({
+    recipients: opts.recipients,
+    subject: opts.subject,
+    body: opts.body,
+    senderName: admin?.name || ctx.userEmail,
+    senderEmail: ctx.userEmail,
+    asSelf: opts.asSelf,
+  });
+  await storage.logMessage({
+    kind: opts.kind,
+    startupId: opts.startupId ?? null,
+    recipientEmails: opts.recipients.map((r) => r.email),
+    subject: opts.subject,
+    bodyPreview: opts.body.slice(0, 300),
+    sentBy: `mcp:${ctx.userEmail}`,
+    meta: { ...opts.meta, asSelf: opts.asSelf, sent, total: opts.recipients.length },
+  });
+  console.log(`[mcp] ${ctx.userEmail} sent a ${opts.kind} to ${opts.recipients.length} recipient(s)`);
+  return { ok: true, sentTo: opts.recipients.length, delivered: sent, audience: opts.audienceLabel };
 }
 
 async function runTool(name: string, input: any, ctx: AiToolContext): Promise<unknown> {
@@ -507,6 +683,104 @@ async function runTool(name: string, input: any, ctx: AiToolContext): Promise<un
         return { ok: true, kind: "training", title: training.title, alreadyCompleted: false };
       }
       return { error: "No session with that id" };
+    }
+
+    case "send_startup_message": {
+      const startupId = String(input?.startupId ?? "");
+      if (!UUID.test(startupId)) return { error: "startupId must be a startup id from list_startups" };
+      const parsed = messageInput.safeParse(input);
+      if (!parsed.success) return { error: `Invalid ${parsed.error.errors[0].path.join(".") || "input"}: ${parsed.error.errors[0].message}` };
+      const startup = await storage.getStartupById(startupId);
+      if (!startup) return { error: "No startup with that id" };
+      const recipients = await storage.listStartupMessageRecipients(startupId);
+      return sendConnectorMessage(ctx, {
+        kind: "startup_message",
+        recipients,
+        audienceLabel: startup.companyName,
+        startupId,
+        subject: parsed.data.subject,
+        body: parsed.data.body,
+        asSelf: parsed.data.asSelf === true,
+        confirm: parsed.data.confirm === true,
+        meta: {},
+      });
+    }
+
+    case "send_cohort_message": {
+      const track = String(input?.track ?? "");
+      if (!["seed", "pre_seed", "all"].includes(track)) return { error: 'track must be "seed", "pre_seed" or "all"' };
+      const parsed = messageInput.safeParse(input);
+      if (!parsed.success) return { error: `Invalid ${parsed.error.errors[0].path.join(".") || "input"}: ${parsed.error.errors[0].message}` };
+      const recipients = await storage.listCohortMessageRecipients(track as "seed" | "pre_seed" | "all");
+      return sendConnectorMessage(ctx, {
+        kind: "cohort_message",
+        recipients,
+        audienceLabel: track === "all" ? "every founder" : `the ${track} cohort`,
+        subject: parsed.data.subject,
+        body: parsed.data.body,
+        asSelf: parsed.data.asSelf === true,
+        confirm: parsed.data.confirm === true,
+        meta: { track },
+      });
+    }
+
+    case "list_training_modules": {
+      const modules = await storage.listTrainingModulesWithSessions();
+      return modules.map((m: any) => ({ id: m.id, title: m.title, track: m.track, sessions: m.sessions?.length ?? 0 }));
+    }
+
+    case "schedule_mentorship_session": {
+      const startupId = String(input?.startupId ?? "");
+      if (!UUID.test(startupId)) return { error: "startupId must be a startup id from list_startups" };
+      const startup = await storage.getStartupById(startupId);
+      if (!startup) return { error: "No startup with that id" };
+      const when = new Date(String(input?.scheduledAt ?? ""));
+      if (Number.isNaN(+when)) return { error: "scheduledAt must be an ISO 8601 date-time" };
+      const title = String(input?.title ?? "").trim();
+      if (!title || title.length > 200) return { error: "title is required (max 200 chars)" };
+      const existing = await storage.listMentorshipSessionsForStartup(startupId);
+      const number = Number(input?.number) > 0 ? Number(input.number) : Math.max(0, ...existing.map((s) => s.number)) + 1;
+      try {
+        const session = await createMentorshipSessionCore(startupId, {
+          number,
+          title,
+          description: input?.description ? String(input.description).slice(0, 1000) : null,
+          scheduledAt: when,
+          durationMinutes: Number(input?.durationMinutes) > 0 ? Number(input.durationMinutes) : 120,
+          zoomHostEmail: input?.zoomHostEmail ? String(input.zoomHostEmail) : null,
+        });
+        console.log(`[mcp] ${ctx.userEmail} scheduled mentorship session ${session.id} for ${startup.companyName}`);
+        return { ok: true, sessionId: session.id, startup: startup.companyName, number: session.number, scheduledAt: session.scheduledAt, joinUrl: session.meetingLink ?? null };
+      } catch (e: any) {
+        return { error: `Couldn't create the session: ${e?.message ?? "unknown error"}` };
+      }
+    }
+
+    case "schedule_training_session": {
+      const moduleId = String(input?.moduleId ?? "");
+      if (!UUID.test(moduleId)) return { error: "moduleId must come from list_training_modules" };
+      const module = await storage.getTrainingModuleById(moduleId);
+      if (!module) return { error: "No training module with that id" };
+      const when = new Date(String(input?.scheduledAt ?? ""));
+      if (Number.isNaN(+when)) return { error: "scheduledAt must be an ISO 8601 date-time" };
+      const title = String(input?.title ?? "").trim();
+      if (!title || title.length > 200) return { error: "title is required (max 200 chars)" };
+      const existing = await storage.listTrainingModuleSessionsByModule(moduleId);
+      const number = Number(input?.number) > 0 ? Number(input.number) : Math.max(0, ...existing.map((s) => s.number)) + 1;
+      try {
+        const session = await createTrainingSessionCore(moduleId, {
+          number,
+          title,
+          description: input?.description ? String(input.description).slice(0, 1000) : null,
+          scheduledAt: when,
+          durationMinutes: Number(input?.durationMinutes) > 0 ? Number(input.durationMinutes) : 120,
+          zoomHostEmail: input?.zoomHostEmail ? String(input.zoomHostEmail) : null,
+        });
+        console.log(`[mcp] ${ctx.userEmail} scheduled training session ${session.id} (${module.title})`);
+        return { ok: true, sessionId: session.id, module: module.title, number: session.number, scheduledAt: session.scheduledAt, joinUrl: session.meetingLink ?? null };
+      } catch (e: any) {
+        return { error: `Couldn't create the session: ${e?.message ?? "unknown error"}` };
+      }
     }
 
     default:

@@ -18,13 +18,21 @@ const fake = vi.hoisted(() => {
   const trainingSessions = new Map<string, any>();
   const trainingNotes = new Map<string, any>();
   const metricEntries: any[] = [];
-  return { users, clients, tokens, notices, sessions, notes, audit, trainingSessions, trainingNotes, metricEntries };
+  const broadcasts: any[] = [];
+  const messageLog: any[] = [];
+  const createdSessions: any[] = [];
+  return { users, clients, tokens, notices, sessions, notes, audit, trainingSessions, trainingNotes, metricEntries, broadcasts, messageLog, createdSessions };
 });
 
 vi.mock("./mailer", () => ({
   sendMcpConnectedNotice: async (opts: any) => {
     fake.notices.push(opts);
   },
+  sendAdminBroadcast: async (opts: any) => {
+    fake.broadcasts.push(opts);
+    return opts.recipients.length;
+  },
+  sendSessionInvite: async () => 0,
 }));
 
 vi.mock("./transcripts", () => ({
@@ -92,6 +100,27 @@ vi.mock("./storage", () => ({
       Object.assign(fake.trainingSessions.get(id) ?? {}, data);
       return fake.trainingSessions.get(id);
     },
+    // B3 surface: connector messaging + scheduling.
+    getUserByEmail: async (email: string) => [...fake.users.values()].find((u) => u.email === email),
+    listStartupMessageRecipients: async () => [{ email: "founder@acme.io", name: "Amina" }],
+    listCohortMessageRecipients: async (track: string) => (track === "pre_seed" ? [] : [{ email: "a@x.io", name: null }, { email: "b@x.io", name: null }]),
+    logMessage: async (row: any) => fake.messageLog.push(row),
+    listMentorshipSessionsForStartup: async () => [{ number: 3 }],
+    listTrainingModulesWithSessions: async () => [{ id: "77777777-8888-4999-8aaa-bbbbbbbbbbbb", title: "GTM", track: "all", sessions: [{}, {}] }],
+    getTrainingModuleById: async (id: string) => (id === "77777777-8888-4999-8aaa-bbbbbbbbbbbb" ? { id, title: "GTM", track: "all" } : undefined),
+    listTrainingModuleSessionsByModule: async () => [{ number: 5 }],
+    createMentorshipModuleSession: async (data: any) => {
+      const row = { id: "99999999-1111-4222-8333-444444444444", calendarSequence: 0, ...data };
+      fake.createdSessions.push({ kind: "mentorship", ...row });
+      return row;
+    },
+    createTrainingModuleSession: async (moduleId: string, data: any) => {
+      const row = { id: "99999999-2222-4333-8444-555555555555", moduleId, calendarSequence: 0, ...data };
+      fake.createdSessions.push({ kind: "training", ...row });
+      return row;
+    },
+    setMentorshipSessionStartups: async () => {},
+    setTrainingSessionStartups: async () => {},
     countMcpConnections: async (userId: string) => new Set(fake.tokens.filter((t) => t.userId === userId).map((t) => t.clientId)).size,
     deleteMcpTokensForUser: async (userId: string) => {
       for (let i = fake.tokens.length - 1; i >= 0; i--) if (fake.tokens[i].userId === userId) fake.tokens.splice(i, 1);
@@ -100,6 +129,7 @@ vi.mock("./storage", () => ({
 }));
 
 const { registerMcp } = await import("./mcp");
+const { __resetMcpSendLimiter } = await import("./aiTools");
 
 const CLAUDE_CALLBACK = "https://claude.ai/api/mcp/auth_callback";
 const SESSION_ID = "11111111-2222-4333-8444-555555555555";
@@ -135,6 +165,10 @@ beforeEach(() => {
   fake.trainingSessions.clear();
   fake.trainingNotes.clear();
   fake.metricEntries.length = 0;
+  fake.broadcasts.length = 0;
+  fake.messageLog.length = 0;
+  fake.createdSessions.length = 0;
+  __resetMcpSendLimiter();
   fake.trainingSessions.set(TRAINING_ID, { id: TRAINING_ID, title: "Fundraising 101", scheduledAt: new Date(), transcriptUrl: "/uploads/transcripts/s1.vtt", status: "upcoming", visibleTo: ["startup-1", "startup-2"] });
   fake.users.set("admin", { id: "admin", email: "ghazi@open-startup.org", role: "admin", isActive: true });
   fake.users.set("gmail-admin", { id: "gmail-admin", email: "someone@gmail.com", role: "admin", isActive: true });
@@ -243,7 +277,16 @@ describe("Claude connector: happy path", () => {
     const names = list.result.tools.map((t: any) => t.name);
     expect(names).toContain("list_startups");
     const writers = list.result.tools.filter((t: any) => t.annotations.readOnlyHint !== true).map((t: any) => t.name);
-    expect(writers.sort()).toEqual(["complete_session", "record_startup_metrics", "save_session_recap", "save_training_recap"]);
+    expect(writers.sort()).toEqual([
+      "complete_session",
+      "record_startup_metrics",
+      "save_session_recap",
+      "save_training_recap",
+      "schedule_mentorship_session",
+      "schedule_training_session",
+      "send_cohort_message",
+      "send_startup_message",
+    ]);
 
     const call = await (await mcp(access_token, "tools/call", { name: "count_startups", arguments: {} })).json();
     expect(JSON.parse(call.result.content[0].text)).toEqual({ count: 7 });
@@ -558,5 +601,72 @@ describe("wave-1 write tools (B2)", () => {
     expect(complete.isError).toBe(true);
     const recap = await callTool(access_token, "save_session_recap", { sessionId: SESSION_ID, ...RECAP });
     expect(recap.data.ok).toBe(true);
+  });
+});
+
+describe("wave-2: messaging + scheduling (B3)", () => {
+  const MODULE_ID = "77777777-8888-4999-8aaa-bbbbbbbbbbbb";
+
+  it("messages are dry-run by default: full preview, nothing sent, nothing logged", async () => {
+    const { access_token } = await connect();
+    const res = await callTool(access_token, "send_startup_message", { startupId: STARTUP_UUID, subject: "Hi", body: "Quick note" });
+    expect(res.data).toMatchObject({ dryRun: true, wouldSendTo: ["founder@acme.io"], subject: "Hi", audience: "Acme" });
+    expect(fake.broadcasts).toHaveLength(0);
+    expect(fake.messageLog).toHaveLength(0);
+  });
+
+  it("confirm:true sends, logs as mcp:<email>, and pings ops", async () => {
+    const { access_token } = await connect();
+    const res = await callTool(access_token, "send_cohort_message", { track: "seed", subject: "Office hours", body: "Thursday 3pm", confirm: true });
+    expect(res.data).toMatchObject({ ok: true, sentTo: 2, delivered: 2 });
+    expect(fake.broadcasts[0].recipients).toHaveLength(2);
+    expect(fake.messageLog[0]).toMatchObject({ kind: "cohort_message", sentBy: "mcp:ghazi@open-startup.org", meta: expect.objectContaining({ track: "seed" }) });
+  });
+
+  it("an empty audience is an error, not a silent no-op", async () => {
+    const { access_token } = await connect();
+    const res = await callTool(access_token, "send_cohort_message", { track: "pre_seed", subject: "S", body: "B", confirm: true });
+    expect(res.isError).toBe(true);
+  });
+
+  it("rate-limits confirmed sends per admin", async () => {
+    const { access_token } = await connect();
+    for (let i = 0; i < 10; i++) {
+      const r = await callTool(access_token, "send_startup_message", { startupId: STARTUP_UUID, subject: `S${i}`, body: "B", confirm: true });
+      expect(r.data.ok).toBe(true);
+    }
+    const eleventh = await callTool(access_token, "send_startup_message", { startupId: STARTUP_UUID, subject: "S11", body: "B", confirm: true });
+    expect(eleventh.isError).toBe(true);
+    expect(eleventh.data.error).toMatch(/rate limit/i);
+    expect(fake.messageLog).toHaveLength(10);
+  });
+
+  it("schedules a mentorship session with the next number and returns the join link", async () => {
+    const { access_token } = await connect();
+    const res = await callTool(access_token, "schedule_mentorship_session", {
+      startupId: STARTUP_UUID,
+      title: "Pricing deep-dive",
+      scheduledAt: "2026-10-02T14:00:00Z",
+    });
+    expect(res.data).toMatchObject({ ok: true, startup: "Acme", number: 4, joinUrl: null });
+    expect(fake.createdSessions[0]).toMatchObject({ kind: "mentorship", startupId: STARTUP_UUID, durationMinutes: 120, status: "upcoming" });
+  });
+
+  it("schedules a training session under a module found via list_training_modules", async () => {
+    const { access_token } = await connect();
+    const modules = await callTool(access_token, "list_training_modules", {});
+    expect(modules.data[0]).toMatchObject({ id: MODULE_ID, title: "GTM" });
+    const res = await callTool(access_token, "schedule_training_session", { moduleId: MODULE_ID, title: "GTM part 2", scheduledAt: "2026-10-05T10:00:00Z" });
+    expect(res.data).toMatchObject({ ok: true, module: "GTM", number: 6 });
+    const bad = await callTool(access_token, "schedule_training_session", { moduleId: MODULE_ID, title: "x", scheduledAt: "not-a-date" });
+    expect(bad.isError).toBe(true);
+  });
+
+  it("old tokens without messages:write are denied sends", async () => {
+    const { access_token } = await connect();
+    for (const t of fake.tokens) t.scope = "platform:read recaps:write";
+    const res = await callTool(access_token, "send_startup_message", { startupId: STARTUP_UUID, subject: "S", body: "B", confirm: true });
+    expect(res.isError).toBe(true);
+    expect(res.data.error).toContain("messages:write");
   });
 });
