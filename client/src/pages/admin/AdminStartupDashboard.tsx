@@ -6,6 +6,7 @@ import { AppShell } from "../../components/AppShell";
 import { BackLink, PageHeader, TabBar } from "../../components/PageHeader";
 import { Skeleton, SkeletonText } from "../../components/Skeleton";
 import { MetricsKpiPanel } from "../../components/metrics/MetricsKpiPanel";
+import { MetricsChartsPanel } from "../../components/metrics/MetricsChartsPanel";
 import { QuarterlySummaryPanel } from "../../components/metrics/QuarterlySummaryPanel";
 import { InitialDataPanel, type InitialDataApiConfig } from "../../components/dashboard/InitialDataPanel";
 import { Buildings as Building2, ChartLineUp as TrendingUp, ChartPieSlice as PieChart } from "@phosphor-icons/react";
@@ -80,7 +81,10 @@ export default function AdminStartupDashboard() {
 
         {tab === "monthly" && (
           <Section title="Metrics & KPIs" icon={TrendingUp}>
-            <MetricsKpiPanel apiBase={`/api/admin/startups/${id}/metrics`} startupName={startup.companyName} />
+            <div className="space-y-6">
+              <MetricsChartsPanel apiBase={`/api/admin/startups/${id}/metrics`} />
+              <MetricsKpiPanel apiBase={`/api/admin/startups/${id}/metrics`} startupName={startup.companyName} />
+            </div>
           </Section>
         )}
 
