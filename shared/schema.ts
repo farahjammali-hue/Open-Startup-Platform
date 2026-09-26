@@ -29,11 +29,15 @@ import {
 /* =========================================================
  * Enums
  * =======================================================*/
+// "alumni": graduated startups (or pre-platform alumni who signed up fresh) —
+// full data/KYS access, no training or mentorship, and the investment
+// application. See PHASE D of the improvement plan.
 export const userRoleEnum = pgEnum("user_role", [
   "startup",
   "mentor",
   "investor",
   "admin",
+  "alumni",
 ]);
 
 export const authProviderEnum = pgEnum("auth_provider", ["local", "google"]);
@@ -1266,6 +1270,53 @@ export const mcpAuditLog = pgTable("mcp_audit_log", {
 export type McpAuditEntry = typeof mcpAuditLog.$inferSelect;
 
 /* =========================================================
+ * Investment applications (alumni)
+ * =======================================================*/
+export const investmentAppStatusEnum = pgEnum("investment_app_status", [
+  "draft",
+  "submitted",
+  "under_review",
+  "accepted",
+  "rejected",
+]);
+
+/**
+ * An alumni startup's application to the investment plan. Its own table (not
+ * users.onboardingStatus) because applications repeat: a rejected or accepted
+ * startup can apply again later as a new row. "snapshot" freezes the headline
+ * data + readiness report at submit time, so decisions stay auditable even
+ * after the live dashboard changes.
+ */
+export const investmentApplications = pgTable("investment_applications", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  startupId: uuid("startup_id")
+    .references(() => startups.id, { onDelete: "cascade" })
+    .notNull(),
+  userId: uuid("user_id")
+    .references(() => users.id, { onDelete: "cascade" })
+    .notNull(),
+  status: investmentAppStatusEnum("status").notNull().default("draft"),
+  answers: jsonb("answers").$type<Record<string, unknown>>().notNull().default({}),
+  snapshot: jsonb("snapshot").$type<Record<string, unknown>>().notNull().default({}),
+  submittedAt: timestamp("submitted_at"),
+  decidedAt: timestamp("decided_at"),
+  decidedBy: uuid("decided_by").references(() => users.id),
+  decisionNote: text("decision_note"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+export type InvestmentApplication = typeof investmentApplications.$inferSelect;
+
+export const investmentApplicationAnswersSchema = z.object({
+  amountSought: z.string().trim().min(1, "How much are you raising?").max(100),
+  roundType: z.string().trim().min(1, "What kind of round is it?").max(100),
+  useOfFunds: z.string().trim().min(1, "What would the money be used for?").max(4000),
+  tractionNarrative: z.string().trim().min(1, "Tell us where the business stands").max(4000),
+  timeline: z.string().max(500).optional().or(z.literal("")),
+});
+export type InvestmentApplicationAnswers = z.infer<typeof investmentApplicationAnswersSchema>;
+
+/* =========================================================
  * Session store (connect-pg-simple)
  * =======================================================*/
 export const session = pgTable("session", {
@@ -1302,7 +1353,7 @@ export const loginSchema = z.object({
 });
 
 export const selectRoleSchema = z.object({
-  role: z.enum(["startup", "mentor", "investor", "admin"]),
+  role: z.enum(["startup", "mentor", "investor", "admin", "alumni"]),
 });
 
 export const startupBasicsSchema = z.object({

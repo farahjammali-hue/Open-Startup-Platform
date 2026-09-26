@@ -1097,6 +1097,34 @@ ALTER TABLE training_session_notes ADD COLUMN IF NOT EXISTS needs_highlighted te
 ALTER TABLE training_session_notes ADD COLUMN IF NOT EXISTS next_meeting_check_ins text;
 ALTER TABLE training_session_notes ADD COLUMN IF NOT EXISTS action_items_for_ost text;
 ALTER TABLE training_session_notes ADD COLUMN IF NOT EXISTS ai_generated_at timestamp;
+
+-- Schema Batch 2 (PHASE D): the alumni role and investment applications.
+
+-- Graduated startups keep their account and all data; alumni lose training
+-- and mentorship but gain the investment application.
+ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'alumni';
+
+DO $ BEGIN
+  CREATE TYPE investment_app_status AS ENUM ('draft', 'submitted', 'under_review', 'accepted', 'rejected');
+EXCEPTION WHEN duplicate_object THEN NULL; END $;
+
+-- Repeatable per startup (own table, not users.onboarding_status). "snapshot"
+-- freezes headline data + the readiness report at submit time.
+CREATE TABLE IF NOT EXISTS investment_applications (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  startup_id uuid NOT NULL REFERENCES startups(id) ON DELETE CASCADE,
+  user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  status investment_app_status NOT NULL DEFAULT 'draft',
+  answers jsonb NOT NULL DEFAULT '{}'::jsonb,
+  snapshot jsonb NOT NULL DEFAULT '{}'::jsonb,
+  submitted_at timestamp,
+  decided_at timestamp,
+  decided_by uuid REFERENCES users(id),
+  decision_note text,
+  created_at timestamp NOT NULL DEFAULT now(),
+  updated_at timestamp NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS investment_applications_status_idx ON investment_applications (status, submitted_at DESC);
 `;
 
 try {
