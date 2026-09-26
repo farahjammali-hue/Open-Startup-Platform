@@ -15,7 +15,10 @@ const fake = vi.hoisted(() => {
   const sessions = new Map<string, any>();
   const notes = new Map<string, any>();
   const audit: any[] = [];
-  return { users, clients, tokens, notices, sessions, notes, audit };
+  const trainingSessions = new Map<string, any>();
+  const trainingNotes = new Map<string, any>();
+  const metricEntries: any[] = [];
+  return { users, clients, tokens, notices, sessions, notes, audit, trainingSessions, trainingNotes, metricEntries };
 });
 
 vi.mock("./mailer", () => ({
@@ -62,6 +65,33 @@ vi.mock("./storage", () => ({
       fake.notes.set(key, row);
       return row;
     },
+    // B2 surface: training recaps, metric entry, session completion.
+    getTrainingModuleSessionById: async (id: string) => fake.trainingSessions.get(id),
+    listStartupIdsVisibleToTrainingSession: async (id: string) => fake.trainingSessions.get(id)?.visibleTo ?? [],
+    getTrainingSessionNotes: async (sessionId: string, startupId: string) => fake.trainingNotes.get(`${sessionId}:${startupId}`),
+    upsertTrainingSessionNotes: async (sessionId: string, startupId: string, data: any) => {
+      const key = `${sessionId}:${startupId}`;
+      const row = { ...(fake.trainingNotes.get(key) ?? {}), sessionId, startupId, ...data };
+      fake.trainingNotes.set(key, row);
+      return row;
+    },
+    listTrainingSessionsForConnector: async () => [...fake.trainingSessions.values()].map((t) => ({ sessionId: t.id, title: t.title, transcriptUrl: t.transcriptUrl ?? null, recapSavedAt: null })),
+    getStartupById: async (id: string) => (id === "44444444-5555-4666-8777-888888888888" ? { id, companyName: "Acme", userId: "u1" } : undefined),
+    listMetricEntries: async () => fake.metricEntries,
+    upsertMetricEntry: async (startupId: string, period: string, values: any) => {
+      const existing = fake.metricEntries.find((e) => e.startupId === startupId && e.period === period);
+      if (existing) existing.values = { ...existing.values, ...values };
+      else fake.metricEntries.push({ startupId, period, values });
+      return fake.metricEntries[fake.metricEntries.length - 1];
+    },
+    updateMentorshipModuleSession: async (id: string, data: any) => {
+      Object.assign(fake.sessions.get(id) ?? {}, data);
+      return fake.sessions.get(id);
+    },
+    updateTrainingModuleSession: async (id: string, data: any) => {
+      Object.assign(fake.trainingSessions.get(id) ?? {}, data);
+      return fake.trainingSessions.get(id);
+    },
     countMcpConnections: async (userId: string) => new Set(fake.tokens.filter((t) => t.userId === userId).map((t) => t.clientId)).size,
     deleteMcpTokensForUser: async (userId: string) => {
       for (let i = fake.tokens.length - 1; i >= 0; i--) if (fake.tokens[i].userId === userId) fake.tokens.splice(i, 1);
@@ -73,6 +103,8 @@ const { registerMcp } = await import("./mcp");
 
 const CLAUDE_CALLBACK = "https://claude.ai/api/mcp/auth_callback";
 const SESSION_ID = "11111111-2222-4333-8444-555555555555";
+const TRAINING_ID = "33333333-4444-4555-8666-777777777777";
+const STARTUP_UUID = "44444444-5555-4666-8777-888888888888";
 let server: HttpServer;
 let base: string;
 
@@ -99,7 +131,11 @@ beforeEach(() => {
   fake.notices.length = 0;
   fake.sessions.clear();
   fake.notes.clear();
-  fake.sessions.set(SESSION_ID, { id: SESSION_ID, startupId: "startup-1", title: "Go-to-market review", scheduledAt: new Date(), transcriptUrl: "/uploads/transcripts/s1.vtt" });
+  fake.sessions.set(SESSION_ID, { id: SESSION_ID, startupId: "startup-1", title: "Go-to-market review", scheduledAt: new Date(), transcriptUrl: "/uploads/transcripts/s1.vtt", status: "upcoming" });
+  fake.trainingSessions.clear();
+  fake.trainingNotes.clear();
+  fake.metricEntries.length = 0;
+  fake.trainingSessions.set(TRAINING_ID, { id: TRAINING_ID, title: "Fundraising 101", scheduledAt: new Date(), transcriptUrl: "/uploads/transcripts/s1.vtt", status: "upcoming", visibleTo: ["startup-1", "startup-2"] });
   fake.users.set("admin", { id: "admin", email: "ghazi@open-startup.org", role: "admin", isActive: true });
   fake.users.set("gmail-admin", { id: "gmail-admin", email: "someone@gmail.com", role: "admin", isActive: true });
   fake.users.set("founder", { id: "founder", email: "founder@open-startup.org", role: "startup", isActive: true });
@@ -207,7 +243,7 @@ describe("Claude connector: happy path", () => {
     const names = list.result.tools.map((t: any) => t.name);
     expect(names).toContain("list_startups");
     const writers = list.result.tools.filter((t: any) => t.annotations.readOnlyHint !== true).map((t: any) => t.name);
-    expect(writers).toEqual(["save_session_recap"]);
+    expect(writers.sort()).toEqual(["complete_session", "record_startup_metrics", "save_session_recap", "save_training_recap"]);
 
     const call = await (await mcp(access_token, "tools/call", { name: "count_startups", arguments: {} })).json();
     expect(JSON.parse(call.result.content[0].text)).toEqual({ count: 7 });
@@ -443,7 +479,8 @@ describe("Claude connector: session recaps (the only write)", () => {
   it("says upfront on the approval page that recaps can be saved", async () => {
     const { client_id } = await (await registerClient()).json();
     const html = await (await authorizePage(client_id, pkce().challenge, "admin")).text();
-    expect(html).toContain("Save mentorship session recaps (nothing else)");
+    expect(html).toContain("Save mentorship and training session recaps");
+    expect(html).toContain("Record a startup&#39;s monthly metrics");
     expect(html).not.toContain("No ability to change anything");
   });
 });
@@ -471,5 +508,55 @@ describe("audit log (B1)", () => {
     const row = fake.audit.find((r) => r.tool === "save_session_recap");
     expect(row.ok).toBe(false);
     expect(row.error).toMatch(/recaps:write/);
+  });
+});
+
+describe("wave-1 write tools (B2)", () => {
+  it("saves a training recap to every startup the session is visible to", async () => {
+    const { access_token } = await connect();
+    const res = await callTool(access_token, "save_training_recap", { sessionId: TRAINING_ID, ...RECAP });
+    expect(res.data).toMatchObject({ ok: true, savedForStartups: 2, replacedExisting: false });
+    expect(fake.trainingNotes.get(`${TRAINING_ID}:startup-1`).mentorComments).toBe(RECAP.mentorComments);
+    expect(fake.trainingNotes.get(`${TRAINING_ID}:startup-2`).aiGeneratedAt).toBeInstanceOf(Date);
+    // Second save without overwrite is refused; nothing changes.
+    const again = await callTool(access_token, "save_training_recap", { sessionId: TRAINING_ID, ...RECAP, mentorComments: "- changed" });
+    expect(again.isError).toBe(true);
+    expect(fake.trainingNotes.get(`${TRAINING_ID}:startup-1`).mentorComments).toBe(RECAP.mentorComments);
+  });
+
+  it("records metrics with a before/after diff and rejects unknown keys", async () => {
+    const { access_token } = await connect();
+    fake.metricEntries.push({ startupId: STARTUP_UUID, period: "2026-09", values: { rev_cumulative: 100 } });
+    const bad = await callTool(access_token, "record_startup_metrics", { startupId: STARTUP_UUID, period: "2026-09", values: { made_up_metric: 5 } });
+    expect(bad.isError).toBe(true);
+    expect(bad.data.error).toContain("made_up_metric");
+    const ok = await callTool(access_token, "record_startup_metrics", { startupId: STARTUP_UUID, period: "2026-09", values: { rev_cumulative: 250, hr_team_size: 6 } });
+    expect(ok.data).toMatchObject({ ok: true, startup: "Acme", before: { rev_cumulative: 100, hr_team_size: null }, after: { rev_cumulative: 250, hr_team_size: 6 } });
+    expect(fake.metricEntries[0].values).toEqual({ rev_cumulative: 250, hr_team_size: 6 });
+    const badPeriod = await callTool(access_token, "record_startup_metrics", { startupId: STARTUP_UUID, period: "2026-13", values: { rev_cumulative: 1 } });
+    expect(badPeriod.isError).toBe(true);
+  });
+
+  it("completes a session of either kind, idempotently", async () => {
+    const { access_token } = await connect();
+    const first = await callTool(access_token, "complete_session", { sessionId: SESSION_ID });
+    expect(first.data).toMatchObject({ ok: true, kind: "mentorship", alreadyCompleted: false });
+    expect(fake.sessions.get(SESSION_ID).status).toBe("completed");
+    const second = await callTool(access_token, "complete_session", { sessionId: SESSION_ID });
+    expect(second.data.alreadyCompleted).toBe(true);
+    const training = await callTool(access_token, "complete_session", { sessionId: TRAINING_ID });
+    expect(training.data).toMatchObject({ kind: "training" });
+  });
+
+  it("old tokens without the new scopes are denied the new writes but keep recaps", async () => {
+    const { access_token } = await connect();
+    for (const t of fake.tokens) t.scope = "platform:read recaps:write";
+    const metrics = await callTool(access_token, "record_startup_metrics", { startupId: STARTUP_UUID, period: "2026-09", values: { rev_cumulative: 1 } });
+    expect(metrics.isError).toBe(true);
+    expect(metrics.data.error).toContain("metrics:write");
+    const complete = await callTool(access_token, "complete_session", { sessionId: SESSION_ID });
+    expect(complete.isError).toBe(true);
+    const recap = await callTool(access_token, "save_session_recap", { sessionId: SESSION_ID, ...RECAP });
+    expect(recap.data.ok).toBe(true);
   });
 });

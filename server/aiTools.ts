@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { storage } from "./storage";
 import { readTranscriptFile, vttToPlainText } from "./transcripts";
+import { ALL_METRIC_KEYS } from "@shared/metricsCatalog";
 
 /**
  * The data lookups (and one narrow write) exposed through the Claude
@@ -13,6 +14,8 @@ import { readTranscriptFile, vttToPlainText } from "./transcripts";
 
 export const READ_SCOPE = "platform:read";
 export const RECAP_WRITE_SCOPE = "recaps:write";
+export const METRICS_WRITE_SCOPE = "metrics:write";
+export const SESSIONS_WRITE_SCOPE = "sessions:write";
 
 /**
  * B1: the single source of truth for connector scopes. The OAuth server
@@ -24,8 +27,10 @@ export const RECAP_WRITE_SCOPE = "recaps:write";
  * their old grant until the admin reconnects and re-approves.
  */
 export const SCOPE_REGISTRY: { id: string; consent: string }[] = [
-  { id: READ_SCOPE, consent: "Read startups, founders, tracks, metrics, review status and mentorship session transcripts" },
-  { id: RECAP_WRITE_SCOPE, consent: "Save mentorship session recaps (nothing else)" },
+  { id: READ_SCOPE, consent: "Read startups, founders, tracks, metrics, review status and session transcripts" },
+  { id: RECAP_WRITE_SCOPE, consent: "Save mentorship and training session recaps" },
+  { id: METRICS_WRITE_SCOPE, consent: "Record a startup's monthly metrics (the same numbers founders type in)" },
+  { id: SESSIONS_WRITE_SCOPE, consent: "Mark held sessions as completed" },
 ];
 
 export interface AiToolDef {
@@ -160,6 +165,76 @@ export const AI_TOOLS: AiToolDef[] = [
     name: "get_session_transcript",
     readOnly: true,
     description: "Get the plain-text Zoom transcript of one mentorship session (speaker-labeled dialogue).",
+    parameters: { type: "object", properties: { sessionId: { type: "string" } }, required: ["sessionId"] },
+  },
+  {
+    name: "list_training_sessions",
+    readOnly: true,
+    description:
+      "List cohort training sessions, newest first, with module, track, status, hasTranscript and recapSavedAt. " +
+      "needsRecap: true keeps only sessions with a transcript and no saved recap yet.",
+    parameters: {
+      type: "object",
+      properties: {
+        needsRecap: { type: "boolean" },
+        limit: { type: "number", description: "Max sessions (default 20, max 100)." },
+      },
+      required: [],
+    },
+  },
+  {
+    name: "get_training_transcript",
+    readOnly: true,
+    description: "Get the plain-text Zoom transcript of one training session (speaker-labeled dialogue).",
+    parameters: { type: "object", properties: { sessionId: { type: "string" } }, required: ["sessionId"] },
+  },
+  {
+    name: "save_training_recap",
+    readOnly: false,
+    requiredScope: RECAP_WRITE_SCOPE,
+    description:
+      "Save the recap of one cohort training session. Training sessions are cohort-wide, so the recap is saved to " +
+      "every startup the session was visible to. Base it only on the transcript (get_training_transcript), use " +
+      "concise bullet points, show the user the recap and get their OK before saving. Refuses to replace an " +
+      "existing recap unless overwrite is true (only when the user explicitly asked). mentorComments here means " +
+      "the trainer's comments.",
+    parameters: {
+      type: "object",
+      properties: {
+        sessionId: { type: "string" },
+        ...Object.fromEntries(Object.entries(RECAP_FIELDS).map(([k, description]) => [k, { type: "string", description }])),
+        overwrite: { type: "boolean", description: "Replace an existing recap. Only when the user explicitly asked." },
+      },
+      required: ["sessionId", ...Object.keys(RECAP_FIELDS)],
+    },
+  },
+  {
+    name: "record_startup_metrics",
+    readOnly: false,
+    requiredScope: METRICS_WRITE_SCOPE,
+    description:
+      "Record metric values for one startup and one period — exactly what an admin types into the Monthly Updates " +
+      "grid (e.g. from a founder's email). period is \"initial\" or \"YYYY-MM\". values maps metric keys to " +
+      "numbers (or short strings for text metrics); unknown keys are rejected with the valid names. Existing values " +
+      "for other keys are kept; provided keys are overwritten. Returns a before/after diff — show it to the user. " +
+      "Only record numbers the user actually gave you.",
+    parameters: {
+      type: "object",
+      properties: {
+        startupId: { type: "string", description: "From list_startups." },
+        period: { type: "string", description: '"initial" or "YYYY-MM", e.g. "2026-09".' },
+        values: { type: "object", description: "Metric key -> value. Keys must be valid metric keys." },
+      },
+      required: ["startupId", "period", "values"],
+    },
+  },
+  {
+    name: "complete_session",
+    readOnly: false,
+    requiredScope: SESSIONS_WRITE_SCOPE,
+    description:
+      "Mark one mentorship or training session as completed (it happened). Finds the session by id in either kind. " +
+      "Idempotent: completing an already-completed session just says so.",
     parameters: { type: "object", properties: { sessionId: { type: "string" } }, required: ["sessionId"] },
   },
   {
@@ -326,6 +401,107 @@ async function runTool(name: string, input: any, ctx: AiToolContext): Promise<un
       await storage.upsertMentorshipSessionNotes(sessionId, session.startupId, { ...recap, aiGeneratedAt: new Date() });
       console.log(`[mcp] ${ctx.userEmail} saved the recap for mentorship session ${sessionId}${existing?.aiGeneratedAt ? " (replaced)" : ""}`);
       return { ok: true, sessionId, title: session.title, replacedExisting: !!existing?.aiGeneratedAt };
+    }
+
+    case "list_training_sessions": {
+      const limit = Math.min(Math.max(Number(input?.limit) || 20, 1), 100);
+      const rows = await storage.listTrainingSessionsForConnector({ needsRecap: input?.needsRecap === true, limit });
+      return rows.map(({ transcriptUrl, ...row }) => ({ ...row, hasTranscript: !!transcriptUrl }));
+    }
+
+    case "get_training_transcript": {
+      const sessionId = String(input?.sessionId ?? "");
+      if (!UUID.test(sessionId)) return { error: "sessionId must come from list_training_sessions" };
+      const session = await storage.getTrainingModuleSessionById(sessionId);
+      if (!session) return { error: "No training session with that id" };
+      if (!session.transcriptUrl) return { error: "This session has no transcript yet" };
+      const vtt = readTranscriptFile(session.transcriptUrl);
+      if (!vtt) return { error: "The transcript file is missing on the server" };
+      const text = vttToPlainText(vtt);
+      return {
+        sessionId,
+        title: session.title,
+        scheduledAt: session.scheduledAt,
+        transcript: text.length > MAX_TRANSCRIPT_CHARS ? `${text.slice(0, MAX_TRANSCRIPT_CHARS)}\n[transcript truncated]` : text,
+      };
+    }
+
+    case "save_training_recap": {
+      const parsed = saveRecapInput.safeParse(input);
+      if (!parsed.success) {
+        const issue = parsed.error.errors[0];
+        return { error: `Invalid ${issue.path.join(".") || "input"}: ${issue.message}` };
+      }
+      const { sessionId, overwrite, ...recap } = parsed.data;
+      const session = await storage.getTrainingModuleSessionById(sessionId);
+      if (!session) return { error: "No training session with that id" };
+      const startupIds = await storage.listStartupIdsVisibleToTrainingSession(sessionId);
+      if (startupIds.length === 0) return { error: "This session isn't visible to any startup, so there's nowhere to save the recap" };
+      // "Already recapped" = any visible startup's notes carry an AI recap.
+      let existingAt: Date | null = null;
+      for (const sid of startupIds) {
+        const notes = await storage.getTrainingSessionNotes(sessionId, sid);
+        if (notes?.aiGeneratedAt && (!existingAt || notes.aiGeneratedAt > existingAt)) existingAt = notes.aiGeneratedAt;
+      }
+      if (existingAt && !overwrite) {
+        return {
+          error:
+            "This session already has a recap (saved " + existingAt.toISOString() + "). Only set overwrite to " +
+            "true if the user explicitly asked to replace it.",
+        };
+      }
+      const savedAt = new Date();
+      for (const sid of startupIds) {
+        await storage.upsertTrainingSessionNotes(sessionId, sid, { ...recap, aiGeneratedAt: savedAt });
+      }
+      console.log(`[mcp] ${ctx.userEmail} saved the recap for training session ${sessionId} (${startupIds.length} startups)${existingAt ? " (replaced)" : ""}`);
+      return { ok: true, sessionId, title: session.title, savedForStartups: startupIds.length, replacedExisting: !!existingAt };
+    }
+
+    case "record_startup_metrics": {
+      const startupId = String(input?.startupId ?? "");
+      if (!UUID.test(startupId)) return { error: "startupId must be a startup id from list_startups" };
+      const period = String(input?.period ?? "");
+      if (!/^(initial|\d{4}-(0[1-9]|1[0-2]))$/.test(period)) return { error: 'period must be "initial" or "YYYY-MM"' };
+      const values = input?.values;
+      if (!values || typeof values !== "object" || Array.isArray(values) || Object.keys(values).length === 0) {
+        return { error: "values must be a non-empty object of metric key -> value" };
+      }
+      const unknown = Object.keys(values).filter((k) => !ALL_METRIC_KEYS.has(k));
+      if (unknown.length > 0) {
+        return { error: `Unknown metric key(s): ${unknown.join(", ")}. Valid keys: ${[...ALL_METRIC_KEYS].join(", ")}` };
+      }
+      const bad = Object.entries(values).find(([, v]) => !(typeof v === "number" ? Number.isFinite(v) : typeof v === "string" && v.length <= 200));
+      if (bad) return { error: `Metric "${bad[0]}" must be a finite number or a short string` };
+      const startup = await storage.getStartupById(startupId);
+      if (!startup) return { error: "No startup with that id" };
+      const entries = await storage.listMetricEntries(startupId);
+      const beforeValues = entries.find((e) => e.period === period)?.values ?? {};
+      const before: Record<string, unknown> = {};
+      for (const k of Object.keys(values)) before[k] = (beforeValues as any)[k] ?? null;
+      await storage.upsertMetricEntry(startupId, period, values as Record<string, number | string>);
+      console.log(`[mcp] ${ctx.userEmail} recorded ${Object.keys(values).length} metric(s) for ${startup.companyName} ${period}`);
+      return { ok: true, startup: startup.companyName, period, before, after: values };
+    }
+
+    case "complete_session": {
+      const sessionId = String(input?.sessionId ?? "");
+      if (!UUID.test(sessionId)) return { error: "sessionId must come from list_mentorship_sessions or list_training_sessions" };
+      const mentorship = await storage.getMentorshipModuleSessionById(sessionId);
+      if (mentorship) {
+        if (mentorship.status === "completed") return { ok: true, kind: "mentorship", title: mentorship.title, alreadyCompleted: true };
+        await storage.updateMentorshipModuleSession(sessionId, { status: "completed" });
+        console.log(`[mcp] ${ctx.userEmail} marked mentorship session ${sessionId} completed`);
+        return { ok: true, kind: "mentorship", title: mentorship.title, alreadyCompleted: false };
+      }
+      const training = await storage.getTrainingModuleSessionById(sessionId);
+      if (training) {
+        if (training.status === "completed") return { ok: true, kind: "training", title: training.title, alreadyCompleted: true };
+        await storage.updateTrainingModuleSession(sessionId, { status: "completed" });
+        console.log(`[mcp] ${ctx.userEmail} marked training session ${sessionId} completed`);
+        return { ok: true, kind: "training", title: training.title, alreadyCompleted: false };
+      }
+      return { error: "No session with that id" };
     }
 
     default:

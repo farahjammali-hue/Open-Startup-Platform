@@ -2620,6 +2620,68 @@ export const storage = {
       .sort((a, b) => a.scheduledAt.getTime() - b.scheduledAt.getTime());
   },
 
+  /** B2: training sessions for the Claude connector — cohort-wide, so no
+   * per-startup rows here; recapSavedAt is the newest AI recap saved for the
+   * session (they're written to every visible startup's notes at once). */
+  async listTrainingSessionsForConnector(opts: { needsRecap?: boolean; limit: number }) {
+    const rows = await db
+      .select({
+        sessionId: trainingModuleSessions.id,
+        moduleTitle: trainingModules.title,
+        moduleTrack: trainingModules.track,
+        number: trainingModuleSessions.number,
+        title: trainingModuleSessions.title,
+        scheduledAt: trainingModuleSessions.scheduledAt,
+        status: trainingModuleSessions.status,
+        transcriptUrl: trainingModuleSessions.transcriptUrl,
+        recapSavedAt: sql<Date | null>`max(${trainingSessionNotes.aiGeneratedAt})`,
+      })
+      .from(trainingModuleSessions)
+      .innerJoin(trainingModules, eq(trainingModules.id, trainingModuleSessions.moduleId))
+      .leftJoin(trainingSessionNotes, eq(trainingSessionNotes.sessionId, trainingModuleSessions.id))
+      .groupBy(trainingModuleSessions.id, trainingModules.id)
+      .having(
+        opts.needsRecap
+          ? sql`${trainingModuleSessions.transcriptUrl} is not null and max(${trainingSessionNotes.aiGeneratedAt}) is null`
+          : undefined,
+      )
+      .orderBy(desc(trainingModuleSessions.scheduledAt))
+      .limit(opts.limit);
+    return rows;
+  },
+
+  /**
+   * B2: every real startup a training session is visible to — the fan-out
+   * target when the connector saves a cohort session's recap. Mirrors the
+   * founder-side visibility rules exactly (explicit session list beats the
+   * session's track override, which beats the module's own track/list).
+   */
+  async listStartupIdsVisibleToTrainingSession(sessionId: string): Promise<string[]> {
+    const session = await this.getTrainingModuleSessionById(sessionId);
+    if (!session) return [];
+    const module = await this.getTrainingModuleById(session.moduleId);
+    if (!module) return [];
+    const [candidates, moduleSharedRows, sessionSharedRows] = await Promise.all([
+      db
+        .select({ id: startups.id, track: kysProfiles.track })
+        .from(startups)
+        .innerJoin(users, eq(users.id, startups.userId))
+        .leftJoin(kysProfiles, eq(kysProfiles.startupId, startups.id))
+        .where(ne(users.role, "admin")),
+      db.select().from(trainingModuleStartups).where(eq(trainingModuleStartups.moduleId, module.id)),
+      db.select().from(trainingSessionStartups).where(eq(trainingSessionStartups.sessionId, sessionId)),
+    ]);
+    const sharedByModule = groupStartupIdsBy(moduleSharedRows, (r) => r.moduleId);
+    const sharedBySession = groupStartupIdsBySessionId(sessionSharedRows);
+    return candidates
+      .filter(
+        (s) =>
+          trainingModuleVisibleTo(s.id, s.track ?? null, module, sharedByModule) &&
+          trainingSessionVisibleTo(s.id, s.track ?? null, session, sharedBySession),
+      )
+      .map((s) => s.id);
+  },
+
   async listTrainingSessionStartupIds(sessionId: string): Promise<string[]> {
     const rows = await db.select().from(trainingSessionStartups).where(eq(trainingSessionStartups.sessionId, sessionId));
     return rows.map((r) => r.startupId);
@@ -2768,6 +2830,13 @@ export const storage = {
       actionItems?: string | null;
       trainerRating?: number | null;
       trainerFeedback?: string | null;
+      // AI recap fields (Claude connector), mirroring mentorship notes.
+      progressHighlights?: string | null;
+      mentorComments?: string | null;
+      needsHighlighted?: string | null;
+      nextMeetingCheckIns?: string | null;
+      actionItemsForOst?: string | null;
+      aiGeneratedAt?: Date | null;
     },
   ): Promise<TrainingSessionNotes> {
     const existing = await this.getTrainingSessionNotes(sessionId, startupId);
