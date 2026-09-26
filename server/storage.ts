@@ -13,7 +13,6 @@ import {
   officeHourSlots,
   officeHourBookings,
   trainings,
-  trainingProgress,
   mentorshipModuleSessions,
   mentorshipSessionStartups,
   mentorshipSessionNotes,
@@ -64,7 +63,6 @@ import {
   type OfficeHourSlot,
   type OfficeHourBooking,
   type Training,
-  type TrainingProgress,
   type MentorshipModuleSession,
   type MentorshipSessionStartup,
   type MentorshipSessionNotes,
@@ -96,14 +94,6 @@ import {
   type StartupPartnerStat,
   type StartupPartnerDetail,
 } from "@shared/schema";
-
-/** Whole months elapsed between two dates (never negative). */
-function monthsBetween(from: Date, to: Date): number {
-  let months =
-    (to.getFullYear() - from.getFullYear()) * 12 + (to.getMonth() - from.getMonth());
-  if (to.getDate() < from.getDate()) months -= 1;
-  return Math.max(0, months);
-}
 
 /** Strip the password hash before anything leaves the server. */
 export function toPublicUser(user: User): PublicUser {
@@ -1730,37 +1720,6 @@ export const storage = {
       .orderBy(desc(kysDocuments.createdAt));
   },
 
-  async upsertKysDocument(
-    startupId: string,
-    data: {
-      docType:
-        | "certificate_of_incorporation"
-        | "proof_of_address"
-        | "irs_form"
-        | "banking"
-        | "declaration"
-        | "identity_document";
-      fileUrl: string;
-      fileName: string;
-    },
-  ): Promise<KysDocument> {
-    // One document per (startup, docType) — re-uploading the same slot replaces it.
-    const [existing] = await db
-      .select()
-      .from(kysDocuments)
-      .where(and(eq(kysDocuments.startupId, startupId), eq(kysDocuments.docType, data.docType)));
-    if (existing) {
-      const [row] = await db
-        .update(kysDocuments)
-        .set({ fileUrl: data.fileUrl, fileName: data.fileName, createdAt: new Date() })
-        .where(eq(kysDocuments.id, existing.id))
-        .returning();
-      return row;
-    }
-    const [row] = await db.insert(kysDocuments).values({ startupId, ...data }).returning();
-    return row;
-  },
-
   /* ---------------- Quarterly updates (Dashboard) ---------------- */
   async listMonthlyUpdates(startupId: string): Promise<MonthlyUpdate[]> {
     return db
@@ -2184,67 +2143,8 @@ export const storage = {
     await db.delete(trainings).where(eq(trainings.id, id));
   },
 
-  async listTrainingProgress(startupId: string): Promise<TrainingProgress[]> {
-    return db
-      .select()
-      .from(trainingProgress)
-      .where(eq(trainingProgress.startupId, startupId));
-  },
-
-  /**
-   * Merge the training catalogue with a startup's progress + program timeline
-   * to compute each training's effective status (locked / available /
-   * in_progress / completed).
-   */
-  async listSchoolForStartup(startup: Startup) {
-    const [all, progressRows] = await Promise.all([
-      this.listTrainings(),
-      this.listTrainingProgress(startup.id),
-    ]);
-    const progressByTraining = new Map(progressRows.map((p) => [p.trainingId, p]));
-    const elapsedMonths = monthsBetween(new Date(startup.createdAt), new Date());
-    return all.map((t) => {
-      const progress = progressByTraining.get(t.id);
-      let status: "locked" | "available" | "in_progress" | "completed";
-      if (progress?.status === "completed") {
-        status = "completed";
-      } else if (t.module === "alumni") {
-        status = startup.graduatedAt ? (progress?.status ?? "available") : "locked";
-      } else if (elapsedMonths < t.unlockMonth) {
-        status = "locked";
-      } else {
-        status = progress?.status ?? "available";
-      }
-      return { ...t, status, completedAt: progress?.completedAt ?? null };
-    });
-  },
-
-  async setTrainingProgress(
-    startupId: string,
-    trainingId: string,
-    status: "in_progress" | "completed",
-  ): Promise<TrainingProgress> {
-    const [existing] = await db
-      .select()
-      .from(trainingProgress)
-      .where(
-        and(eq(trainingProgress.startupId, startupId), eq(trainingProgress.trainingId, trainingId)),
-      );
-    const completedAt = status === "completed" ? new Date() : null;
-    if (existing) {
-      const [row] = await db
-        .update(trainingProgress)
-        .set({ status, completedAt, updatedAt: new Date() })
-        .where(eq(trainingProgress.id, existing.id))
-        .returning();
-      return row;
-    }
-    const [row] = await db
-      .insert(trainingProgress)
-      .values({ startupId, trainingId, status, completedAt })
-      .returning();
-    return row;
-  },
+  // The founder-facing School readers/writers were removed in Phase 4.9
+  // together with their routes; the tables and the admin CRUD remain.
 
   /* ---------------- Mentorship (per-startup sessions, no modules/locking) ---------------- */
   // A session is visible to a startup if it owns it, OR it's on the explicit

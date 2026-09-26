@@ -1246,6 +1246,40 @@ WHERE EXISTS (
   SELECT 1 FROM unnest(s.document_ids) AS y(id)
   WHERE NOT EXISTS (SELECT 1 FROM documents d WHERE d.id = y.id)
 );
+
+-- Schema Batch 4 (Phase 4): merge the duplicate stores.
+
+-- 4.1 Give every startup with legacy money figures an "initial" metric
+-- baseline, so every reader sees one store. Founder-entered metric values
+-- always win: existing keys are never overwritten, and both statements
+-- re-run as no-ops.
+INSERT INTO startup_metric_entries (startup_id, period, values)
+SELECT s.id, 'initial', '{}'::jsonb
+FROM startups s
+WHERE (s.last_valuation IS NOT NULL OR s.total_grants IS NOT NULL OR s.total_revenue_since_founding IS NOT NULL)
+ON CONFLICT (startup_id, period) DO NOTHING;
+
+UPDATE startup_metric_entries e
+SET values = jsonb_strip_nulls(jsonb_build_object(
+      'fund_valuation', to_jsonb(s.last_valuation),
+      'fund_grants',    to_jsonb(s.total_grants),
+      'rev_cumulative', to_jsonb(s.total_revenue_since_founding)
+    )) || e.values,
+    updated_at = now()
+FROM startups s
+WHERE e.startup_id = s.id AND e.period = 'initial'
+  AND ( (s.last_valuation IS NOT NULL AND NOT e.values ? 'fund_valuation')
+     OR (s.total_grants IS NOT NULL AND NOT e.values ? 'fund_grants')
+     OR (s.total_revenue_since_founding IS NOT NULL AND NOT e.values ? 'rev_cumulative') );
+
+-- 4.8 One data-room checklist catalog (shared/metricsCatalog.ts). Remap the
+-- retired client-only slugs, then detach anything not in the catalog.
+UPDATE documents SET checklist_key = 'deck' WHERE checklist_key = 'pitch_deck';
+UPDATE documents SET checklist_key = 'cap_table' WHERE checklist_key = 'capitalization_table';
+UPDATE documents SET checklist_key = 'registration_documents' WHERE checklist_key = 'articles_of_incorporation';
+UPDATE documents SET checklist_key = NULL
+WHERE checklist_key IS NOT NULL
+  AND checklist_key NOT IN ('website','product_demo','deck','financial_model','registration_documents','shareholder_agreement','cap_table','product_roadmap','technology_roadmap','sales_status','partnerships_overview','gtm','investor_crm','trademarks','patents','ip');
 `;
 
 try {

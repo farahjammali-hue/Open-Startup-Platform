@@ -9,6 +9,7 @@ import { fileURLToPath } from "url";
 import crypto from "crypto";
 import { z } from "zod";
 import { storage, toPublicUser } from "./storage";
+import { latestMetricValue } from "./canonical";
 import { requireAuth } from "./auth";
 import {
   registerSchema,
@@ -29,7 +30,6 @@ import {
   documentUploadSchema,
   documentReviewSchema,
   officeHourBookingSchema,
-  trainingProgressSchema,
   trainingSchema,
   mentorshipModuleSessionSchema,
   mentorshipFounderCommentsSchema,
@@ -37,7 +37,6 @@ import {
   assignMentorSchema,
   trainingModuleSchema,
   trainingModuleSessionSchema,
-  trainingSessionRecapSchema,
   trainingTrainerFeedbackSchema,
   trainingModuleHomeworkSchema,
   trainerSchema,
@@ -46,7 +45,6 @@ import {
   expertPrioritySchema,
   expertCatalogVisibilitySchema,
   kysSubmitSchema,
-  kysDocumentUploadSchema,
   monthlyUpdateSchema,
   teamMemberSchema,
   dataRoomShareSchema,
@@ -254,24 +252,6 @@ const declarationUpload = multer({
     file.mimetype === "application/pdf"
       ? cb(null, true)
       : cb(new Error("Only PDF files are allowed") as any, false),
-}).single("file");
-
-const KYS_DIR = path.resolve(__dirname, "..", "uploads", "kys");
-fs.mkdirSync(KYS_DIR, { recursive: true });
-
-const kysDocUpload = multer({
-  storage: multer.diskStorage({
-    destination: (_req, _file, cb) => cb(null, KYS_DIR),
-    filename: (_req, file, cb) => {
-      const safe = file.originalname.replace(/[^a-zA-Z0-9._-]/g, "_");
-      cb(null, `${Date.now()}-${crypto.randomBytes(4).toString("hex")}-${safe}`);
-    },
-  }),
-  limits: { fileSize: 20 * 1024 * 1024 }, // 20 MB
-  fileFilter: (_req, file, cb) =>
-    ALLOWED_DOC_TYPES.has(file.mimetype)
-      ? cb(null, true)
-      : cb(new Error("File type not allowed") as any, false),
 }).single("file");
 
 const APP_URL = process.env.APP_URL || "http://localhost:5000";
@@ -942,20 +922,14 @@ export function registerRoutes(app: Express) {
       legalEntityStatus: d.legalEntityStatus || null,
       startedYear: d.startedYear ?? null,
       country: d.country || null,
-      businessModelType: d.businessModelType || null,
       businessModelTypes: d.businessModelTypes ?? [],
       dataRoomLink: d.dataRoomLink || null,
       deckUrl: d.deckUrl || null,
       coreBusinessOverview: d.coreBusinessOverview || null,
       uniqueValueProposition: d.uniqueValueProposition || null,
-      teamSize: d.teamSize ?? null,
-      contractorsCount: d.contractorsCount ?? null,
-      paidEmployeesCount: d.paidEmployeesCount ?? null,
-      advisorsCount: d.advisorsCount ?? null,
       totalFundingRaised: d.totalFundingRaised ?? null,
       totalFundingDilutive: d.totalFundingDilutive ?? null,
       totalFundingNonDilutive: d.totalFundingNonDilutive ?? null,
-      investmentStage: d.investmentStage || null,
       roundSize: d.roundSize ?? null,
       committedFunds: d.committedFunds ?? null,
       fundingCrmLink: d.fundingCrmLink || null,
@@ -980,23 +954,44 @@ export function registerRoutes(app: Express) {
       idealCustomerPersona: d.idealCustomerPersona || null,
       clientsCrmLink: d.clientsCrmLink || null,
       partnersCrmLink: d.partnersCrmLink || null,
-      sdgsAddressed: d.sdgsAddressed ?? [],
-      femaleTeamMembers: d.femaleTeamMembers ?? null,
-      youthEmployees: d.youthEmployees ?? null,
-      countryOfIncorporation: d.countryOfIncorporation || null,
-      customerBase: d.customerBase || null,
       countriesOfOperation: d.countriesOfOperation || null,
     };
+  }
+
+  // Phase 4.6: overview saves are diff-only. The client sends only the keys
+  // the person actually changed (null = an explicit clear); everything else
+  // is left alone, so a founder and an admin editing different cards can no
+  // longer erase each other's work. Retired/unknown keys are ignored, never
+  // a 400 — stale clients keep working.
+  function parseOverviewPatch(body: unknown):
+    | { ok: true; columns: Record<string, unknown> }
+    | { ok: false; message: string } {
+    const raw = (body && typeof body === "object" ? body : {}) as Record<string, unknown>;
+    const shape = startupProfileOverviewSchema.shape as Record<string, unknown>;
+    const explicitNulls: string[] = [];
+    const provided: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(raw)) {
+      if (!(key in shape)) continue;
+      if (value === null) explicitNulls.push(key);
+      else provided[key] = value;
+    }
+    const parsed = startupProfileOverviewSchema.partial().safeParse(provided);
+    if (!parsed.success) return { ok: false, message: parsed.error.errors[0].message };
+    const full = profileOverviewToColumns(parsed.data as StartupProfileOverviewInput) as Record<string, unknown>;
+    const columns: Record<string, unknown> = {};
+    for (const key of Object.keys(full)) {
+      if ((parsed.data as Record<string, unknown>)[key] !== undefined) columns[key] = full[key];
+    }
+    for (const key of explicitNulls) columns[key] = key === "businessModelTypes" ? [] : null;
+    return { ok: true, columns };
   }
 
   app.patch("/api/startups/:id/profile-overview", requireAuth, ah(async (req, res) => {
     const owned = await storage.getOwnedStartup(req.params.id as string, req.session.userId!);
     if (!owned) return res.status(404).json({ message: "Not found" });
-    const parsed = startupProfileOverviewSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return res.status(400).json({ message: parsed.error.errors[0].message });
-    }
-    const startup = await storage.updateStartup(owned.id, profileOverviewToColumns(parsed.data));
+    const patch = parseOverviewPatch(req.body);
+    if (!patch.ok) return res.status(400).json({ message: patch.message });
+    const startup = await storage.updateStartup(owned.id, patch.columns);
     res.json(startup);
   }));
 
@@ -1005,11 +1000,9 @@ export function registerRoutes(app: Express) {
   app.patch("/api/startup-profile/overview", requireAuth, ah(async (req, res) => {
     const startup = await requireActiveStartup(req, res);
     if (!startup) return;
-    const parsed = startupProfileOverviewSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return res.status(400).json({ message: parsed.error.errors[0].message });
-    }
-    const updated = await storage.updateStartup(startup.id, profileOverviewToColumns(parsed.data));
+    const patch = parseOverviewPatch(req.body);
+    if (!patch.ok) return res.status(400).json({ message: patch.message });
+    const updated = await storage.updateStartup(startup.id, patch.columns);
     res.json(updated);
   }));
 
@@ -1017,11 +1010,9 @@ export function registerRoutes(app: Express) {
   app.patch("/api/admin/startups/:id/profile-overview", requireAdmin, ah(async (req, res) => {
     const startup0 = await storage.getStartupById(req.params.id);
     if (!startup0) return res.status(404).json({ message: "Not found" });
-    const parsed = startupProfileOverviewSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return res.status(400).json({ message: parsed.error.errors[0].message });
-    }
-    const startup = await storage.updateStartup(startup0.id, profileOverviewToColumns(parsed.data));
+    const patch = parseOverviewPatch(req.body);
+    if (!patch.ok) return res.status(400).json({ message: patch.message });
+    const startup = await storage.updateStartup(startup0.id, patch.columns);
     res.json(startup);
   }));
 
@@ -1622,29 +1613,9 @@ export function registerRoutes(app: Express) {
     res.status(201).json(profile);
   }));
 
-  app.post("/api/kys/documents", requireAuth, (req, res, next) => {
-    kysDocUpload(req, res, async (err) => {
-      if (err) return res.status(400).json({ message: err.message });
-      try {
-        const startup = await requireActiveStartup(req, res);
-        if (!startup) return;
-        const parsed = kysDocumentUploadSchema.safeParse(req.body);
-        if (!parsed.success) {
-          return res.status(400).json({ message: parsed.error.errors[0].message });
-        }
-        if (!req.file) return res.status(400).json({ message: "No file provided" });
-        const fileUrl = `/uploads/kys/${req.file.filename}`;
-        const doc = await storage.upsertKysDocument(startup.id, {
-          docType: parsed.data.docType,
-          fileUrl,
-          fileName: req.file.originalname,
-        });
-        res.status(201).json(doc);
-      } catch (e) {
-        next(e);
-      }
-    });
-  });
+  // The KYS document-upload endpoint (dormant Path A/B flow) was removed in
+  // Phase 4.9 — no client ever called it. Existing kys_documents rows are
+  // still listed read-only by the KYS status endpoints.
 
   /* ---------------- Monthly updates (Dashboard) ---------------- */
   app.get("/api/monthly-updates", requireAuth, ah(async (req, res) => {
@@ -1855,7 +1826,7 @@ export function registerRoutes(app: Express) {
 
   /* ---------------- Initial Data: combined read (founder + admin) ---------------- */
   async function loadProfileExtras(startupId: string) {
-    const [teamMembers, capTableEntries, fundingRounds, patents, targetMarkets, competitors, clientStats, clientDetails, partnerStats, partnerDetails, achievements] =
+    const [teamMembers, capTableEntries, fundingRounds, patents, targetMarkets, competitors, clientStats, clientDetails, partnerStats, partnerDetails, achievements, metricEntries, kysProfile] =
       await Promise.all([
         storage.listTeamMembers(startupId),
         storage.listCapTableEntries(startupId),
@@ -1868,8 +1839,21 @@ export function registerRoutes(app: Express) {
         storage.listPartnerStats(startupId),
         storage.listPartnerDetails(startupId),
         storage.listAchievements(startupId),
+        storage.listMetricEntries(startupId),
+        storage.getKysProfile(startupId),
       ]);
-    return { teamMembers, capTableEntries, fundingRounds, patents, targetMarkets, competitors, clientStats, clientDetails, partnerStats, partnerDetails, achievements };
+    // Phase 4.2/4.3: Card 4's counts mirror the monthly HR metrics, and the
+    // track shown on Card 6 is the KYS profile's — the single source.
+    const m = (key: string) => latestMetricValue(metricEntries, key);
+    const teamMetrics = {
+      teamSize: m("hr_team_size"),
+      pctYouth: m("hr_pct_youth"),
+      contractors: m("hr_contractors"),
+      paidEmployees: m("hr_paid_employees"),
+      advisors: m("hr_advisors"),
+      femaleEmployees: m("hr_female_employees"),
+    };
+    return { teamMembers, capTableEntries, fundingRounds, patents, targetMarkets, competitors, clientStats, clientDetails, partnerStats, partnerDetails, achievements, teamMetrics, programTrack: kysProfile?.track ?? null };
   }
 
   app.get("/api/startup-profile", requireAuth, ah(async (req, res) => {
@@ -2044,25 +2028,9 @@ export function registerRoutes(app: Express) {
     });
   });
 
-  // Founder's own brief recap of a session they held. Never touches the
-  // trainer's rating/feedback, which stays admin-owned.
-  app.patch("/api/training/sessions/:sessionId/notes", requireAuth, requireProgramMember, ah(async (req, res) => {
-    const startup = await requireActiveStartup(req, res);
-    if (!startup) return;
-    const parsed = trainingSessionRecapSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return res.status(400).json({ message: parsed.error.errors[0].message });
-    }
-    const d = parsed.data;
-    const notes = await storage.upsertTrainingSessionNotes(req.params.sessionId, startup.id, {
-      teamMembersPresence: d.teamMembersPresence || null,
-      pointsDiscussed: d.pointsDiscussed || null,
-      whatIsGoingWell: d.whatIsGoingWell || null,
-      whatIsNotGoingWell: d.whatIsNotGoingWell || null,
-      actionItems: d.actionItems || null,
-    });
-    res.json(notes);
-  }));
+  // The legacy founder-written training recap endpoint was removed in Phase
+  // 4.7 (no caller): the AI recap fields are the one recap vocabulary now,
+  // written by the Claude connector; old rows still display read-only.
 
   /* ---------------- Office Hours ---------------- */
   app.get("/api/office-hours/slots", requireAuth, requireProgramMember, ah(async (_req, res) => {
@@ -2142,30 +2110,9 @@ export function registerRoutes(app: Express) {
   }));
 
   /* ---------------- Open Startup School ---------------- */
-  app.get("/api/school", requireAuth, requireProgramMember, ah(async (req, res) => {
-    const startup = await requireActiveStartup(req, res);
-    if (!startup) return;
-    res.json({ trainings: await storage.listSchoolForStartup(startup) });
-  }));
-
-  app.post("/api/school/:trainingId/progress", requireAuth, requireProgramMember, ah(async (req, res) => {
-    const startup = await requireActiveStartup(req, res);
-    if (!startup) return;
-    const parsed = trainingProgressSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return res.status(400).json({ message: parsed.error.errors[0].message });
-    }
-    const training = await storage.getTrainingById(req.params.trainingId);
-    if (!training) return res.status(404).json({ message: "Not found" });
-    const [effective] = (await storage.listSchoolForStartup(startup)).filter(
-      (t) => t.id === training.id,
-    );
-    if (effective?.status === "locked") {
-      return res.status(403).json({ message: "This module isn't unlocked yet" });
-    }
-    const progress = await storage.setTrainingProgress(startup.id, training.id, parsed.data.status);
-    res.json(progress);
-  }));
+  // The founder-facing School endpoints were removed in Phase 4.9 — no
+  // client called them. The admin curriculum CRUD below still powers
+  // /admin/school; the trainings and training_progress tables are untouched.
 
   /* ---------------- Admin: Open Startup School curriculum ---------------- */
   app.get("/api/admin/trainings", requireAdmin, ah(async (_req, res) => {

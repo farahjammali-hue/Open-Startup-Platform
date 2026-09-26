@@ -84,6 +84,15 @@ function latestMetric(
   return null;
 }
 
+/** The freshest value of one metric key, with the period it came from. */
+export function latestMetricValue(
+  entries: MetricEntryLike[],
+  key: string,
+): { value: number; asOf: string } | null {
+  const hit = latestMetric(entries, (values) => num(values[key]));
+  return hit ? { value: hit.value, asOf: hit.period } : null;
+}
+
 function metricFact(entries: MetricEntryLike[], key: string): CanonicalFact | null {
   const hit = latestMetric(entries, (values) => num(values[key]));
   return hit ? { value: hit.value, source: `metric:${key}`, asOf: hit.period } : null;

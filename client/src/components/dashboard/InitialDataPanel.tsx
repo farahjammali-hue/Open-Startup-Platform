@@ -11,7 +11,7 @@ import { AchievementsLog, type Achievement } from "../metrics/MetricsKpiPanel";
 import { InitialDataCard, type CardCompletion } from "./InitialDataCard";
 import { LEGAL_ENTITY_LABELS } from "../../lib/startupProfileLabels";
 import {
-  BUSINESS_MODEL_OPTIONS, PRODUCT_STAGE_OPTIONS, INVESTMENT_STAGE_OPTIONS, FUNDING_TYPE_OPTIONS,
+  BUSINESS_MODEL_OPTIONS, PRODUCT_STAGE_OPTIONS, FUNDING_TYPE_OPTIONS,
   PATENT_APPLICATION_TYPE_OPTIONS, PATENT_STATUS_OPTIONS, GTM_STATUS_OPTIONS, CLIENT_TYPE_OPTIONS,
   PARTNER_TYPE_OPTIONS, INVOLVEMENT_OPTIONS, TRL_EXPLAINER_URL, type Option,
 } from "@shared/initialDataCatalog";
@@ -42,7 +42,6 @@ interface StartupProfileData {
   totalFundingRaised: number | null;
   totalFundingDilutive: number | null;
   totalFundingNonDilutive: number | null;
-  investmentStage: string | null;
   roundSize: number | null;
   committedFunds: number | null;
   fundingCrmLink: string | null;
@@ -61,9 +60,6 @@ interface StartupProfileData {
   idealCustomerPersona: string | null;
   clientsCrmLink: string | null;
   partnersCrmLink: string | null;
-  sdgsAddressed: string[] | null;
-  countryOfIncorporation: string | null;
-  customerBase: string | null;
   countriesOfOperation: string | null;
 }
 
@@ -86,6 +82,17 @@ interface ClientDetailRow { id: string; clientName: string; scopeOfWork: string 
 interface PartnerStatRow { id: string; partnerType: string; totalPartners: number | null; majorPartnerNames: string | null; retentionRate: number | null }
 interface PartnerDetailRow { id: string; partnerName: string; scopeOfPartnership: string | null; nextSteps: string | null }
 
+/** The freshest monthly hr_* metric behind a Card-4 stat (Phase 4.2). */
+interface MetricMirror { value: number; asOf: string }
+interface TeamMetricsMirror {
+  teamSize: MetricMirror | null;
+  pctYouth: MetricMirror | null;
+  contractors: MetricMirror | null;
+  paidEmployees: MetricMirror | null;
+  advisors: MetricMirror | null;
+  femaleEmployees: MetricMirror | null;
+}
+
 interface ProfileResponse {
   startup: StartupProfileData;
   teamMembers: TeamMemberRow[];
@@ -99,6 +106,8 @@ interface ProfileResponse {
   partnerStats: PartnerStatRow[];
   partnerDetails: PartnerDetailRow[];
   achievements: Achievement[];
+  teamMetrics: TeamMetricsMirror;
+  programTrack: "seed" | "pre_seed" | null;
 }
 
 export interface InitialDataApiConfig {
@@ -389,15 +398,26 @@ export function InitialDataPanel({ apiConfig, startupName }: { apiConfig: Initia
   }
 
   async function saveOverview() {
+    if (!data) return;
     setSaving(true);
     try {
-      // Zod's `.optional()` fields accept undefined, not null — and every
-      // untouched nullable column comes back from the API as null, so strip
-      // those keys rather than sending them through as-is.
+      // Phase 4.6: diff-only — send ONLY the keys the person changed since
+      // the page loaded (null = an explicit clear). A founder and an admin
+      // editing different cards can no longer overwrite each other's work.
+      const baseline = data.startup as Record<string, any>;
       const body: Record<string, any> = {};
       for (const [k, v] of Object.entries(form)) {
-        if (k === "id" || v === null) continue;
-        body[k] = v;
+        if (k === "id") continue;
+        const before = baseline[k] ?? null;
+        const now = v ?? null;
+        const changed = Array.isArray(now) || Array.isArray(before)
+          ? JSON.stringify(now) !== JSON.stringify(before)
+          : now !== before;
+        if (changed) body[k] = now;
+      }
+      if (Object.keys(body).length === 0) {
+        showToast("Nothing changed");
+        return;
       }
       await api(apiConfig.overviewPatchUrl, { method: "PATCH", body: JSON.stringify(body) });
       showToast("Changes saved");
@@ -460,6 +480,8 @@ export function InitialDataPanel({ apiConfig, startupName }: { apiConfig: Initia
   const s = form as StartupProfileData;
   const sub = apiConfig.subResourceBase;
   const founders = data.teamMembers.filter((m) => m.type === "founder");
+  const tm = data.teamMetrics;
+  const track = data.programTrack;
 
   async function exportSheet() {
     if (!data) return; // already guaranteed by the isLoading check above; narrows for TS inside this closure
@@ -479,12 +501,12 @@ export function InitialDataPanel({ apiConfig, startupName }: { apiConfig: Initia
 
     push("3. Unique Value Proposition", "Description", s.uniqueValueProposition ?? "");
 
-    push("4. Team", "Team Size", s.teamSize ?? "");
-    push("4. Team", "% Youth in team", s.youthEmployees ?? "");
-    push("4. Team", "Contractors", s.contractorsCount ?? "");
-    push("4. Team", "Paid employees", s.paidEmployeesCount ?? "");
-    push("4. Team", "Advisors", s.advisorsCount ?? "");
-    push("4. Team", "Female employees", s.femaleTeamMembers ?? "");
+    push("4. Team", "Team Size", tm.teamSize?.value ?? s.teamSize ?? "");
+    push("4. Team", "% Youth in team", tm.pctYouth?.value ?? "");
+    push("4. Team", "Contractors", tm.contractors?.value ?? s.contractorsCount ?? "");
+    push("4. Team", "Paid employees", tm.paidEmployees?.value ?? s.paidEmployeesCount ?? "");
+    push("4. Team", "Advisors", tm.advisors?.value ?? s.advisorsCount ?? "");
+    push("4. Team", "Female employees", tm.femaleEmployees?.value ?? s.femaleTeamMembers ?? "");
     founders.forEach((m, i) => push("4. Team", `Founder ${i + 1}`, [m.name, m.role, m.currentInvolvement ? labelOf(INVOLVEMENT_OPTIONS, m.currentInvolvement) : null, m.gender, m.educationalBackground, m.professionalBackground, m.yearsOfExperience != null ? `${m.yearsOfExperience} yrs` : null].filter(Boolean).join(" · ")));
 
     data.capTableEntries.forEach((e, i) => push("5. Shareholders", `Shareholder ${i + 1}`, [`${e.name} — ${e.percentage}%`, e.currentInvolvement ? labelOf(INVOLVEMENT_OPTIONS, e.currentInvolvement) : null].filter(Boolean).join(" · ")));
@@ -492,7 +514,7 @@ export function InitialDataPanel({ apiConfig, startupName }: { apiConfig: Initia
     push("6. Funding", "Total raised", s.totalFundingRaised ?? "");
     push("6. Funding", "Dilutive", s.totalFundingDilutive ?? "");
     push("6. Funding", "Non-Dilutive", s.totalFundingNonDilutive ?? "");
-    push("6. Funding", "Investment Stage", s.investmentStage ? labelOf(INVESTMENT_STAGE_OPTIONS, s.investmentStage) : "");
+    push("6. Funding", "Program track", track === "seed" ? "Seed" : track === "pre_seed" ? "Pre-Seed" : "");
     push("6. Funding", "Round Size", s.roundSize ?? "");
     push("6. Funding", "Committed Funds", s.committedFunds ?? "");
     data.fundingRounds.forEach((r, i) => push("6. Funding", `Funding Round ${i + 1}`, [r.investorName || "Unnamed investor", money(r.amount), labelOf(FUNDING_TYPE_OPTIONS, r.fundingType), r.round, r.roundDate].filter(Boolean).join(" · ")));
@@ -595,7 +617,7 @@ export function InitialDataPanel({ apiConfig, startupName }: { apiConfig: Initia
         <InitialDataCard
           title="4. Team"
           icon={Users}
-          completion={completionOf([founders.length > 0, s.teamSize != null])}
+          completion={completionOf([founders.length > 0, (tm.teamSize?.value ?? s.teamSize) != null])}
           isOpen={expanded.has("team")}
           onToggle={() => toggle("team")}
           hidden={
@@ -615,13 +637,32 @@ export function InitialDataPanel({ apiConfig, startupName }: { apiConfig: Initia
             />
           }
         >
-          <div className="grid grid-cols-2 gap-4">
-            <Field label="Team Size"><input type="number" className={`ost-input ${H10}`} value={s.teamSize ?? ""} onChange={(e) => set("teamSize", e.target.value ? Number(e.target.value) : null)} /></Field>
-            <Field label="% Youth in team"><input type="number" className={`ost-input ${H10}`} value={s.youthEmployees ?? ""} onChange={(e) => set("youthEmployees", e.target.value ? Number(e.target.value) : null)} /></Field>
-            <Field label="Contractors"><input type="number" className={`ost-input ${H10}`} value={s.contractorsCount ?? ""} onChange={(e) => set("contractorsCount", e.target.value ? Number(e.target.value) : null)} /></Field>
-            <Field label="Paid employees"><input type="number" className={`ost-input ${H10}`} value={s.paidEmployeesCount ?? ""} onChange={(e) => set("paidEmployeesCount", e.target.value ? Number(e.target.value) : null)} /></Field>
-            <Field label="Advisors"><input type="number" className={`ost-input ${H10}`} value={s.advisorsCount ?? ""} onChange={(e) => set("advisorsCount", e.target.value ? Number(e.target.value) : null)} /></Field>
-            <Field label="Female employees"><input type="number" className={`ost-input ${H10}`} value={s.femaleTeamMembers ?? ""} onChange={(e) => set("femaleTeamMembers", e.target.value ? Number(e.target.value) : null)} /></Field>
+          {/* Phase 4.2: these counts mirror the monthly HR metrics — one
+              source of truth. The legacy Card-4 columns only show through
+              for startups that never reported metrics. */}
+          <p className="text-xs text-slate-400">
+            These numbers come from your monthly reporting (Metrics &amp; KPIs → Human Resources) and update there.
+          </p>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {([
+              ["Team size", tm.teamSize, s.teamSize],
+              ["% Youth in team", tm.pctYouth, null],
+              ["Contractors", tm.contractors, s.contractorsCount],
+              ["Paid employees", tm.paidEmployees, s.paidEmployeesCount],
+              ["Advisors", tm.advisors, s.advisorsCount],
+              ["Female employees", tm.femaleEmployees, s.femaleTeamMembers],
+            ] as [string, MetricMirror | null, number | null][]).map(([label, m, fallback]) => {
+              const value = m ? m.value : fallback;
+              return (
+                <div key={label} className="rounded-lg bg-[var(--bg-subtle)] p-3">
+                  <p className="text-xs font-bold uppercase tracking-wide text-slate-400">{label}</p>
+                  <p className="mt-0.5 text-lg font-bold text-primary">{value ?? "—"}</p>
+                  <p className="text-[11px] text-slate-400">
+                    {m ? (m.asOf === "initial" ? "Baseline" : m.asOf) : value != null ? "Card 4 (legacy)" : "Not reported yet"}
+                  </p>
+                </div>
+              );
+            })}
           </div>
         </InitialDataCard>
 
@@ -647,7 +688,7 @@ export function InitialDataPanel({ apiConfig, startupName }: { apiConfig: Initia
         <InitialDataCard
           title="6. Funding"
           icon={PiggyBank}
-          completion={completionOf([s.totalFundingRaised != null, !!s.investmentStage])}
+          completion={completionOf([s.totalFundingRaised != null, !!track])}
           isOpen={false}
           onToggle={() => {}}
         >
@@ -675,8 +716,15 @@ export function InitialDataPanel({ apiConfig, startupName }: { apiConfig: Initia
               )}
             />
           </div>
-          <Field label="Investment Stage">
-            <Pills options={INVESTMENT_STAGE_OPTIONS} value={s.investmentStage ?? ""} onChange={(v) => set("investmentStage", v)} />
+          {/* Phase 4.3: the stage picker duplicated the KYS track and drove
+              nothing — founders now see their actual track instead. */}
+          <Field label="Program track">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-full bg-secondary/10 px-3 py-1 text-sm font-semibold text-secondary">
+                {track === "seed" ? "Seed" : track === "pre_seed" ? "Pre-Seed" : "Not set yet"}
+              </span>
+              <span className="text-xs text-slate-400">Set by your KYS form.</span>
+            </div>
           </Field>
           <div className="grid grid-cols-2 gap-4">
             <Field label="Round Size"><Money value={s.roundSize != null ? String(s.roundSize) : ""} onChange={(v) => set("roundSize", v ? Number(v) : null)} placeholder="Round size" /></Field>

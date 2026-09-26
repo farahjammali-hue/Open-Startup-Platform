@@ -386,12 +386,13 @@ export const startups = pgTable("startups", {
   // Dashboard overview — Impact Metrics / Markets blocks.
   sdgsAddressed: text("sdgs_addressed").array(),
   femaleTeamMembers: integer("female_team_members"),
-  youthEmployees: integer("youth_employees"),
+  youthEmployees: integer("youth_employees"), // a COUNT (the UI mislabeled it "%"); hr_pct_youth is the real %
   countryOfIncorporation: text("country_of_incorporation"),
   customerBase: customerBaseEnum("customer_base"),
   countriesOfOperation: text("countries_of_operation"),
 
-  // Card 4 (Team) — hidden stats.
+  // Card 4 (Team) — legacy count columns. Input retired in Phase 4.2: the
+  // monthly hr_* metrics are canonical; these stay as canonical.ts fallbacks.
   teamSize: integer("team_size"),
   contractorsCount: integer("contractors_count"),
   paidEmployeesCount: integer("paid_employees_count"),
@@ -402,7 +403,7 @@ export const startups = pgTable("startups", {
   totalFundingRaised: bigint("total_funding_raised", { mode: "number" }),
   totalFundingDilutive: bigint("total_funding_dilutive", { mode: "number" }),
   totalFundingNonDilutive: bigint("total_funding_non_dilutive", { mode: "number" }),
-  investmentStage: text("investment_stage"),
+  investmentStage: text("investment_stage"), // input retired (Phase 4.3) — duplicated kys_profiles.track
   roundSize: bigint("round_size", { mode: "number" }),
   committedFunds: bigint("committed_funds", { mode: "number" }),
   fundingCrmLink: text("funding_crm_link"),
@@ -1586,25 +1587,19 @@ export const startupProfileOverviewSchema = z.object({
   legalEntityStatus: z.enum(["yes", "in_process", "no"]).optional().or(z.literal("")),
   startedYear: z.number().int().min(1900).max(2100).optional(),
   country: z.string().max(100).optional().or(z.literal("")),
-  businessModelType: z.enum(["b2b", "b2c", "b2b2c"]).optional().or(z.literal("")), // superseded by businessModelTypes
   businessModelTypes: z.array(z.enum(BUSINESS_MODEL_VALUES)).optional(),
   dataRoomLink: z.string().url("Enter a valid URL").max(500).optional().or(z.literal("")),
   deckUrl: urlOrUploadPath,
   // Card 2 / 3: Brief Description / Unique Value Proposition
   coreBusinessOverview: z.string().max(1600).optional().or(z.literal("")),
   uniqueValueProposition: z.string().max(1600).optional().or(z.literal("")),
-  // Card 4: Team (hidden stats — the founders table is teamMembers)
-  teamSize: z.number().int().nonnegative().optional(),
-  contractorsCount: z.number().int().nonnegative().optional(),
-  paidEmployeesCount: z.number().int().nonnegative().optional(),
-  advisorsCount: z.number().int().nonnegative().optional(),
-  femaleTeamMembers: z.number().int().nonnegative().optional(),
-  youthEmployees: z.number().int().nonnegative().optional(),
+  // Card 4's team counts are read-only mirrors of the monthly hr_* metrics
+  // since Phase 4.2 — no longer accepted here. Founders themselves live in
+  // the teamMembers table.
   // Card 6: Funding (aggregate figures — rounds live in startupFundingRounds)
   totalFundingRaised: z.number().nonnegative().optional(),
   totalFundingDilutive: z.number().nonnegative().optional(),
   totalFundingNonDilutive: z.number().nonnegative().optional(),
-  investmentStage: z.enum(INVESTMENT_STAGE_VALUES).optional().or(z.literal("")),
   roundSize: z.number().nonnegative().optional(),
   committedFunds: z.number().nonnegative().optional(),
   fundingCrmLink: z.string().url("Enter a valid URL").max(500).optional().or(z.literal("")),
@@ -1637,13 +1632,9 @@ export const startupProfileOverviewSchema = z.object({
   clientsCrmLink: z.string().url("Enter a valid URL").max(500).optional().or(z.literal("")),
   // Card 14: Partner
   partnersCrmLink: z.string().url("Enter a valid URL").max(500).optional().or(z.literal("")),
-  // Impact Metrics / Markets
-  sdgsAddressed: z.array(z.string()).optional(),
-  countryOfIncorporation: z.string().max(100).optional().or(z.literal("")),
-  customerBase: z
-    .enum(["low", "moderate", "high", "emerging_market", "saturated_market"])
-    .optional()
-    .or(z.literal("")),
+  // Impact Metrics / Markets. sdgsAddressed, countryOfIncorporation and
+  // customerBase were zod-only ghosts (no UI ever wrote them) — retired in
+  // Phase 4.4/4.5. The columns stay, read-never.
   countriesOfOperation: z.string().max(300).optional().or(z.literal("")),
 });
 
@@ -1721,10 +1712,6 @@ export const startupTechTrackSchema = z.object({
 export const officeHourBookingSchema = z.object({
   slotId: z.string().uuid("Pick a slot"),
   topic: z.string().max(300).optional().or(z.literal("")),
-});
-
-export const trainingProgressSchema = z.object({
-  status: z.enum(["in_progress", "completed"]),
 });
 
 export const trainingSchema = z.object({
@@ -1835,16 +1822,6 @@ export const trainingModuleSessionSchema = z.object({
   startupIds: z.array(z.string().uuid()).max(1000).optional(),
 });
 
-// Legacy founder-filled recap fields (superseded by the AI recap fields the
-// Claude connector writes; trainer rating/feedback stay admin-owned).
-export const trainingSessionRecapSchema = z.object({
-  teamMembersPresence: z.string().max(500).optional().or(z.literal("")),
-  pointsDiscussed: z.string().max(2000).optional().or(z.literal("")),
-  whatIsGoingWell: z.string().max(2000).optional().or(z.literal("")),
-  whatIsNotGoingWell: z.string().max(2000).optional().or(z.literal("")),
-  actionItems: z.string().max(2000).optional().or(z.literal("")),
-});
-
 // Admin/trainer-owned — the rating and written feedback given to this startup.
 export const trainingTrainerFeedbackSchema = z.object({
   trainerRating: z.number().int().min(1).max(5).optional(),
@@ -1887,17 +1864,6 @@ export const kysSubmitSchema = z.object({
   consentAccepted: z.literal(true, {
     errorMap: () => ({ message: "Consent is required to submit" }),
   }),
-});
-
-export const kysDocumentUploadSchema = z.object({
-  docType: z.enum([
-    "certificate_of_incorporation",
-    "proof_of_address",
-    "irs_form",
-    "banking",
-    "declaration",
-    "identity_document",
-  ]),
 });
 
 export const monthlyUpdateSchema = z.object({
@@ -1987,7 +1953,6 @@ export type CrmEntryUpdateInput = z.infer<typeof crmEntryUpdateSchema>;
 export type DocumentUploadInput = z.infer<typeof documentUploadSchema>;
 export type DocumentReviewInput = z.infer<typeof documentReviewSchema>;
 export type OfficeHourBookingInput = z.infer<typeof officeHourBookingSchema>;
-export type TrainingProgressInput = z.infer<typeof trainingProgressSchema>;
 export type TrainingInput = z.infer<typeof trainingSchema>;
 export type AssignMentorInput = z.infer<typeof assignMentorSchema>;
 export type MentorshipModuleSessionInput = z.infer<typeof mentorshipModuleSessionSchema>;
@@ -2000,11 +1965,9 @@ export type ExpertPriorityInput = z.infer<typeof expertPrioritySchema>;
 export type ExpertCatalogVisibilityInput = z.infer<typeof expertCatalogVisibilitySchema>;
 export type AssignTrainerInput = z.infer<typeof assignTrainerSchema>;
 export type TrainingModuleSessionInput = z.infer<typeof trainingModuleSessionSchema>;
-export type TrainingSessionRecapInput = z.infer<typeof trainingSessionRecapSchema>;
 export type TrainingTrainerFeedbackInput = z.infer<typeof trainingTrainerFeedbackSchema>;
 export type TrainingModuleHomeworkInput = z.infer<typeof trainingModuleHomeworkSchema>;
 export type KysSubmitInput = z.infer<typeof kysSubmitSchema>;
-export type KysDocumentUploadInput = z.infer<typeof kysDocumentUploadSchema>;
 export type MonthlyUpdateInput = z.infer<typeof monthlyUpdateSchema>;
 export type TeamMemberInput = z.infer<typeof teamMemberSchema>;
 export type CapTableEntryInput = z.infer<typeof capTableEntrySchema>;

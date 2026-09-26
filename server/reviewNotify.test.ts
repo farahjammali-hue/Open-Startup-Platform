@@ -272,7 +272,8 @@ describe("alumni role gates + graduation (Phase D)", () => {
 
   it("training/mentorship/office-hours/school are 403 for alumni, open for startups", async () => {
     users("alumni");
-    for (const path of ["/api/mentorship", "/api/training", "/api/office-hours/slots", "/api/school"]) {
+    // /api/school was removed in Phase 4.9 (dead founder route).
+    for (const path of ["/api/mentorship", "/api/training", "/api/office-hours/slots"]) {
       const res = await fetch(`${base}${path}`, { headers: { "x-test-user": "u9" } });
       expect(res.status, path).toBe(403);
     }
@@ -523,5 +524,86 @@ describe("data-integrity fixes (Phase 2)", () => {
     });
     expect(res.status).toBe(200);
     expect(updates[0].name).toBe("Ghazi-Updated Dhouib");
+  });
+});
+
+describe("Initial Data saves are diff-only (Phase 4.6)", () => {
+  it("writes only the provided keys, honors explicit nulls, ignores retired keys", async () => {
+    const updates: any[] = [];
+    Object.assign(fake.storage, {
+      getUserById: async (id: string) =>
+        id === "admin1"
+          ? { id, email: "admin@open-startup.org", role: "admin", isActive: true }
+          : { id, email: "f@x.io", role: "startup", isActive: true },
+      resolveActiveStartup: async () => ({ id: "s1", userId: "u9", companyName: "Acme" }),
+      updateStartup: async (id: string, data: any) => {
+        updates.push(data);
+        return { id, ...data };
+      },
+    });
+    const res = await fetch(`${base}/api/startup-profile/overview`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json", "x-test-user": "u9" },
+      body: JSON.stringify({
+        coreBusinessOverview: "New pitch",
+        roundSize: null, // explicit clear
+        investmentStage: "seed", // retired key: ignored, not a 400
+        teamSize: 12, // retired key (metric mirror now): ignored
+      }),
+    });
+    expect(res.status).toBe(200);
+    expect(updates[0]).toEqual({ coreBusinessOverview: "New pitch", roundSize: null });
+  });
+});
+
+describe("data-room share links (Phase 4.9 revive)", () => {
+  const OWN = ["11111111-1111-4111-8111-111111111111", "22222222-2222-4222-8222-222222222222"];
+
+  function shareWorld() {
+    const created: any[] = [];
+    Object.assign(fake.storage, {
+      getUserById: async (id: string) =>
+        id === "admin1"
+          ? { id, email: "admin@open-startup.org", role: "admin", isActive: true }
+          : { id, email: "f@x.io", role: "startup", isActive: true },
+      resolveActiveStartup: async () => ({ id: "s1", userId: "u9", companyName: "Acme" }),
+      listDocuments: async () => OWN.map((id) => ({ id })),
+      createDataRoomShare: async (row: any) => {
+        created.push(row);
+        return { id: "sh1", ...row, viewCount: 0, revokedAt: null, createdAt: new Date() };
+      },
+    });
+    return created;
+  }
+
+  it("creates links only over the startup's own documents", async () => {
+    const created = shareWorld();
+    const foreign = await fetch(`${base}/api/data-room-shares`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-test-user": "u9" },
+      body: JSON.stringify({ documentIds: ["33333333-3333-4333-8333-333333333333"], expiresInDays: 30 }),
+    });
+    expect(foreign.status).toBe(400);
+    expect(created).toHaveLength(0);
+
+    const ok = await fetch(`${base}/api/data-room-shares`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-test-user": "u9" },
+      body: JSON.stringify({ title: "Seed round", documentIds: [OWN[0]], expiresInDays: 30 }),
+    });
+    expect(ok.status).toBe(201);
+    expect(created[0].token).toMatch(/^[0-9a-f]{48}$/);
+    expect(created[0].documentIds).toEqual([OWN[0]]);
+  });
+
+  it("the public viewer refuses revoked and expired links", async () => {
+    Object.assign(fake.storage, {
+      getDataRoomShareByToken: async (token: string) =>
+        token === "revoked"
+          ? { id: "x", startupId: "s1", revokedAt: new Date(), expiresAt: new Date(Date.now() + 86400000), documentIds: [] }
+          : { id: "y", startupId: "s1", revokedAt: null, expiresAt: new Date(Date.now() - 1000), documentIds: [] },
+    });
+    expect((await fetch(`${base}/api/public/data-room-share/revoked`)).status).toBe(410);
+    expect((await fetch(`${base}/api/public/data-room-share/expired`)).status).toBe(410);
   });
 });
