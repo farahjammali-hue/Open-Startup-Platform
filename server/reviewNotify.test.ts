@@ -221,3 +221,36 @@ describe("sent-message log (A7)", () => {
     expect(body.messages[0].kind).toBe("cohort_message");
   });
 });
+
+describe("portfolio metrics + office-hours admin (A11)", () => {
+  it("sums headline metrics per month across startups, skipping the initial baseline", async () => {
+    Object.assign(fake.storage, {
+      listPortfolioMetricEntries: async () => [
+        { startupId: "a", period: "initial", values: { rev_cumulative: 999999 } },
+        { startupId: "a", period: "2026-08", values: { rev_cumulative: 1000, rev_mrr_b2b: 100, hr_team_size: 4 } },
+        { startupId: "b", period: "2026-08", values: { rev_cumulative: "2,500", rev_mrr_b2c: 50, sales_burn_rate: 300 } },
+        { startupId: "a", period: "2026-09", values: {} },
+      ],
+    });
+    const res = await fetch(`${base}/api/admin/portfolio-metrics`);
+    const { series } = await res.json();
+    expect(series).toEqual([
+      { period: "2026-08", reporting: 2, revCumulative: 3500, mrr: 150, burn: 300, teamSize: 4 },
+      { period: "2026-09", reporting: 0, revCumulative: 0, mrr: 0, burn: 0, teamSize: 0 },
+    ]);
+  });
+
+  it("office-hours create validates and rejects end-before-start", async () => {
+    const created: any[] = [];
+    Object.assign(fake.storage, {
+      createOfficeHourSlot: async (d: any) => { created.push(d); return { id: "slot1", ...d }; },
+    });
+    const bad = await post("/api/admin/office-hours/slots", { hostName: "", startsAt: "2026-10-01T10:00", endsAt: "2026-10-01T11:00" });
+    expect(bad.status).toBe(400);
+    const backwards = await post("/api/admin/office-hours/slots", { hostName: "Team", startsAt: "2026-10-01T11:00", endsAt: "2026-10-01T10:00" });
+    expect(backwards.status).toBe(400);
+    const ok = await post("/api/admin/office-hours/slots", { hostName: "Team", topic: "", startsAt: "2026-10-01T10:00", endsAt: "2026-10-01T10:30", capacity: "3" });
+    expect(ok.status).toBe(201);
+    expect(created[0]).toMatchObject({ hostName: "Team", capacity: 3 });
+  });
+});

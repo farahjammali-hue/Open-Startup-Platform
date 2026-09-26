@@ -6,7 +6,7 @@ import { api } from "../lib/utils";
 import { confirmLeave } from "../lib/navGuard";
 import { useKysStatus } from "../lib/kysStatus";
 import { showToast } from "../lib/toast";
-import { SquaresFour as LayoutDashboard, Rocket, Trash as Trash2, Users, UserCheck, Lock, Wrench, Wallet, Storefront as Store, BookOpen, Chats as MessagesSquare, FolderLock, House as HomeIcon, FileText, Stack as Layers, Presentation, Handshake } from "@phosphor-icons/react";
+import { SquaresFour as LayoutDashboard, Rocket, Trash as Trash2, Users, UserCheck, Lock, Wrench, Wallet, Storefront as Store, BookOpen, Chats as MessagesSquare, FolderLock, House as HomeIcon, FileText, Stack as Layers, Presentation, Handshake, CalendarBlank } from "@phosphor-icons/react";
 
 interface Item {
   label: string;
@@ -40,6 +40,7 @@ const ADMIN_GROUPS: { label: string; items: Item[] }[] = [
       // are authored once and targeted to many), so it lives here rather
       // than as a per-startup-only module.
       { label: "Training", to: "/admin/training", icon: Presentation },
+      { label: "Office Hours", to: "/admin/office-hours", icon: CalendarBlank },
       // Contracts & KYS, Data Room, Mentorship, and CRM are hidden from the
       // nav — each is reachable per-startup from its module card on
       // /admin/startups/:id; routes/pages stay intact. Open Startup School

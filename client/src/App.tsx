@@ -39,6 +39,7 @@ import AdminDataRoom from "./pages/admin/AdminDataRoom";
 import AdminMentorship from "./pages/admin/AdminMentorship";
 import AdminMentorshipStartup from "./pages/admin/AdminMentorshipStartup";
 import AdminTraining from "./pages/admin/AdminTraining";
+import AdminOfficeHours from "./pages/admin/AdminOfficeHours";
 import AdminTrainingStartup from "./pages/admin/AdminTrainingStartup";
 import AdminCrm from "./pages/admin/AdminCrm";
 import AdminCrmStartup from "./pages/admin/AdminCrmStartup";
@@ -141,6 +142,7 @@ export default function App() {
         <Route path="/admin/mentorship/:startupId" component={AdminMentorshipStartup} />
         <Route path="/admin/startups/:startupId/mentorship" component={AdminMentorshipStartup} />
         <Route path="/admin/training" component={AdminTraining} />
+        <Route path="/admin/office-hours" component={AdminOfficeHours} />
         <Route path="/admin/training/:startupId" component={AdminTrainingStartup} />
         <Route path="/admin/crm" component={AdminCrm} />
         <Route path="/admin/crm/:startupId" component={AdminCrmStartup} />

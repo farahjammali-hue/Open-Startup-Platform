@@ -1932,6 +1932,17 @@ export const storage = {
     await db.delete(startupPartnerDetails).where(eq(startupPartnerDetails.id, id));
   },
 
+  /** A11: every real startup's metric entries, for portfolio-wide charts.
+   * Small data (startups x months), so the sums happen in the route. */
+  async listPortfolioMetricEntries(): Promise<{ startupId: string; period: string; values: Record<string, number | string> }[]> {
+    return db
+      .select({ startupId: startupMetricEntries.startupId, period: startupMetricEntries.period, values: startupMetricEntries.values })
+      .from(startupMetricEntries)
+      .innerJoin(startups, eq(startups.id, startupMetricEntries.startupId))
+      .innerJoin(users, eq(users.id, startups.userId))
+      .where(ne(users.role, "admin"));
+  },
+
   /* ---------------- Office Hours ---------------- */
   async listUpcomingOfficeHourSlots(): Promise<(OfficeHourSlot & { bookedCount: number })[]> {
     const rows = await db
@@ -1962,6 +1973,10 @@ export const storage = {
   }): Promise<OfficeHourSlot> {
     const [row] = await db.insert(officeHourSlots).values(data).returning();
     return row;
+  },
+
+  async deleteOfficeHourSlot(id: string): Promise<void> {
+    await db.delete(officeHourSlots).where(eq(officeHourSlots.id, id));
   },
 
   async countBookingsForSlot(slotId: string): Promise<number> {

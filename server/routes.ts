@@ -2133,21 +2133,44 @@ export function registerRoutes(app: Express) {
     res.json(booking);
   }));
 
-  // Admin: open a new office-hours slot for startups to book.
+  // Admin: manage office-hours slots (A11 gave this its page).
+  app.get("/api/admin/office-hours/slots", requireAdmin, ah(async (_req, res) => {
+    res.json({ slots: await storage.listUpcomingOfficeHourSlots() });
+  }));
+
+  const officeHourSlotSchema = z.object({
+    hostName: z.string().trim().min(1, "Host name is required").max(200),
+    topic: z.string().max(200).optional().or(z.literal("")),
+    startsAt: z.string().min(1, "Start time is required"),
+    endsAt: z.string().min(1, "End time is required"),
+    capacity: z.coerce.number().int().min(1).max(100).optional(),
+    meetingLink: z.string().max(500).optional().or(z.literal("")),
+  });
+
   app.post("/api/admin/office-hours/slots", requireAdmin, ah(async (req, res) => {
-    const { hostName, topic, startsAt, endsAt, capacity, meetingLink } = req.body || {};
-    if (!hostName || !startsAt || !endsAt) {
-      return res.status(400).json({ message: "hostName, startsAt and endsAt are required" });
+    const parsed = officeHourSlotSchema.safeParse(req.body ?? {});
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
+    const startsAt = new Date(parsed.data.startsAt);
+    const endsAt = new Date(parsed.data.endsAt);
+    if (Number.isNaN(+startsAt) || Number.isNaN(+endsAt) || endsAt <= startsAt) {
+      return res.status(400).json({ message: "The end time must come after the start time" });
     }
     const slot = await storage.createOfficeHourSlot({
-      hostName,
-      topic: topic || null,
-      startsAt: new Date(startsAt),
-      endsAt: new Date(endsAt),
-      capacity: capacity ? Number(capacity) : 1,
-      meetingLink: meetingLink || null,
+      hostName: parsed.data.hostName,
+      topic: parsed.data.topic || null,
+      startsAt,
+      endsAt,
+      capacity: parsed.data.capacity ?? 1,
+      meetingLink: parsed.data.meetingLink || null,
     });
     res.status(201).json(slot);
+  }));
+
+  app.delete("/api/admin/office-hours/slots/:id", requireAdmin, ah(async (req, res) => {
+    const slot = await storage.getOfficeHourSlot(req.params.id);
+    if (!slot) return res.status(404).json({ message: "Not found" });
+    await storage.deleteOfficeHourSlot(slot.id);
+    res.json({ ok: true });
   }));
 
   /* ---------------- Open Startup School ---------------- */
@@ -2926,6 +2949,31 @@ export function registerRoutes(app: Express) {
     const updated = await storage.setKysTrack(req.params.id, parsed.data.track);
     if (!updated) return res.status(404).json({ message: "Not found" });
     res.json(updated);
+  }));
+
+  // A11: portfolio-wide sums per month for a handful of headline metrics.
+  app.get("/api/admin/portfolio-metrics", requireAdmin, ah(async (_req, res) => {
+    const entries = await storage.listPortfolioMetricEntries();
+    const num = (v: unknown) => {
+      const n = typeof v === "number" ? v : Number(String(v ?? "").replace(/[$,\s]/g, ""));
+      return Number.isFinite(n) ? n : null;
+    };
+    const byPeriod = new Map<string, { reporting: number; revCumulative: number; mrr: number; burn: number; teamSize: number }>();
+    for (const e of entries) {
+      if (e.period === "initial") continue; // trends are monthly
+      const agg = byPeriod.get(e.period) ?? { reporting: 0, revCumulative: 0, mrr: 0, burn: 0, teamSize: 0 };
+      const v = e.values ?? {};
+      if (Object.keys(v).length > 0) agg.reporting++;
+      agg.revCumulative += num(v["rev_cumulative"]) ?? 0;
+      agg.mrr += (num(v["rev_mrr_b2b"]) ?? 0) + (num(v["rev_mrr_b2c"]) ?? 0);
+      agg.burn += num(v["sales_burn_rate"]) ?? 0;
+      agg.teamSize += num(v["hr_team_size"]) ?? 0;
+      byPeriod.set(e.period, agg);
+    }
+    const series = [...byPeriod.entries()]
+      .map(([period, agg]) => ({ period, ...agg }))
+      .sort((a, b) => (a.period < b.period ? -1 : 1));
+    res.json({ series });
   }));
 
   app.get("/api/admin/stats", requireAdmin, ah(async (_req, res) => {

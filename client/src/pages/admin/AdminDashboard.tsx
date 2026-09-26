@@ -4,6 +4,7 @@ import { api } from "../../lib/utils";
 import { useAuth } from "../../lib/auth";
 import { AppShell } from "../../components/AppShell";
 import { ClaudeConnectorPanel } from "../../components/ClaudeConnectorPanel";
+import { PortfolioTrends } from "../../components/admin/PortfolioTrends";
 import { Users, Rocket, Trash as Trash2, ArrowRight, Signature as FileSignature, ChartLine as LineChart, UsersThree as UsersRound, Presentation } from "@phosphor-icons/react";
 
 function greeting() {
@@ -59,6 +60,7 @@ export default function AdminDashboard() {
         <h1 className="ost-page-title">{greeting()}, {user?.name?.split(" ")[0]}.</h1>
 
         <div className="mt-6">
+          <PortfolioTrends />
           <ClaudeConnectorPanel />
         </div>
 
