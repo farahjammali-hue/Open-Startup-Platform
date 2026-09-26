@@ -16,6 +16,7 @@ interface Detail {
     id: string; companyName: string; website: string | null; location: string | null;
     stage: string | null; logoUrl: string | null;
     dataRoomLink: string | null; mentorId: string | null;
+    declarationSignedAt: string | null;
   };
   owner: { name: string; email: string } | null;
   contract: (ReviewEntity & { signerName: string; signedAt: string }) | null;
@@ -51,14 +52,18 @@ export default function AdminStartupDetail() {
   }
 
   const { startup, owner, contract, kysProfile } = data;
+  // A KYS submitted before the declaration became its own step covered it
+  // inside the old form — same rule as the founder-facing page.
+  const declarationSigned = !!startup.declarationSignedAt || !!kysProfile;
 
   const modules = [
     {
       key: "contracts-kys",
       title: "Contract & KYS",
       icon: FileSignature,
-      to: `/admin/contracts-kys/${id}`,
-      subtitle: `Contract ${contract?.status ?? "not started"} · KYS ${kysProfile?.status ?? "not started"}`,
+      to: `/admin/startups/${id}/contract-kys`,
+      // Flow order: declaration -> KYS -> contract.
+      subtitle: `Declaration ${declarationSigned ? "signed" : "not signed"} · KYS ${kysProfile?.status ?? "not started"} · Contract ${contract?.status ?? "not started"}`,
     },
     {
       key: "data-room",
@@ -121,11 +126,14 @@ export default function AdminStartupDetail() {
         />
 
         <div className="mt-4 flex flex-wrap items-center gap-2">
-          <StatusBadge tone={contract ? REVIEW_STATUS_TONES[contract.status] : "gray"} icon={contract ? REVIEW_STATUS_ICONS[contract.status] : FileSignature}>
-            Contract {contract ? contract.status : "not started"}
+          <StatusBadge tone={declarationSigned ? REVIEW_STATUS_TONES.approved : "gray"} icon={declarationSigned ? REVIEW_STATUS_ICONS.approved : FileSignature}>
+            Declaration {declarationSigned ? "signed" : "not signed"}
           </StatusBadge>
           <StatusBadge tone={kysProfile ? REVIEW_STATUS_TONES[kysProfile.status] : "gray"} icon={kysProfile ? REVIEW_STATUS_ICONS[kysProfile.status] : ShieldCheck}>
             KYS {kysProfile ? kysProfile.status : "not started"}
+          </StatusBadge>
+          <StatusBadge tone={contract ? REVIEW_STATUS_TONES[contract.status] : "gray"} icon={contract ? REVIEW_STATUS_ICONS[contract.status] : FileSignature}>
+            Contract {contract ? contract.status : "not started"}
           </StatusBadge>
         </div>
 

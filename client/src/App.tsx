@@ -126,6 +126,10 @@ export default function App() {
         <Route path="/admin/startups/:id" component={AdminStartupDetail} />
         <Route path="/admin/startups/:id/dashboard" component={AdminStartupDashboard} />
         <Route path="/admin/startups/:id/data-room" component={AdminStartupDataRoom} />
+        {/* Same review page, two entry points: nested under the startup (from
+            its admin page) and flat (from the Contracts & KYS review queue).
+            The page adapts its Back link to whichever URL it was opened at. */}
+        <Route path="/admin/startups/:id/contract-kys" component={AdminContractsKysStartup} />
         <Route path="/admin/deletion-requests" component={AdminDeletionRequests} />
         <Route path="/admin/approvals" component={AdminApprovals} />
         <Route path="/admin/messages" component={AdminMessages} />

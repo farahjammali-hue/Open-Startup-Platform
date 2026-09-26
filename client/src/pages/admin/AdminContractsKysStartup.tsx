@@ -41,8 +41,11 @@ interface KysRow {
 interface KysDoc { id: string; docType: string; fileUrl: string; fileName: string }
 
 export default function AdminContractsKysStartup() {
-  const [, params] = useRoute("/admin/contracts-kys/:startupId");
-  const startupId = params?.startupId ?? "";
+  // Two entry points: nested under the startup's own admin page, or flat from
+  // the Contracts & KYS review queue. Back goes to wherever we came in from.
+  const [fromStartupPage, nested] = useRoute("/admin/startups/:startupId/contract-kys");
+  const [, flat] = useRoute("/admin/contracts-kys/:startupId");
+  const startupId = (fromStartupPage ? nested?.startupId : flat?.startupId) ?? "";
   const qc = useQueryClient();
   const [uploadingDeclaration, setUploadingDeclaration] = useState(false);
 
@@ -52,11 +55,16 @@ export default function AdminContractsKysStartup() {
     enabled: !!startupId,
   });
 
+  const backTo = fromStartupPage ? `/admin/startups/${startupId}` : "/admin/contracts-kys";
+  const backLabel = fromStartupPage
+    ? `Back to ${data?.startup.companyName ?? "the startup"}`
+    : "Back to Contracts & KYS";
+
   if (isLoading || !data) {
     return (
       <AppShell>
         <main className="ost-page">
-          <BackLink to="/admin/contracts-kys" label="Back to Contracts & KYS" />
+          <BackLink to={backTo} label={backLabel} />
           <div className="mt-6 flex items-center gap-3">
             <Skeleton tone="dark" className="h-11 w-11 rounded-xl" />
             <SkeletonText tone="dark" lines={2} className="max-w-xs" />
@@ -94,7 +102,7 @@ export default function AdminContractsKysStartup() {
   return (
     <AppShell>
       <main className="ost-page">
-        <BackLink to="/admin/contracts-kys" label="Back to Contracts & KYS" />
+        <BackLink to={backTo} label={backLabel} />
         <PageHeader
           eyebrow="Administration · Contracts & KYS"
           title={
@@ -102,7 +110,7 @@ export default function AdminContractsKysStartup() {
               <Building2 className="h-6 w-6 text-secondary" /> {startup.companyName}
             </span>
           }
-          subtitle="Review this startup's signed agreement and KYS submission."
+          subtitle="Review this startup's declaration, KYS submission and signed agreement."
         />
 
         <div className="ost-card mt-8 p-6">
@@ -148,19 +156,19 @@ export default function AdminContractsKysStartup() {
 
         <div className="ost-card mt-8 p-6">
           <h2 className="ost-card-title mb-4 flex items-center gap-2 text-base">
-            <FileSignature className="h-4 w-4 text-secondary" /> Contract
+            <ShieldCheck className="h-4 w-4 text-secondary" /> KYS profile
           </h2>
-          {contract ? <ContractReview contract={contract} onReviewed={invalidate} /> : (
-            <EmptyState icon={FileSignature} title="Not signed yet" description="This startup hasn't uploaded a signed agreement." />
+          {kysProfile ? <KysReview kys={kysProfile} onReviewed={invalidate} /> : (
+            <EmptyState icon={ShieldCheck} title="Not submitted yet" description="This startup hasn't submitted their KYS profile." />
           )}
         </div>
 
         <div className="ost-card mt-8 p-6">
           <h2 className="ost-card-title mb-4 flex items-center gap-2 text-base">
-            <ShieldCheck className="h-4 w-4 text-secondary" /> KYS profile
+            <FileSignature className="h-4 w-4 text-secondary" /> Contract
           </h2>
-          {kysProfile ? <KysReview kys={kysProfile} onReviewed={invalidate} /> : (
-            <EmptyState icon={ShieldCheck} title="Not submitted yet" description="This startup hasn't submitted their KYS profile." />
+          {contract ? <ContractReview contract={contract} onReviewed={invalidate} /> : (
+            <EmptyState icon={FileSignature} title="Not signed yet" description="This startup hasn't uploaded a signed agreement." />
           )}
         </div>
       </main>
