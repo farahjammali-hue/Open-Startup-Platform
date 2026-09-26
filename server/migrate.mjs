@@ -1056,6 +1056,47 @@ ALTER TABLE kys_profiles ALTER COLUMN track DROP NOT NULL;
 
 -- Step 1 of Contract & KYS: the Acrobat Sign declaration (signed copy in Adobe).
 ALTER TABLE startups ADD COLUMN IF NOT EXISTS declaration_signed_at timestamp;
+
+-- Schema Batch 1 of the improvement roadmap (message log, MCP audit,
+-- training recap parity). Batched into one migration on purpose: schema
+-- commits block auto-deploy, so they ship as rarely as possible.
+
+-- Outbound message log: broadcasts, review decisions, reminders,
+-- Claude-connector sends. Also the reminder scheduler's idempotency ledger.
+CREATE TABLE IF NOT EXISTS message_log (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  kind text NOT NULL,
+  startup_id uuid REFERENCES startups(id) ON DELETE SET NULL,
+  recipient_emails jsonb NOT NULL DEFAULT '[]'::jsonb,
+  subject text NOT NULL,
+  body_preview text,
+  sent_by text NOT NULL,
+  meta jsonb NOT NULL DEFAULT '{}'::jsonb,
+  sent_at timestamp NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS message_log_kind_sent_at_idx ON message_log (kind, sent_at DESC);
+
+-- Durable audit of every Claude-connector tool call.
+CREATE TABLE IF NOT EXISTS mcp_audit_log (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_email text NOT NULL,
+  tool text NOT NULL,
+  input jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ok boolean NOT NULL,
+  error text,
+  result_summary text,
+  ts timestamp NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS mcp_audit_log_ts_idx ON mcp_audit_log (ts DESC);
+
+-- Training sessions get the same AI-recap fields mentorship already has, so
+-- the Claude connector can save training recaps from Zoom transcripts too.
+ALTER TABLE training_session_notes ADD COLUMN IF NOT EXISTS progress_highlights text;
+ALTER TABLE training_session_notes ADD COLUMN IF NOT EXISTS mentor_comments text;
+ALTER TABLE training_session_notes ADD COLUMN IF NOT EXISTS needs_highlighted text;
+ALTER TABLE training_session_notes ADD COLUMN IF NOT EXISTS next_meeting_check_ins text;
+ALTER TABLE training_session_notes ADD COLUMN IF NOT EXISTS action_items_for_ost text;
+ALTER TABLE training_session_notes ADD COLUMN IF NOT EXISTS ai_generated_at timestamp;
 `;
 
 try {

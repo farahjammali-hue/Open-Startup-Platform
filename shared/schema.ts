@@ -886,6 +886,14 @@ export const trainingSessionNotes = pgTable("training_session_notes", {
   whatIsGoingWell: text("what_is_going_well"),
   whatIsNotGoingWell: text("what_is_not_going_well"),
   actionItems: text("action_items"),
+  // AI recap fields, mirroring mentorship_session_notes so the Claude
+  // connector can save training recaps from Zoom transcripts too.
+  progressHighlights: text("progress_highlights"),
+  mentorComments: text("mentor_comments"),
+  needsHighlighted: text("needs_highlighted"),
+  nextMeetingCheckIns: text("next_meeting_check_ins"),
+  actionItemsForOst: text("action_items_for_ost"),
+  aiGeneratedAt: timestamp("ai_generated_at"),
   trainerRating: integer("trainer_rating"),
   trainerFeedback: text("trainer_feedback"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
@@ -1217,6 +1225,45 @@ export const mcpOauthTokens = pgTable("mcp_oauth_tokens", {
   expiresAt: timestamp("expires_at").notNull(),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
+
+/* =========================================================
+ * Outbound messages & reminders
+ * =======================================================*/
+
+/**
+ * One row per email the platform sends beyond transactional account mail:
+ * admin broadcasts, review decisions, reminders, Claude-connector sends.
+ * Doubles as the reminder scheduler's idempotency ledger ("was the 2026-09
+ * reminder already sent to this startup?") so restarts never double-send.
+ */
+export const messageLog = pgTable("message_log", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  // cohort_message | startup_message | reminder | review_decision | ...
+  kind: text("kind").notNull(),
+  startupId: uuid("startup_id").references(() => startups.id, { onDelete: "set null" }),
+  recipientEmails: jsonb("recipient_emails").$type<string[]>().notNull().default([]),
+  subject: text("subject").notNull(),
+  bodyPreview: text("body_preview"),
+  // An admin's email, "system" (scheduler), or "mcp:<email>" (Claude connector).
+  sentBy: text("sent_by").notNull(),
+  meta: jsonb("meta").$type<Record<string, unknown>>().notNull().default({}),
+  sentAt: timestamp("sent_at").notNull().default(sql`now()`),
+});
+export type MessageLogEntry = typeof messageLog.$inferSelect;
+
+/** Every Claude-connector tool call, success or failure — the durable audit
+ * trail behind the console's one-line [mcp] logs. */
+export const mcpAuditLog = pgTable("mcp_audit_log", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  userEmail: text("user_email").notNull(),
+  tool: text("tool").notNull(),
+  input: jsonb("input").$type<Record<string, unknown>>().notNull().default({}),
+  ok: boolean("ok").notNull(),
+  error: text("error"),
+  resultSummary: text("result_summary"),
+  ts: timestamp("ts").notNull().default(sql`now()`),
+});
+export type McpAuditEntry = typeof mcpAuditLog.$inferSelect;
 
 /* =========================================================
  * Session store (connect-pg-simple)
