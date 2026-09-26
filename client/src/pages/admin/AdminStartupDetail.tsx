@@ -83,14 +83,14 @@ export default function AdminStartupDetail() {
       key: "mentorship",
       title: "Mentorship",
       icon: Layers,
-      to: `/admin/mentorship/${id}`,
+      to: `/admin/startups/${id}/mentorship`,
       subtitle: startup.mentorId ? "Mentor assigned" : "No mentor assigned",
     },
     {
       key: "crm",
       title: "CRM",
       icon: Handshake,
-      to: `/admin/crm/${id}`,
+      to: `/admin/startups/${id}/crm`,
       subtitle: "Investors, clients & partners",
     },
   ];

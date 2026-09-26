@@ -65,7 +65,7 @@ export function CrmPanel({ apiBase }: { apiBase: string }) {
 
   useEffect(() => {
     if (!data) return;
-    setRows(data.entries.map((e) => ({ ...e })));
+    setRows((data.entries ?? []).map((e) => ({ ...e })));
     setDirty(new Set());
   }, [data]);
 

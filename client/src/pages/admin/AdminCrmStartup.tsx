@@ -11,8 +11,11 @@ interface StartupBasic {
 }
 
 export default function AdminCrmStartup() {
-  const [, params] = useRoute("/admin/crm/:startupId");
-  const startupId = params?.startupId ?? "";
+  // Two entry points: nested under the startup's admin page, or flat from the
+  // CRM overview. Back goes to wherever we came in from.
+  const [fromStartupPage, nested] = useRoute("/admin/startups/:startupId/crm");
+  const [, flat] = useRoute("/admin/crm/:startupId");
+  const startupId = (fromStartupPage ? nested?.startupId : flat?.startupId) ?? "";
 
   const { data } = useQuery<{ startup: StartupBasic }>({
     queryKey: ["admin-startup-basic", startupId],
@@ -23,7 +26,7 @@ export default function AdminCrmStartup() {
   return (
     <AppShell>
       <main className="ost-page">
-        <BackLink to="/admin/crm" label="Back to CRM" />
+        <BackLink to={fromStartupPage ? `/admin/startups/${startupId}` : "/admin/crm"} label={fromStartupPage ? `Back to ${data?.startup?.companyName ?? "the startup"}` : "Back to CRM"} />
         <PageHeader
           eyebrow="Administration"
           title={data?.startup?.companyName ?? "CRM"}

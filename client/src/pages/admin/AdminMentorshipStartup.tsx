@@ -116,8 +116,11 @@ function toDatetimeLocal(d: Date) {
 }
 
 export default function AdminMentorshipStartup() {
-  const [, params] = useRoute("/admin/mentorship/:startupId");
-  const startupId = params?.startupId ?? "";
+  // Two entry points: nested under the startup's admin page, or flat from the
+  // Mentorship overview. Back goes to wherever we came in from.
+  const [fromStartupPage, nested] = useRoute("/admin/startups/:startupId/mentorship");
+  const [, flat] = useRoute("/admin/mentorship/:startupId");
+  const startupId = (fromStartupPage ? nested?.startupId : flat?.startupId) ?? "";
   const qc = useQueryClient();
   const [editingSession, setEditingSession] = useState<MentorshipSession | "new" | null>(null);
   const [notesModalSession, setNotesModalSession] = useState<{ sessionId: string; sessionNumber: number; sessionTitle: string; hasTranscript: boolean } | null>(null);
@@ -260,7 +263,7 @@ export default function AdminMentorshipStartup() {
     return (
       <AppShell>
         <main className="ost-page">
-          <BackLink to="/admin/mentorship" label="Back to Mentorship" />
+          <BackLink to={fromStartupPage ? `/admin/startups/${startupId}` : "/admin/mentorship"} label={fromStartupPage ? "Back to the startup" : "Back to Mentorship"} />
           <div className="mt-6 flex items-center gap-3">
             <Skeleton tone="dark" className="h-11 w-11 rounded-xl" />
             <SkeletonText tone="dark" lines={2} className="max-w-xs" />
@@ -276,7 +279,7 @@ export default function AdminMentorshipStartup() {
   return (
     <AppShell>
       <main className="ost-page">
-        <BackLink to="/admin/mentorship" label="Back to Mentorship" />
+        <BackLink to={fromStartupPage ? `/admin/startups/${startupId}` : "/admin/mentorship"} label={fromStartupPage ? `Back to ${startupData?.startup?.companyName ?? "the startup"}` : "Back to Mentorship"} />
         <PageHeader
           eyebrow="Administration · Mentorship"
           title={

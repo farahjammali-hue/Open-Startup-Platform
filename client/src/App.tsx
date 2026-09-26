@@ -139,10 +139,12 @@ export default function App() {
         <Route path="/admin/data-room" component={AdminDataRoom} />
         <Route path="/admin/mentorship" component={AdminMentorship} />
         <Route path="/admin/mentorship/:startupId" component={AdminMentorshipStartup} />
+        <Route path="/admin/startups/:startupId/mentorship" component={AdminMentorshipStartup} />
         <Route path="/admin/training" component={AdminTraining} />
         <Route path="/admin/training/:startupId" component={AdminTrainingStartup} />
         <Route path="/admin/crm" component={AdminCrm} />
         <Route path="/admin/crm/:startupId" component={AdminCrmStartup} />
+        <Route path="/admin/startups/:startupId/crm" component={AdminCrmStartup} />
         <Route path="/admin/school" component={AdminSchool} />
         <Route>
           <Redirect to="/admin" />
