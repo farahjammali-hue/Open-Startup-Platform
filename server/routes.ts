@@ -73,8 +73,7 @@ import {
   sendSessionInvite,
   sendApplicationNotice,
   sendApplicationDecision,
-  sendAdminBroadcast,
-} from "./mailer";
+  sendAdminBroadcast, sendReviewDecision } from "./mailer";
 import { buildSessionIcs } from "./calendar";
 import {
   parseZoomMeetingId,
@@ -500,6 +499,36 @@ async function requireActiveStartup(req: Request, res: Response) {
     return undefined;
   }
   return startup;
+}
+
+/**
+ * A1: email the startup's owner an admin review decision (contract, KYS,
+ * data-room document). Fire-and-forget from the review routes — a mail
+ * failure must never fail the review itself.
+ */
+async function notifyReviewDecision(
+  startupId: string,
+  itemLabel: string,
+  status: "approved" | "rejected",
+  note: string | null,
+  path: string,
+) {
+  try {
+    const startup = await storage.getStartupById(startupId);
+    if (!startup) return;
+    const owner = await storage.getUserById(startup.userId);
+    if (!owner?.email) return;
+    await sendReviewDecision({
+      to: owner.email,
+      name: owner.firstName || owner.name || null,
+      itemLabel,
+      approved: status === "approved",
+      note: note || null,
+      link: `${APP_URL}${path}`,
+    });
+  } catch (e) {
+    console.error("[mailer] review-decision notify failed:", e);
+  }
 }
 
 // Gate a :id-scoped route on the caller owning that startup, BEFORE any
@@ -2768,6 +2797,7 @@ export function registerRoutes(app: Express) {
       note: parsed.data.reviewNote || null,
       actorId: req.session.userId!,
     });
+    void notifyReviewDecision(doc.startupId, `document "${doc.title}"`, parsed.data.status, parsed.data.reviewNote || null, "/data-room");
     res.json(updated);
   }));
 
@@ -2802,6 +2832,7 @@ export function registerRoutes(app: Express) {
       note: parsed.data.reviewNote || null,
       actorId: req.session.userId!,
     });
+    void notifyReviewDecision(contract.startupId, "program agreement", parsed.data.status, parsed.data.reviewNote || null, "/contract-kys");
     res.json(updated);
   }));
 
@@ -2842,6 +2873,7 @@ export function registerRoutes(app: Express) {
       note: parsed.data.reviewNote || null,
       actorId: req.session.userId!,
     });
+    void notifyReviewDecision(profile.startupId, "KYS profile", parsed.data.status, parsed.data.reviewNote || null, "/contract-kys");
     res.json(updated);
   }));
 

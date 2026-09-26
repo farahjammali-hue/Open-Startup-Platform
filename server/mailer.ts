@@ -30,6 +30,11 @@ const FROM = SMTP_FROM || SMTP_USER || "no-reply@open-startup.org";
 const BRAND = "#1d2853";
 const ACCENT = "#469BE2";
 
+/** Admin-typed notes and titles go into HTML emails verbatim otherwise. */
+function escapeHtml(text: string): string {
+  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
 function verificationHtml(name: string, link: string): string {
   return `
   <div style="font-family:Montserrat,Arial,sans-serif;max-width:520px;margin:0 auto;color:${BRAND}">
@@ -538,6 +543,90 @@ export async function sendApplicationDecision(opts: {
     return true;
   } catch (error) {
     console.error(`[mailer] application decision to ${opts.to} failed:`, error);
+    return false;
+  }
+}
+
+/**
+ * A1: tells the founder an admin decided on something they submitted for
+ * review (program agreement, KYS profile, or a data-room document). Before
+ * this, decisions were silent and founders only noticed on their next login.
+ */
+export async function sendReviewDecision(opts: {
+  to: string;
+  name: string | null;
+  /** What was reviewed, already human-readable ("Program agreement", "KYS profile", a document title). */
+  itemLabel: string;
+  approved: boolean;
+  /** The admin's review note, shown verbatim when present. */
+  note: string | null;
+  /** Absolute link to the page where the founder can see or fix it. */
+  link: string;
+}): Promise<boolean> {
+  const subject = opts.approved
+    ? `${opts.itemLabel} approved`
+    : `Changes requested on your ${opts.itemLabel}`;
+
+  if (!transporter) {
+    console.log("\n==================== REVIEW DECISION ====================");
+    console.log(`  To: ${opts.to} — ${opts.itemLabel}: ${opts.approved ? "APPROVED" : "CHANGES REQUESTED"}`);
+    if (opts.note) console.log(`  Note: ${opts.note}`);
+    console.log("  (SMTP not configured — no email was sent.)");
+    console.log("==========================================================\n");
+    return false;
+  }
+
+  const noteHtml = opts.note
+    ? `<div style="margin:16px 0;padding:14px 16px;background:#f8fafc;border-left:3px solid ${ACCENT};border-radius:0 8px 8px 0">
+         <div style="font-size:11px;letter-spacing:1px;text-transform:uppercase;color:#94a3b8;margin-bottom:4px">Note from the team</div>
+         <div style="font-size:14px;line-height:1.6;color:#475569;white-space:pre-wrap">${escapeHtml(opts.note)}</div>
+       </div>`
+    : "";
+
+  const body = opts.approved
+    ? `<p style="font-size:14px;line-height:1.6;color:#475569">
+         Hi ${opts.name || "there"}, your <strong>${escapeHtml(opts.itemLabel)}</strong> has been reviewed and approved by the Open Startup team.
+       </p>
+       ${noteHtml}`
+    : `<p style="font-size:14px;line-height:1.6;color:#475569">
+         Hi ${opts.name || "there"}, the Open Startup team reviewed your <strong>${escapeHtml(opts.itemLabel)}</strong> and asked for changes before it can be approved.
+       </p>
+       ${noteHtml}
+       <p style="font-size:14px;line-height:1.6;color:#475569">
+         Please update it on the platform and resubmit.
+       </p>`;
+
+  const html = `
+  <div style="font-family:Montserrat,Arial,sans-serif;max-width:520px;margin:0 auto;color:${BRAND}">
+    <div style="background:${BRAND};border-radius:14px 14px 0 0;padding:28px 32px;color:#fff">
+      <div style="font-size:20px;font-weight:800">Open Startup</div>
+      <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:${ACCENT}">Platform</div>
+    </div>
+    <div style="border:1px solid #eef0f6;border-top:0;border-radius:0 0 14px 14px;padding:32px">
+      <h1 style="font-size:20px;margin:0 0 12px">${opts.approved ? "Approved" : "Changes requested"}</h1>
+      ${body}
+      <p style="margin:24px 0 0">
+        <a href="${opts.link}" style="background:${BRAND};color:#fff;text-decoration:none;padding:12px 22px;border-radius:10px;font-weight:700;font-size:14px;display:inline-block">
+          Open the platform
+        </a>
+      </p>
+    </div>
+  </div>`;
+
+  try {
+    await transporter.sendMail({
+      from: `"Open Startup" <${FROM}>`,
+      to: opts.to,
+      subject,
+      html,
+      text:
+        `${opts.itemLabel}: ${opts.approved ? "approved" : "changes requested"}.` +
+        (opts.note ? `\nNote from the team: ${opts.note}` : "") +
+        `\n${opts.link}`,
+    });
+    return true;
+  } catch (error) {
+    console.error(`[mailer] review decision to ${opts.to} failed:`, error);
     return false;
   }
 }
