@@ -47,10 +47,19 @@ interface TargetedSession {
 interface TrainingSessionNoteRow {
   sessionId: string;
   teamMembersPresence: string | null;
+  // Legacy founder-recap fields (superseded, shown only if old rows have them).
   pointsDiscussed: string | null;
   whatIsGoingWell: string | null;
   whatIsNotGoingWell: string | null;
   actionItems: string | null;
+  // AI recap saved by the Claude connector (same shape as mentorship;
+  // mentorComments carries the trainer's comments here).
+  progressHighlights: string | null;
+  mentorComments: string | null;
+  needsHighlighted: string | null;
+  nextMeetingCheckIns: string | null;
+  actionItemsForOst: string | null;
+  aiGeneratedAt: string | null;
   trainerRating: number | null;
   trainerFeedback: string | null;
 }
@@ -189,7 +198,14 @@ export default function AdminTrainingStartup() {
             {sessions.map((s) => {
               const notes = notesBySessionId.get(s.id) ?? null;
               const hasRecap = Boolean(
-                notes && (notes.pointsDiscussed || notes.whatIsGoingWell || notes.whatIsNotGoingWell || notes.actionItems || notes.teamMembersPresence),
+                notes &&
+                  (notes.aiGeneratedAt ||
+                    notes.progressHighlights ||
+                    notes.pointsDiscussed ||
+                    notes.whatIsGoingWell ||
+                    notes.whatIsNotGoingWell ||
+                    notes.actionItems ||
+                    notes.teamMembersPresence),
               );
               const hasFeedback = Boolean(notes && (notes.trainerRating || notes.trainerFeedback));
               return (
@@ -267,8 +283,15 @@ function TrainingSessionNotesModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // AI recap first (what the connector writes today), legacy fields after
+  // (old hand-written rows only). Same labels as the mentorship recap.
   const recapRows: [string, string | null][] = [
     ["Team members presence", notes?.teamMembersPresence ?? null],
+    ["Progress / highlights", notes?.progressHighlights ?? null],
+    ["Trainer comments", notes?.mentorComments ?? null],
+    ["Needs highlighted", notes?.needsHighlighted ?? null],
+    ["To check next meeting", notes?.nextMeetingCheckIns ?? null],
+    ["Action items for Open Startup", notes?.actionItemsForOst ?? null],
     ["Points discussed", notes?.pointsDiscussed ?? null],
     ["What's going well", notes?.whatIsGoingWell ?? null],
     ["What's not going well", notes?.whatIsNotGoingWell ?? null],

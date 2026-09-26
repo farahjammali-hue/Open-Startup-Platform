@@ -516,6 +516,22 @@ function surveyToColumns(d: any) {
   };
 }
 
+/**
+ * Phase 2a: PATCH semantics for the survey fields. surveyToColumns null-fills
+ * everything missing (right for the one-time onboarding submit, catastrophic
+ * for edits — the Edit Startup form sends 8 fields and used to erase the
+ * rest, including "Year of constitution" and amountRaised). Only keys the
+ * caller actually sent make it into the update.
+ */
+function surveyToPatchColumns(d: any) {
+  const full = surveyToColumns(d) as Record<string, unknown>;
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(full)) {
+    if (d[key] !== undefined) out[key] = value;
+  }
+  return out;
+}
+
 export function registerRoutes(app: Express) {
   /* ---------------- Email / password auth ---------------- */
   app.post("/api/auth/register", ah(async (req, res) => {
@@ -685,9 +701,16 @@ export function registerRoutes(app: Express) {
     }
     const { firstName, lastName, age, country } = parsed.data;
     const current = await storage.getUserById(req.session.userId!);
+    // 2f: Google-only accounts have a display name but no stored first/last
+    // parts. Rebuilding the name from parts used to drop the surname the
+    // moment such a user edited their first name — fall back to splitting
+    // the existing display name instead.
+    const [currentFirst, ...currentRest] = (current?.name ?? "").trim().split(/\s+/);
+    const fallbackFirst = current?.firstName ?? (currentFirst || "");
+    const fallbackLast = current?.lastName ?? currentRest.join(" ");
     const name =
       firstName !== undefined || lastName !== undefined
-        ? `${firstName ?? current?.firstName ?? ""} ${lastName ?? current?.lastName ?? ""}`.trim()
+        ? `${firstName ?? fallbackFirst} ${lastName ?? fallbackLast}`.trim()
         : undefined;
     const user = await storage.updateAccount(req.session.userId!, {
       firstName,
@@ -909,7 +932,7 @@ export function registerRoutes(app: Express) {
         errors: parsed.error.flatten(),
       });
     }
-    const startup = await storage.updateStartup(owned.id, surveyToColumns(parsed.data));
+    const startup = await storage.updateStartup(owned.id, surveyToPatchColumns(parsed.data));
     res.json(startup);
   }));
 
@@ -2846,6 +2869,7 @@ export function registerRoutes(app: Express) {
       startup: {
         shortDescription: startup.shortDescription,
         detailedDescription: startup.detailedDescription,
+        coreBusinessOverview: startup.coreBusinessOverview,
         location: startup.location,
         stage: startup.stage,
         dataRoomLink: startup.dataRoomLink,

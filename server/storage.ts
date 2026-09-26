@@ -522,12 +522,12 @@ export const storage = {
         totalFundingRaised: 350000,
         totalFundingDilutive: 300000,
         totalFundingNonDilutive: 50000,
-        investmentStage: "Seed",
+        investmentStage: "seed",
         roundSize: 500000,
         committedFunds: 350000,
         mainTechnologies: "IoT solar meters, embedded credit-scoring engine, USSD/mobile-money integration",
         productType: "Hardware-enabled fintech platform",
-        productStage: "Live with paying customers",
+        productStage: "launched",
         trlLevel: 7,
         totalAddressableMarket: "$18B pay-as-you-go solar market across Sub-Saharan Africa",
         serviceableAddressableMarket: "$2.1B across Nigeria, Ghana and Ivory Coast",
@@ -645,10 +645,10 @@ export const storage = {
     ]);
 
     await db.insert(startupCrmEntries).values([
-      { startupId, category: "investor", name: "Savanna Seed Fund", type: "VC", priority: "high", status: "term sheet", introVia: "Demo Day", ctaStartup: "Send updated data room", ctaOst: "Warm intro follow-up" },
-      { startupId, category: "investor", name: "Angel syndicate (climate-focused)", type: "Angels", priority: "medium", status: "in discussion" },
-      { startupId, category: "client", name: "Kano Households Cooperative", type: "B2B2C", priority: "high", status: "active", contractValue: "$40,000/yr" },
-      { startupId, category: "partner", name: "PanAfricom Mobile Money", type: "Distribution", priority: "high", status: "signed", howItHelps: "Access to 2M+ registered mobile-money users in Ghana" },
+      { startupId, category: "investor", name: "Savanna Seed Fund", type: "Investment & Financial Partners", priority: "High", status: "Due diligence", introVia: "Demo Day", ctaStartup: "Send updated data room", ctaOst: "Warm intro follow-up" },
+      { startupId, category: "investor", name: "Angel syndicate (climate-focused)", type: "Investment & Financial Partners", priority: "Important", status: "Ongoing conversations" },
+      { startupId, category: "client", name: "Kano Households Cooperative", type: "Business / Distribution Partners", priority: "High", status: "Committed/Signed", contractValue: "$40,000/yr" },
+      { startupId, category: "partner", name: "PanAfricom Mobile Money", type: "Business / Distribution Partners", priority: "High", status: "Committed/Signed", howItHelps: "Access to 2M+ registered mobile-money users in Ghana" },
     ]);
 
     await db.insert(monthlyUpdates).values([
@@ -662,33 +662,33 @@ export const storage = {
     ]);
 
     await db.insert(teamMembers).values([
-      { startupId, name: "Amara Okafor", role: "Co-Founder & CEO", type: "founder", gender: "Female", educationalBackground: "MBA, Lagos Business School", professionalBackground: "Ex-Interswitch, payments", yearsOfExperience: 9, currentInvolvement: "Full-time" },
-      { startupId, name: "Tunde Bello", role: "Co-Founder & CTO", type: "founder", gender: "Male", educationalBackground: "BSc Electrical Engineering, University of Lagos", professionalBackground: "Ex-Arnergy, solar hardware", yearsOfExperience: 8, currentInvolvement: "Full-time" },
+      { startupId, name: "Amara Okafor", role: "Co-Founder & CEO", type: "founder", gender: "Female", educationalBackground: "MBA, Lagos Business School", professionalBackground: "Ex-Interswitch, payments", yearsOfExperience: 9, currentInvolvement: "full_time" },
+      { startupId, name: "Tunde Bello", role: "Co-Founder & CTO", type: "founder", gender: "Male", educationalBackground: "BSc Electrical Engineering, University of Lagos", professionalBackground: "Ex-Arnergy, solar hardware", yearsOfExperience: 8, currentInvolvement: "full_time" },
       { startupId, name: "Fatima Sani", role: "Head of Operations", type: "full_time" },
       { startupId, name: "Kwame Mensah", role: "Ghana Country Lead", type: "full_time" },
     ]);
 
     await db.insert(capTableEntries).values([
-      { startupId, name: "Amara Okafor", percentage: 42, currentInvolvement: "Full-time" },
-      { startupId, name: "Tunde Bello", percentage: 38, currentInvolvement: "Full-time" },
-      { startupId, name: "Savanna Seed Fund", percentage: 8, currentInvolvement: "Investor" },
-      { startupId, name: "ESOP pool", percentage: 7, currentInvolvement: "N/A" },
-      { startupId, name: "Angel syndicate", percentage: 5, currentInvolvement: "Investor" },
+      { startupId, name: "Amara Okafor", percentage: 42, currentInvolvement: "full_time" },
+      { startupId, name: "Tunde Bello", percentage: 38, currentInvolvement: "full_time" },
+      { startupId, name: "Savanna Seed Fund", percentage: 8, currentInvolvement: "inactive" },
+      { startupId, name: "ESOP pool", percentage: 7, currentInvolvement: "inactive" },
+      { startupId, name: "Angel syndicate", percentage: 5, currentInvolvement: "inactive" },
     ]);
 
     await db.insert(startupFundingRounds).values([
-      { startupId, amount: 50000, investorName: "Climate Grant Facility", fundingType: "Grant", round: "Pre-Seed", roundDate: "2022-09", dealTerms: "Non-dilutive" },
-      { startupId, amount: 300000, investorName: "Savanna Seed Fund, angel syndicate", fundingType: "Equity", round: "Seed", roundDate: "2025-11", dealTerms: "SAFE, $4M cap, 20% discount" },
+      { startupId, amount: 50000, investorName: "Climate Grant Facility", fundingType: "grant", round: "Pre-Seed", roundDate: "2022-09", dealTerms: "Non-dilutive" },
+      { startupId, amount: 300000, investorName: "Savanna Seed Fund, angel syndicate", fundingType: "equity", round: "Seed", roundDate: "2025-11", dealTerms: "SAFE, $4M cap, 20% discount" },
     ]);
 
     await db.insert(startupPatents).values([
-      { startupId, applicantName: "Verdant Energy Ltd", country: "Nigeria", applicationType: "Utility patent", priorityDate: "2025-02-10", status: "Filed", nextAction: "Awaiting examination" },
+      { startupId, applicantName: "Verdant Energy Ltd", country: "Nigeria", applicationType: "with_priority", priorityDate: "2025-02-10", status: "pending", nextAction: "Awaiting examination" },
     ]);
 
     await db.insert(startupTargetMarkets).values([
-      { startupId, market: "Nigeria", status: "Active" },
-      { startupId, market: "Ghana", status: "Launching" },
-      { startupId, market: "Ivory Coast", status: "Planned" },
+      { startupId, market: "Nigeria", status: "operating_market" },
+      { startupId, market: "Ghana", status: "early_clients" },
+      { startupId, market: "Ivory Coast", status: "market_research" },
     ]);
 
     await db.insert(startupCompetitors).values([
@@ -698,14 +698,14 @@ export const storage = {
     ]);
 
     await db.insert(startupClientStats).values([
-      { startupId, clientType: "b2c", totalClients: 41500, majorClientNames: "N/A (individual households)", retentionRate: 0.91 },
+      { startupId, clientType: "b2c", totalClients: 41500, majorClientNames: "N/A (individual households)", retentionRate: 91 },
     ]);
     await db.insert(startupClientDetails).values([
       { startupId, clientName: "Kano Households Cooperative", scopeOfWork: "Bulk household solar financing", dealValue: 40000 },
     ]);
 
     await db.insert(startupPartnerStats).values([
-      { startupId, partnerType: "Distribution", totalPartners: 4, majorPartnerNames: "PanAfricom Mobile Money", retentionRate: 1 },
+      { startupId, partnerType: "business_distribution", totalPartners: 4, majorPartnerNames: "PanAfricom Mobile Money", retentionRate: 100 },
     ]);
     await db.insert(startupPartnerDetails).values([
       { startupId, partnerName: "PanAfricom Mobile Money", scopeOfPartnership: "Repayment collection + customer distribution", nextSteps: "Expand integration to Ghana in Q1" },
@@ -1050,11 +1050,28 @@ export const storage = {
   // Startups with a monthly update flagged at-risk/off-track, or where the
   // founder explicitly asked for support — names only, no document contents.
   async listStartupsNeedingAttention(): Promise<{ companyName: string; status: string; supportNeeded: string | null }[]> {
-    return db
-      .select({ companyName: startups.companyName, status: monthlyUpdates.status, supportNeeded: monthlyUpdates.supportNeeded })
+    // Only each startup's LATEST check-in counts (an old at-risk quarter
+    // shouldn't flag a now-healthy startup), and admin demo startups are out.
+    const latest = db
+      .selectDistinctOn([monthlyUpdates.startupId], {
+        startupId: monthlyUpdates.startupId,
+        status: monthlyUpdates.status,
+        supportNeeded: monthlyUpdates.supportNeeded,
+      })
       .from(monthlyUpdates)
-      .innerJoin(startups, eq(monthlyUpdates.startupId, startups.id))
-      .where(sql`${monthlyUpdates.status} != 'on_track' or (${monthlyUpdates.supportNeeded} is not null and ${monthlyUpdates.supportNeeded} != '')`)
+      .orderBy(monthlyUpdates.startupId, desc(monthlyUpdates.periodYear), desc(monthlyUpdates.periodQuarter), desc(monthlyUpdates.updatedAt))
+      .as("latest_update");
+    return db
+      .select({ companyName: startups.companyName, status: latest.status, supportNeeded: latest.supportNeeded })
+      .from(latest)
+      .innerJoin(startups, eq(latest.startupId, startups.id))
+      .innerJoin(users, eq(users.id, startups.userId))
+      .where(
+        and(
+          ne(users.role, "admin"),
+          sql`${latest.status} != 'on_track' or (${latest.supportNeeded} is not null and ${latest.supportNeeded} != '')`,
+        ),
+      )
       .orderBy(asc(startups.companyName));
   },
 
@@ -2562,6 +2579,13 @@ export const storage = {
       whatIsGoingWell: null,
       whatIsNotGoingWell: null,
       actionItems: null,
+      // AI recap fields, so real and empty notes share one shape.
+      progressHighlights: null,
+      mentorComments: null,
+      needsHighlighted: null,
+      nextMeetingCheckIns: null,
+      actionItemsForOst: null,
+      aiGeneratedAt: null,
       trainerRating: null,
       trainerFeedback: null,
     };

@@ -7,7 +7,10 @@ export interface ReadinessInput {
   /** Core profile fields from the startups row. */
   startup: {
     shortDescription?: string | null;
+    /** Survey-era long description — no current screen writes it. */
     detailedDescription?: string | null;
+    /** Card 2 "Brief Description" — the long description founders CAN write today. */
+    coreBusinessOverview?: string | null;
     location?: string | null;
     stage?: string | null;
     dataRoomLink?: string | null;
@@ -66,7 +69,9 @@ export function computeApplicationReadiness(input: ReadinessInput): Readiness {
     {
       key: "profile",
       label: "Company profile filled in (description, location, stage)",
-      ok: filled(s.shortDescription) && filled(s.detailedDescription) && filled(s.location) && filled(s.stage),
+      // Either long-description field counts: detailedDescription is
+      // survey-era with no live editor, Card 2 is what founders fill today.
+      ok: filled(s.shortDescription) && (filled(s.coreBusinessOverview) || filled(s.detailedDescription)) && filled(s.location) && filled(s.stage),
       link: "/dashboard",
     },
     {

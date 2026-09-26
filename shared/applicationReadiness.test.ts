@@ -7,7 +7,8 @@ const NOW = new Date(2026, 8, 26); // Sep 26, 2026
 const COMPLETE = {
   startup: {
     shortDescription: "Solar for shops",
-    detailedDescription: "Long story",
+    detailedDescription: null,
+    coreBusinessOverview: "Long story via Card 2",
     location: "Tunis",
     stage: "growth",
     dataRoomLink: null,
@@ -60,5 +61,20 @@ describe("computeApplicationReadiness", () => {
       startup: { ...COMPLETE.startup, shortDescription: "  " },
     });
     expect(r.checks.find((c) => c.key === "profile")!.ok).toBe(false);
+  });
+
+  it("either long description satisfies the profile check (2c)", () => {
+    const cardTwoOnly = computeApplicationReadiness(COMPLETE);
+    expect(cardTwoOnly.checks.find((c) => c.key === "profile")!.ok).toBe(true);
+    const legacyOnly = computeApplicationReadiness({
+      ...COMPLETE,
+      startup: { ...COMPLETE.startup, coreBusinessOverview: null, detailedDescription: "Survey-era text" },
+    });
+    expect(legacyOnly.checks.find((c) => c.key === "profile")!.ok).toBe(true);
+    const neither = computeApplicationReadiness({
+      ...COMPLETE,
+      startup: { ...COMPLETE.startup, coreBusinessOverview: "", detailedDescription: null },
+    });
+    expect(neither.checks.find((c) => c.key === "profile")!.ok).toBe(false);
   });
 });

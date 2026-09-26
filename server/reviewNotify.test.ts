@@ -438,3 +438,74 @@ describe("investment applications (Phase D5)", () => {
     expect(state.logs[0]).toMatchObject({ kind: "investment_decision", startupId: "s1", meta: expect.objectContaining({ status: "accepted" }) });
   });
 });
+
+
+describe("data-integrity fixes (Phase 2)", () => {
+  it("2a: editing a startup with a partial payload never nulls the missing fields", async () => {
+    const updates: any[] = [];
+    Object.assign(fake.storage, {
+      getUserById: async (id: string) =>
+        id === "admin1"
+          ? { id, email: "admin@open-startup.org", role: "admin", isActive: true }
+          : { id, email: "f@x.io", role: "startup", isActive: true },
+      getOwnedStartup: async (id: string) => ({ id, userId: "u9", companyName: "Acme" }),
+      updateStartup: async (id: string, data: any) => {
+        updates.push(data);
+        return { id, ...data };
+      },
+    });
+    // The Edit Startup form's real payload: 8 fields, nothing else.
+    const res = await fetch(`${base}/api/startups/s1`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json", "x-test-user": "u9" },
+      body: JSON.stringify({
+        companyName: "Acme",
+        shortDescription: "Solar",
+        location: "Tunisia",
+        markets: ["Climate"],
+        stage: "growth",
+        website: "https://acme.io",
+        links: { linkedin: "https://linkedin.com/company/acme" },
+        deckUrl: "/uploads/decks/s1.pdf?v=1",
+      }),
+    });
+    expect(res.status).toBe(200);
+    const written = updates[0];
+    expect(written.companyName).toBe("Acme");
+    // The fields the form did NOT send must not appear in the update at all.
+    for (const key of ["startedYear", "amountRaised", "revenueLastMonth", "isRaising", "productVideoUrl", "isProfitable", "customerTypes"]) {
+      expect(Object.prototype.hasOwnProperty.call(written, key), key).toBe(false);
+    }
+  });
+
+  it("2b: the Initial Data schema accepts the onboarding deck's relative path", async () => {
+    const { startupProfileOverviewSchema } = await import("@shared/schema");
+    const relative = startupProfileOverviewSchema.safeParse({ deckUrl: "/uploads/decks/abc.pdf?v=123" });
+    expect(relative.success).toBe(true);
+    const absolute = startupProfileOverviewSchema.safeParse({ deckUrl: "https://docs.example.com/deck" });
+    expect(absolute.success).toBe(true);
+    const garbage = startupProfileOverviewSchema.safeParse({ deckUrl: "not a link" });
+    expect(garbage.success).toBe(false);
+  });
+
+  it("2f: a Google-only account editing just the first name keeps the surname", async () => {
+    const updates: any[] = [];
+    Object.assign(fake.storage, {
+      getUserById: async (id: string) =>
+        id === "admin1"
+          ? { id, email: "admin@open-startup.org", role: "admin", isActive: true }
+          : { id, email: "g@x.io", role: "startup", isActive: true, name: "Ghazi Dhouib", firstName: null, lastName: null },
+      updateAccount: async (id: string, data: any) => {
+        updates.push(data);
+        return { id, email: "g@x.io", ...data };
+      },
+    });
+    const res = await fetch(`${base}/api/account`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json", "x-test-user": "u9" },
+      body: JSON.stringify({ firstName: "Ghazi-Updated" }),
+    });
+    expect(res.status).toBe(200);
+    expect(updates[0].name).toBe("Ghazi-Updated Dhouib");
+  });
+});

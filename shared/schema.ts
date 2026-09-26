@@ -1387,6 +1387,23 @@ export const changePasswordSchema = z
 const optionalUrl = z.string().url("Enter a valid URL").optional().or(z.literal(""));
 
 /**
+ * Phase 2b: a link that may also be one of the platform's own uploads.
+ * Onboarding stores the pitch deck as a root-relative path
+ * ("/uploads/decks/<id>.pdf?v=..."), which z.string().url() rejects — that
+ * single field made the whole Initial Data "Save changes" fail with a 400
+ * for every startup that uploaded a deck during onboarding.
+ */
+const urlOrUploadPath = z
+  .string()
+  .max(500)
+  .refine(
+    (v) => v === "" || v.startsWith("/uploads/") || z.string().url().safeParse(v).success,
+    "Enter a valid URL",
+  )
+  .optional()
+  .or(z.literal(""));
+
+/**
  * Full survey validation reflecting the mapped required / optional / conditional
  * rules from the First Login Survey.
  */
@@ -1543,7 +1560,7 @@ export const startupProfileOverviewSchema = z.object({
   businessModelType: z.enum(["b2b", "b2c", "b2b2c"]).optional().or(z.literal("")), // superseded by businessModelTypes
   businessModelTypes: z.array(z.enum(BUSINESS_MODEL_VALUES)).optional(),
   dataRoomLink: z.string().url("Enter a valid URL").max(500).optional().or(z.literal("")),
-  deckUrl: z.string().url("Enter a valid URL").max(500).optional().or(z.literal("")),
+  deckUrl: urlOrUploadPath,
   // Card 2 / 3: Brief Description / Unique Value Proposition
   coreBusinessOverview: z.string().max(1600).optional().or(z.literal("")),
   uniqueValueProposition: z.string().max(1600).optional().or(z.literal("")),
