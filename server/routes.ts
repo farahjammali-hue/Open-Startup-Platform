@@ -88,6 +88,7 @@ import {
 } from "./zoom";
 import { TRANSCRIPTS_DIR } from "./transcripts";
 import { declarationFilePath, hasDeclarationFile } from "./adobeSign";
+import { postOps } from "./notify";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const LOGOS_DIR = path.resolve(__dirname, "..", "uploads", "logos");
@@ -900,6 +901,7 @@ export function registerRoutes(app: Express) {
     // pending_approval gate in App.tsx and the /api/admin/approvals routes.
     await storage.markPendingApproval(user.id);
     res.json(startup);
+    postOps(`🆕 New application: ${startup.companyName} (${user.email}) is waiting for approval — ${APP_URL}/admin/approvals`);
 
     // Best-effort, after responding: a mail hiccup must not fail the
     // submission the applicant is waiting on.
@@ -1550,6 +1552,7 @@ export function registerRoutes(app: Express) {
           action: "uploaded",
           actorId: req.session.userId!,
         });
+        postOps(`📄 ${startup.companyName} uploaded their signed program agreement — review it at ${APP_URL}/admin/startups/${startup.id}/contract-kys`);
         res.status(201).json(contract);
       } catch (e) {
         next(e);
@@ -1654,6 +1657,7 @@ export function registerRoutes(app: Express) {
       action: "submitted",
       actorId: req.session.userId!,
     });
+    postOps(`✅ KYS submitted by ${startup.companyName} — review it at ${APP_URL}/admin/startups/${startup.id}/contract-kys`);
     res.status(201).json(profile);
   }));
 
@@ -1696,6 +1700,9 @@ export function registerRoutes(app: Express) {
       return res.status(400).json({ message: parsed.error.errors[0].message });
     }
     const now = new Date();
+    if (parsed.data.status && parsed.data.status !== "on_track") {
+      postOps(`⚠️ ${startup.companyName} marked their quarterly check-in "${parsed.data.status.replace("_", " ")}"${parsed.data.supportNeeded ? ` — support asked: ${parsed.data.supportNeeded.slice(0, 200)}` : ""}`);
+    }
     const update = await storage.upsertMonthlyUpdate(startup.id, {
       periodMonth: now.getMonth() + 1,
       periodQuarter: Math.ceil((now.getMonth() + 1) / 3),
@@ -2296,8 +2303,11 @@ export function registerRoutes(app: Express) {
       const files: any[] = body.payload.object.recording_files ?? [];
       const video = files.find((f) => f.file_type === "MP4" && f.play_url);
       if (video) {
-        if (mentorshipSession) await storage.updateMentorshipModuleSession(session.id, { recordingUrl: video.play_url });
-        else await storage.updateTrainingModuleSession(session.id, { recordingUrl: video.play_url });
+        // C1: a finished recording means the session happened — stop showing
+        // it as "upcoming" forever. Same below for the transcript event,
+        // whichever arrives first.
+        if (mentorshipSession) await storage.updateMentorshipModuleSession(session.id, { recordingUrl: video.play_url, status: "completed" });
+        else await storage.updateTrainingModuleSession(session.id, { recordingUrl: video.play_url, status: "completed" });
       }
     }
 
@@ -2311,8 +2321,8 @@ export function registerRoutes(app: Express) {
         try {
           const buf = await downloadZoomRecordingFile(transcript.download_url, downloadToken);
           fs.writeFileSync(path.join(TRANSCRIPTS_DIR, filename), buf);
-          if (mentorshipSession) await storage.updateMentorshipModuleSession(session.id, { transcriptUrl });
-          else await storage.updateTrainingModuleSession(session.id, { transcriptUrl });
+          if (mentorshipSession) await storage.updateMentorshipModuleSession(session.id, { transcriptUrl, status: "completed" });
+          else await storage.updateTrainingModuleSession(session.id, { transcriptUrl, status: "completed" });
         } catch (e) {
           console.error("[zoom webhook] transcript download failed:", e);
         }

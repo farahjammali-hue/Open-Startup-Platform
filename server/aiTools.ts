@@ -2,6 +2,7 @@ import { z } from "zod";
 import { storage } from "./storage";
 import { readTranscriptFile, vttToPlainText } from "./transcripts";
 import { ALL_METRIC_KEYS } from "@shared/metricsCatalog";
+import { postOps } from "./notify";
 
 /**
  * The data lookups (and one narrow write) exposed through the Claude
@@ -313,6 +314,10 @@ async function auditToolCall(name: string, input: any, ctx: AiToolContext, resul
       error: typeof err === "string" ? err.slice(0, 500) : null,
       resultSummary: summarizeResult(result),
     });
+    const def = AI_TOOLS.find((t) => t.name === name);
+    if (def && !def.readOnly && typeof err !== "string") {
+      postOps(`🤖 Claude (as ${ctx.userEmail}) ran ${name} — ${summarizeResult(result)}`);
+    }
   } catch (e) {
     console.error("[mcp] audit write failed:", e);
   }
