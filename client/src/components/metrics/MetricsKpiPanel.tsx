@@ -9,6 +9,7 @@ import {
   DATA_ROOM_ITEMS, COMPANY_PROFILE_GROUPS,
   type MetricSection, type MetricDef,
 } from "@shared/metricsCatalog";
+import { computeDerived, type DerivedSuggestion } from "@shared/derivedMetrics";
 import {
   CircleNotch as Loader2, Plus, Trash as Trash2, CaretDown as ChevronDown, Table as Table2, ListChecks, Download,
   type Icon as PhosphorIcon,
@@ -114,6 +115,16 @@ export function MetricsKpiPanel({ apiBase, startupName }: { apiBase: string; sta
     setProfileDirty(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data]);
+
+  // A2: metrics that follow from others (LTV/CAC, monthly revenue change)
+  // are suggested live instead of hand-calculated; the previous period for
+  // January is the "initial" baseline. Applying a suggestion just fills the
+  // same editable cell, so overrides and history behave as before.
+  const derivedForSelected = useMemo(() => {
+    const idx = periods.indexOf(selectedPeriod);
+    const prev = idx > 0 ? values[periods[idx - 1]] : undefined;
+    return computeDerived(values[selectedPeriod], prev);
+  }, [values, periods, selectedPeriod]);
 
   function setCell(period: string, key: string, val: string) {
     setValues((prev) => ({ ...prev, [period]: { ...prev[period], [key]: val } }));
@@ -274,6 +285,7 @@ export function MetricsKpiPanel({ apiBase, startupName }: { apiBase: string; sta
               periodLabel={periodLabel(selectedPeriod, year)}
               values={values[selectedPeriod]}
               setCell={setCell}
+              derived={derivedForSelected}
               note={(profile[section.noteField as keyof MetricsProfile] as string | null) ?? ""}
               onNoteChange={(v) => setNote(section.noteField as keyof MetricsProfile, v)}
             />
@@ -412,6 +424,7 @@ function SectionSimpleForm({
   periodLabel: periodLabelText,
   values,
   setCell,
+  derived,
   note,
   onNoteChange,
 }: {
@@ -422,6 +435,7 @@ function SectionSimpleForm({
   periodLabel: string;
   values: Record<string, string> | undefined;
   setCell: (period: string, key: string, val: string) => void;
+  derived: Record<string, DerivedSuggestion>;
   note: string;
   onNoteChange: (v: string) => void;
 }) {
@@ -432,18 +446,37 @@ function SectionSimpleForm({
       {isOpen && (
         <div className="border-t border-slate-100 p-6 pt-5">
           <div className="space-y-3">
-            {section.metrics.map((metric) => (
-              <div key={metric.key} className="flex items-center justify-between gap-4">
-                <label htmlFor={`${section.key}-${period}-${metric.key}`} className="text-sm text-slate-600">{metric.label}</label>
-                <MetricInput
-                  metric={metric}
-                  id={`${section.key}-${period}-${metric.key}`}
-                  className="ost-input w-36 shrink-0 border-[var(--border-strong)] bg-[var(--bg-subtle)] tabular-nums"
-                  value={values?.[metric.key] ?? ""}
-                  onChange={(e) => setCell(period, metric.key, e.target.value)}
-                />
-              </div>
-            ))}
+            {section.metrics.map((metric) => {
+              const suggestion = derived[metric.key];
+              const current = values?.[metric.key] ?? "";
+              const showSuggestion = !!suggestion && String(suggestion.value) !== current.trim();
+              return (
+                <div key={metric.key}>
+                  <div className="flex items-center justify-between gap-4">
+                    <label htmlFor={`${section.key}-${period}-${metric.key}`} className="text-sm text-slate-600">{metric.label}</label>
+                    <MetricInput
+                      metric={metric}
+                      id={`${section.key}-${period}-${metric.key}`}
+                      className="ost-input w-36 shrink-0 border-[var(--border-strong)] bg-[var(--bg-subtle)] tabular-nums"
+                      value={current}
+                      onChange={(e) => setCell(period, metric.key, e.target.value)}
+                    />
+                  </div>
+                  {showSuggestion && (
+                    <div className="mt-1 flex items-center justify-end gap-2 text-xs text-slate-400">
+                      <span>Calculated: <span className="font-semibold text-slate-500">{suggestion.value}</span> ({suggestion.formula})</span>
+                      <button
+                        type="button"
+                        onClick={() => setCell(period, metric.key, String(suggestion.value))}
+                        className="font-semibold text-secondary hover:underline"
+                      >
+                        Use it
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
           <label className="ost-label mt-5">{section.noteLabel}</label>
           <textarea className="ost-input min-h-[50px]" value={note} onChange={(e) => onNoteChange(e.target.value)} />
