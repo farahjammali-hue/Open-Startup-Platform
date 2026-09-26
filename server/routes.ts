@@ -2916,21 +2916,27 @@ export function registerRoutes(app: Express) {
     if (pending) return res.status(409).json({ message: "An application is already being reviewed." });
 
     // Server-side enforcement of the same checklist the page shows.
-    const readiness = await investmentReadinessFor(startup);
+    const [readiness, canonical] = await Promise.all([
+      investmentReadinessFor(startup),
+      storage.canonicalFactsFor(startup),
+    ]);
     if (!readiness.ready) {
       return res.status(400).json({ message: `Not ready to apply yet — missing: ${readiness.missing.join("; ")}` });
     }
 
-    // Frozen at submit time so the decision stays auditable later.
+    // Frozen at submit time so the decision stays auditable later. Headline
+    // figures come from the canonical resolver (Phase 3a); `canonical` keeps
+    // each number's provenance next to it.
     const snapshot = {
       readiness,
+      canonical,
       headline: {
         companyName: startup.companyName,
         stage: startup.stage,
         location: startup.location,
         revenueLast12Months: startup.revenueLast12Months ?? null,
-        totalFundingRaised: startup.totalFundingRaised ?? null,
-        lastValuation: startup.lastValuation ?? null,
+        totalFundingRaised: canonical.totalRaised.value,
+        lastValuation: canonical.valuation.value,
         graduatedAt: startup.graduatedAt ?? null,
       },
       at: new Date().toISOString(),

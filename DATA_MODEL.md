@@ -129,7 +129,9 @@ Integration columns elsewhere: Zoom (`zoom_meeting_id`, `zoom_host_email`, recor
 
 ## 4. Source-of-truth register (the 15 duplication clusters)
 
-For each fact: **CANONICAL** store first (what Phase 3's `server/canonical.ts` resolves to), then the fallbacks in order, then the stores that should eventually stop being read.
+For each fact: **CANONICAL** store first, then the fallbacks in order, then the stores that should eventually stop being read.
+
+**Implemented (Phase 3a):** `server/canonical.ts` resolves clusters 1–4 and cluster 9's HQ into `{value, source, asOf}` facts; readers go through `storage.canonicalFactsFor` — the Claude connector's `get_startup_profile` and `startup_metric_summary`, and the investment-application snapshot. **Phase 3b:** `rev_monthly_change` and `sales_ltv_cac` carry `derived: true` in `shared/metricsCatalog.ts` and are recomputed from their inputs at display time (charts).
 
 1. **Team size / headcount** — CANONICAL: latest `hr_team_size` (+ other `hr_*`) metric → Card 4 `startups.team_size` → `count(team_members)`. `team_members` is in practice the founders list. Known mislabels: `youth_employees` (count stored, % shown), `hr_pct_youth` (a real %).
 2. **Funding raised** — CANONICAL: Card 6 `total_funding_raised` → `sum(startup_funding_rounds.amount)` → survey `amount_raised` (legacy). Grants: `total_funding_non_dilutive` → latest `fund_grants` → `total_grants` (legacy). Valuation: latest `fund_valuation` → `last_valuation` (legacy). Round terms/size: funding_rounds rows are the detail; `round_terms`/`total_round_size` legacy.

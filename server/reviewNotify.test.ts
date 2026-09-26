@@ -339,6 +339,18 @@ describe("investment applications (Phase D5)", () => {
     timeline: "",
   };
 
+  const FACT = (value: number, source: string) => ({ value, source, asOf: null });
+  const CANONICAL = {
+    teamSize: FACT(12, "metric:hr_team_size"),
+    valuation: FACT(2_600_000, "metric:fund_valuation"),
+    totalRaised: FACT(500_000, "column:total_funding_raised"),
+    grants: FACT(50_000, "column:total_funding_non_dilutive"),
+    cumulativeRevenue: FACT(120_000, "metric:rev_cumulative"),
+    mrr: FACT(9_000, "metric:rev_mrr_b2b+rev_mrr_b2c"),
+    hq: { value: "Tunis", source: "column:location", asOf: null },
+    programTrack: { value: "seed", source: "kys_profiles.track", asOf: null },
+  };
+
   function alumniWorld(over: Record<string, any> = {}) {
     const state: { apps: any[]; logs: any[] } = { apps: [], logs: [] };
     Object.assign(fake.storage, {
@@ -373,6 +385,7 @@ describe("investment applications (Phase D5)", () => {
         return found;
       },
       getStartupById: async () => READY,
+      canonicalFactsFor: async () => CANONICAL,
       logMessage: async (row: any) => state.logs.push(row),
       ...over,
     });
@@ -414,6 +427,9 @@ describe("investment applications (Phase D5)", () => {
     expect(body.status).toBe("submitted");
     expect(body.snapshot.headline.companyName).toBe("Acme");
     expect(body.snapshot.readiness.ready).toBe(true);
+    // 3a: headline figures are the canonical resolver's, provenance kept.
+    expect(body.snapshot.headline.lastValuation).toBe(2_600_000);
+    expect(body.snapshot.canonical.valuation.source).toBe("metric:fund_valuation");
   });
 
   it("a pending application blocks another submission", async () => {

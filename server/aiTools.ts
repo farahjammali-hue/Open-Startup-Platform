@@ -98,8 +98,9 @@ export const AI_TOOLS: AiToolDef[] = [
     name: "get_startup_profile",
     readOnly: true,
     description:
-      "Get one startup's qualitative profile (description, location, markets, stage, track, team size, " +
-      "contract/KYS status) by id. Never returns document/file contents.",
+      "Get one startup's profile by id: description, location, markets, stage, track, contract/KYS status, " +
+      "plus canonical team size and key figures (valuation, total raised, grants, cumulative revenue, MRR), " +
+      "each resolved from the freshest store with its provenance. Never returns document/file contents.",
     parameters: { type: "object", properties: { startupId: { type: "string" } }, required: ["startupId"] },
   },
   {
@@ -111,7 +112,10 @@ export const AI_TOOLS: AiToolDef[] = [
   {
     name: "startup_metric_summary",
     readOnly: true,
-    description: "Sum a numeric metric (valuation, amount raised, or total revenue) across startups, optionally filtered to one track.",
+    description:
+      "Sum a key figure across startups, optionally filtered to one track. Each startup contributes its canonical " +
+      "value (freshest of monthly metrics, profile cards, funding rounds, then survey), so totals match the admin " +
+      "dashboards; the result reports which stores answered.",
     parameters: {
       type: "object",
       properties: {

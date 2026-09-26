@@ -13,6 +13,15 @@ import { Bank, CaretDown, CaretUp, CheckCircle, XCircle, Hourglass, ArrowSquareO
 // spirit as Signup Approvals, but repeatable per startup and with the frozen
 // snapshot alongside the live data links.
 
+/** A canonically resolved figure frozen at submit time (Phase 3a). */
+interface SnapshotFact {
+  value: number | string | null;
+  source: string | null;
+  asOf: string | null;
+}
+
+const factTitle = (f: SnapshotFact) => (f.source ? `From ${f.source}${f.asOf ? ` (${f.asOf})` : ""}` : undefined);
+
 interface AppRow {
   id: string;
   startupId: string;
@@ -21,7 +30,12 @@ interface AppRow {
   ownerEmail: string | null;
   status: "submitted" | "under_review" | "accepted" | "rejected";
   answers: Record<string, string>;
-  snapshot: { headline?: Record<string, unknown>; readiness?: { missing: string[] } ; at?: string };
+  snapshot: {
+    headline?: Record<string, unknown>;
+    canonical?: Partial<Record<"teamSize" | "valuation" | "totalRaised" | "grants" | "cumulativeRevenue" | "mrr", SnapshotFact>>;
+    readiness?: { missing: string[] };
+    at?: string;
+  };
   submittedAt: string | null;
   decidedAt: string | null;
   decisionNote: string | null;
@@ -80,6 +94,7 @@ export default function AdminInvestmentApplications() {
     const meta = STATUS_META[row.status];
     const Icon = meta.icon;
     const headline = row.snapshot?.headline ?? {};
+    const canonical = row.snapshot?.canonical;
     return (
       <div className="ost-card p-5">
         <button onClick={() => setOpenId(opened ? null : row.id)} className="flex w-full items-start justify-between gap-3 text-left">
@@ -121,6 +136,10 @@ export default function AdminInvestmentApplications() {
                   {"revenueLast12Months" in headline && headline.revenueLast12Months != null && <span>Revenue (12m): ${Number(headline.revenueLast12Months).toLocaleString()}</span>}
                   {"totalFundingRaised" in headline && headline.totalFundingRaised != null && <span>Raised to date: ${Number(headline.totalFundingRaised).toLocaleString()}</span>}
                   {"lastValuation" in headline && headline.lastValuation != null && <span>Last valuation: ${Number(headline.lastValuation).toLocaleString()}</span>}
+                  {canonical?.teamSize?.value != null && <span title={factTitle(canonical.teamSize)}>Team size: {Number(canonical.teamSize.value).toLocaleString()}</span>}
+                  {canonical?.mrr?.value != null && <span title={factTitle(canonical.mrr)}>MRR: ${Number(canonical.mrr.value).toLocaleString()}</span>}
+                  {canonical?.cumulativeRevenue?.value != null && <span title={factTitle(canonical.cumulativeRevenue)}>Cumulative revenue: ${Number(canonical.cumulativeRevenue.value).toLocaleString()}</span>}
+                  {canonical?.grants?.value != null && <span title={factTitle(canonical.grants)}>Grants: ${Number(canonical.grants.value).toLocaleString()}</span>}
                 </div>
               </div>
             )}

@@ -63,4 +63,19 @@ describe("MetricsChartsPanel", () => {
     fireEvent.change(screen.getByLabelText("Metric to chart"), { target: { value: "hr_team_size" } });
     expect(screen.getByText(/needs values in at least two periods/)).toBeTruthy();
   });
+
+  it("derived metrics chart from their inputs even when never stored (3b)", async () => {
+    api.mockResolvedValue({
+      entries: [
+        { id: "1", period: "initial", values: { rev_cumulative: 1000 } },
+        { id: "2", period: "2026-01", values: { rev_cumulative: "2,000" } },
+        { id: "3", period: "2026-02", values: { rev_cumulative: 3000 } },
+      ],
+    });
+    renderPanel();
+    await screen.findByText("Trends");
+    fireEvent.change(screen.getByLabelText("Metric to chart"), { target: { value: "rev_monthly_change" } });
+    expect(screen.queryByText(/needs values in at least two periods/)).toBeNull();
+    expect(screen.getByText(/Computed at display time/)).toBeTruthy();
+  });
 });

@@ -1,5 +1,6 @@
 import { eq, ne, and, desc, asc, isNotNull, isNull, sql, count, inArray } from "drizzle-orm";
 import { db } from "./db";
+import { resolveCanonicalFacts, type CanonicalFacts } from "./canonical";
 import {
   users,
   startups,
@@ -960,28 +961,96 @@ export const storage = {
   },
 
   /* ---------------- Curated business-metric lookups (Claude connector) ---------------- */
-  // Sums a single numeric startups column, optionally scoped to a KYS track,
-  // and reports how many startups actually have that field filled in — the
-  // fields here are founder-entered and often incomplete.
+
+  /** Phase 3a: fetch the stores behind every contested fact for one startup
+   * and resolve them (see server/canonical.ts + DATA_MODEL.md §4) into
+   * {value, source, asOf} facts. Pass kysTrack when the caller already has
+   * it, to skip that lookup. */
+  async canonicalFactsFor(startup: Startup, kysTrack?: string | null): Promise<CanonicalFacts> {
+    const [entries, tm, rounds, kys] = await Promise.all([
+      db
+        .select({ period: startupMetricEntries.period, values: startupMetricEntries.values })
+        .from(startupMetricEntries)
+        .where(eq(startupMetricEntries.startupId, startup.id)),
+      db.select({ c: sql<number>`count(*)::int` }).from(teamMembers).where(eq(teamMembers.startupId, startup.id)),
+      db
+        .select({
+          total: sql<number>`coalesce(sum(${startupFundingRounds.amount}), 0)::bigint`,
+          cnt: sql<number>`count(${startupFundingRounds.amount})::int`,
+        })
+        .from(startupFundingRounds)
+        .where(eq(startupFundingRounds.startupId, startup.id)),
+      kysTrack === undefined
+        ? db.select({ track: kysProfiles.track }).from(kysProfiles).where(eq(kysProfiles.startupId, startup.id))
+        : Promise.resolve([{ track: kysTrack }]),
+    ]);
+    return resolveCanonicalFacts({
+      startup,
+      metricEntries: entries,
+      teamMembersCount: tm[0]?.c ?? 0,
+      fundingRoundsTotal: (rounds[0]?.cnt ?? 0) > 0 ? Number(rounds[0]!.total) : null,
+      kysTrack: kys[0]?.track ?? null,
+    });
+  },
+
+  // Phase 3a: each startup contributes its CANONICAL value (freshest of
+  // monthly metrics → Initial Data cards → funding rounds → survey) instead
+  // of one frozen legacy column, so these totals finally match the
+  // dashboards. `sources` reports how many startups answered from which
+  // store — the provenance Claude can quote.
   async startupMetricSummary(
     metric: "lastValuation" | "amountRaised" | "totalRevenueSinceFounding",
     track?: "seed" | "pre_seed",
-  ): Promise<{ total: number; countWithData: number; countTotal: number }> {
-    const col =
-      metric === "lastValuation" ? startups.lastValuation :
-      metric === "amountRaised" ? startups.amountRaised :
-      startups.totalRevenueSinceFounding;
-    const [row] = await db
-      .select({
-        total: sql<number>`coalesce(sum(${col}), 0)::bigint`,
-        countWithData: sql<number>`count(${col})::int`,
-        countTotal: sql<number>`count(distinct ${startups.id})::int`,
-      })
+  ): Promise<{ total: number; countWithData: number; countTotal: number; sources: Record<string, number> }> {
+    const rows = await db
+      .select({ startup: startups })
       .from(startups)
       .innerJoin(users, eq(users.id, startups.userId))
       .leftJoin(kysProfiles, eq(kysProfiles.startupId, startups.id))
       .where(and(ne(users.role, "admin"), track ? eq(kysProfiles.track, track) : undefined));
-    return { total: Number(row?.total ?? 0), countWithData: row?.countWithData ?? 0, countTotal: row?.countTotal ?? 0 };
+    const uniqueRows = [...new Map(rows.map((r) => [r.startup.id, r.startup])).values()];
+    const ids = uniqueRows.map((s) => s.id);
+    const [entries, rounds] = ids.length
+      ? await Promise.all([
+          db
+            .select({ startupId: startupMetricEntries.startupId, period: startupMetricEntries.period, values: startupMetricEntries.values })
+            .from(startupMetricEntries)
+            .where(inArray(startupMetricEntries.startupId, ids)),
+          db
+            .select({
+              startupId: startupFundingRounds.startupId,
+              total: sql<number>`coalesce(sum(${startupFundingRounds.amount}), 0)::bigint`,
+              cnt: sql<number>`count(${startupFundingRounds.amount})::int`,
+            })
+            .from(startupFundingRounds)
+            .where(inArray(startupFundingRounds.startupId, ids))
+            .groupBy(startupFundingRounds.startupId),
+        ])
+      : [[] as { startupId: string; period: string; values: Record<string, number | string> }[], [] as { startupId: string; total: number; cnt: number }[]];
+    const entriesByStartup = new Map<string, { period: string; values: Record<string, number | string> }[]>();
+    for (const e of entries) {
+      const list = entriesByStartup.get(e.startupId) ?? [];
+      list.push({ period: e.period, values: e.values ?? {} });
+      entriesByStartup.set(e.startupId, list);
+    }
+    const roundTotals = new Map(rounds.map((r) => [r.startupId, r.cnt > 0 ? Number(r.total) : null]));
+    const factKey = ({ lastValuation: "valuation", amountRaised: "totalRaised", totalRevenueSinceFounding: "cumulativeRevenue" } as const)[metric] ?? "cumulativeRevenue";
+    let total = 0;
+    let countWithData = 0;
+    const sources: Record<string, number> = {};
+    for (const startup of uniqueRows) {
+      const facts = resolveCanonicalFacts({
+        startup,
+        metricEntries: entriesByStartup.get(startup.id) ?? [],
+        fundingRoundsTotal: roundTotals.get(startup.id) ?? null,
+      });
+      const fact = facts[factKey];
+      if (fact.value === null) continue;
+      total += fact.value;
+      countWithData++;
+      if (fact.source) sources[fact.source] = (sources[fact.source] ?? 0) + 1;
+    }
+    return { total, countWithData, countTotal: uniqueRows.length, sources };
   },
 
   async countStartups(track?: "seed" | "pre_seed"): Promise<number> {
@@ -1024,14 +1093,12 @@ export const storage = {
 
   // Qualitative, per-startup profile — text fields and statuses only, never
   // document/file contents (contract PDFs, decks, KYS uploads stay untouched).
+  // Team size and the key figures resolve canonically (Phase 3a) and carry
+  // their provenance, so Claude quotes the same numbers as the dashboards.
   async getStartupQualitativeProfile(startupId: string) {
     const [row] = await db
       .select({
-        companyName: startups.companyName,
-        shortDescription: startups.shortDescription,
-        location: startups.location,
-        markets: startups.markets,
-        stage: startups.stage,
+        startup: startups,
         track: kysProfiles.track,
         contractStatus: contracts.status,
         kysStatus: kysProfiles.status,
@@ -1040,11 +1107,28 @@ export const storage = {
       .leftJoin(kysProfiles, eq(kysProfiles.startupId, startups.id))
       .leftJoin(contracts, eq(contracts.startupId, startups.id))
       .where(eq(startups.id, startupId));
-    const [tm] = await db
-      .select({ c: sql<number>`count(*)::int` })
-      .from(teamMembers)
-      .where(eq(teamMembers.startupId, startupId));
-    return row ? { ...row, teamSize: tm?.c ?? 0 } : undefined;
+    if (!row) return undefined;
+    const facts = await storage.canonicalFactsFor(row.startup, row.track ?? null);
+    const s = row.startup;
+    return {
+      companyName: s.companyName,
+      shortDescription: s.shortDescription,
+      location: s.location,
+      markets: s.markets,
+      stage: s.stage,
+      track: row.track,
+      contractStatus: row.contractStatus,
+      kysStatus: row.kysStatus,
+      teamSize: facts.teamSize.value ?? 0,
+      teamSizeSource: facts.teamSize.source,
+      keyNumbers: {
+        valuation: facts.valuation,
+        totalRaised: facts.totalRaised,
+        grants: facts.grants,
+        cumulativeRevenue: facts.cumulativeRevenue,
+        mrr: facts.mrr,
+      },
+    };
   },
 
   // Startups with a monthly update flagged at-risk/off-track, or where the

@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
 import { api } from "../../lib/utils";
 import { METRIC_SECTIONS, MONTHS, type MetricDef } from "@shared/metricsCatalog";
+import { computeDerived } from "@shared/derivedMetrics";
 import { ChartLine } from "@phosphor-icons/react";
 
 // A3: trend charts over the numbers founders already enter month by month.
@@ -54,24 +55,48 @@ export function MetricsChartsPanel({ apiBase }: { apiBase: string }) {
   const [metricKey, setMetricKey] = useState("rev_cumulative");
   const metric = ALL_METRICS.find((m) => m.key === metricKey);
 
+  const sortedEntries = useMemo(
+    () => [...(data?.entries ?? [])].sort((a, b) => periodSort(a.period, b.period)),
+    [data],
+  );
+
+  // 3b: derived metrics (LTV/CAC, monthly revenue change) are recomputed from
+  // their inputs at display time, so a stale stored value can't bend a trend.
+  const derivedByPeriod = useMemo(() => {
+    const map = new Map<string, Record<string, number>>();
+    sortedEntries.forEach((e, i) => {
+      const suggestions = computeDerived(e.values, i > 0 ? sortedEntries[i - 1].values : undefined);
+      const rec: Record<string, number> = {};
+      for (const [key, s] of Object.entries(suggestions)) rec[key] = s.value;
+      map.set(e.period, rec);
+    });
+    return map;
+  }, [sortedEntries]);
+
   // Which metrics have at least two data points (one point isn't a trend)?
+  // Derived values count too — they plot even when never stored.
   const plottableKeys = useMemo(() => {
     const counts = new Map<string, number>();
-    for (const e of data?.entries ?? []) {
-      for (const [k, v] of Object.entries(e.values)) {
-        if (toNumber(v) !== null) counts.set(k, (counts.get(k) ?? 0) + 1);
-      }
+    for (const e of sortedEntries) {
+      const keys = new Set([
+        ...Object.entries(e.values).filter(([, v]) => toNumber(v) !== null).map(([k]) => k),
+        ...Object.keys(derivedByPeriod.get(e.period) ?? {}),
+      ]);
+      for (const k of keys) counts.set(k, (counts.get(k) ?? 0) + 1);
     }
     return new Set([...counts.entries()].filter(([, c]) => c >= 2).map(([k]) => k));
-  }, [data]);
+  }, [sortedEntries, derivedByPeriod]);
 
   const points = useMemo(() => {
-    const rows = (data?.entries ?? [])
-      .map((e) => ({ period: e.period, value: toNumber(e.values[metricKey]) }))
-      .filter((r): r is { period: string; value: number } => r.value !== null)
-      .sort((a, b) => periodSort(a.period, b.period));
-    return rows.map((r) => ({ ...r, label: shortLabel(r.period) }));
-  }, [data, metricKey]);
+    return sortedEntries
+      .map((e) => {
+        const stored = toNumber(e.values[metricKey]);
+        const value = metric?.derived ? derivedByPeriod.get(e.period)?.[metricKey] ?? stored : stored;
+        return { period: e.period, value };
+      })
+      .filter((r): r is { period: string; value: number } => r.value != null)
+      .map((r) => ({ ...r, label: shortLabel(r.period) }));
+  }, [sortedEntries, derivedByPeriod, metricKey, metric?.derived]);
 
   // Nothing plottable at all yet — stay out of the way entirely.
   if (plottableKeys.size === 0) return null;
@@ -122,6 +147,7 @@ export function MetricsChartsPanel({ apiBase }: { apiBase: string }) {
 
       <div className="p-6 pt-4">
         {points.length >= 2 ? (
+          <>
           <ResponsiveContainer width="100%" height={260}>
             <AreaChart data={points} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
               <defs>
@@ -146,6 +172,10 @@ export function MetricsChartsPanel({ apiBase }: { apiBase: string }) {
               <Area type="monotone" dataKey="value" stroke="#FF3D82" strokeWidth={2} fill="url(#trendFill)" dot={{ r: 3, fill: "#FF3D82" }} />
             </AreaChart>
           </ResponsiveContainer>
+          {metric?.derived && (
+            <p className="mt-2 text-center text-xs text-slate-400">Computed at display time: {metric.formulaLabel}.</p>
+          )}
+          </>
         ) : (
           <p className="py-10 text-center text-sm text-slate-400">
             "{metric?.label ?? metricKey}" needs values in at least two periods before it can show a trend.

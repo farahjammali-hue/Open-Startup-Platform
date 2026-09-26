@@ -7,6 +7,10 @@ export interface MetricDef {
   label: string;
   /** Set on dollar-denominated metrics so the UI can show a "$" prefix by default. */
   unit?: "money";
+  /** Phase 3b: computed from other metrics; displays recompute it at read time (stored values are kept). */
+  derived?: boolean;
+  /** Plain-language formula, shown wherever the computed value appears. */
+  formulaLabel?: string;
 }
 
 export interface MetricSection {
@@ -40,7 +44,7 @@ export const METRIC_SECTIONS: MetricSection[] = [
       { key: "sales_runway_months", label: "Runway (N° of months)" },
       { key: "sales_ltv", label: "LTV (patient/B2C)", unit: "money" },
       { key: "sales_profit_margin", label: "Profit margin" },
-      { key: "sales_ltv_cac", label: "LTV/CAC" },
+      { key: "sales_ltv_cac", label: "LTV/CAC", derived: true, formulaLabel: "LTV ÷ CAC" },
     ],
   },
   {
@@ -52,7 +56,7 @@ export const METRIC_SECTIONS: MetricSection[] = [
       { key: "rev_mrr_b2b", label: "MRR (B2B)", unit: "money" },
       { key: "rev_mrr_b2c", label: "MRR (B2C)", unit: "money" },
       { key: "rev_cumulative", label: "Cumulative revenues", unit: "money" },
-      { key: "rev_monthly_change", label: "Monthly change in total revenue", unit: "money" },
+      { key: "rev_monthly_change", label: "Monthly change in total revenue", unit: "money", derived: true, formulaLabel: "cumulative revenues minus the previous period's" },
     ],
   },
   {
