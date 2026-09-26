@@ -8,6 +8,7 @@ import { Skeleton, SkeletonText } from "../../components/Skeleton";
 import { STAGE_LABELS, type StartupStage } from "../../lib/stageLabels";
 import { REVIEW_STATUS_TONES, REVIEW_STATUS_ICONS } from "../../lib/statusTones";
 import { Buildings as Building2, Globe, MapPin, ChartLine as LineChart, FolderLock, Signature as FileSignature, ShieldCheck, Stack as Layers, Handshake, ArrowRight } from "@phosphor-icons/react";
+import { GoalsPanel } from "../../components/dashboard/GoalsPanel";
 
 interface ReviewEntity { status: "pending" | "approved" | "rejected"; reviewNote: string | null }
 
@@ -157,6 +158,10 @@ export default function AdminStartupDetail() {
               </button>
             );
           })}
+        </div>
+
+        <div className="mt-6">
+          <GoalsPanel apiBase={`/api/admin/startups/${id}/goals`} title="Goals" />
         </div>
       </main>
     </AppShell>

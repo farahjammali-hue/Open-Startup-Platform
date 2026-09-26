@@ -9,6 +9,7 @@ import { showToast } from "../lib/toast";
 import { StatusBadge, TONE_CLASSES, type StatusTone } from "../components/StatusBadge";
 import { Skeleton } from "../components/Skeleton";
 import { EmptyState } from "../components/EmptyState";
+import { GoalsPanel } from "../components/dashboard/GoalsPanel";
 import { FileText, SquaresFour as LayoutDashboard, FolderLock, Lock, Stack as Layers, Presentation, Handshake, Warning as AlertTriangle, CheckCircle as CheckCircle2, ArrowRight, VideoCamera as Video } from "@phosphor-icons/react";
 
 interface StartupProfile {
@@ -210,6 +211,13 @@ export default function Home() {
 
         {/* Tier 3 — Progress */}
         <ProgressSummary onboardingComplete={onboardingComplete} needsAttention={needsAttention} />
+
+        {/* A9: quarterly goals — the two or three things the startup is driving at. */}
+        {onboardingComplete && (
+          <div className="mt-8">
+            <GoalsPanel apiBase="/api/goals" title="Goals for this quarter" />
+          </div>
+        )}
 
         {/* Tier 4 — Explore tools */}
         <section className="mt-10">

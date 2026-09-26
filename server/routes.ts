@@ -1184,6 +1184,47 @@ export function registerRoutes(app: Express) {
     res.json({ ok: true });
   }));
 
+  /* Admin mirror of the goals CRUD, so GoalsPanel works on a startup's admin
+   * page through apiBase — same pattern as the other admin subresources. */
+  app.get("/api/admin/startups/:id/goals", requireAdmin, ah(async (req, res) => {
+    res.json({ goals: await storage.listGoals(req.params.id) });
+  }));
+
+  app.post("/api/admin/startups/:id/goals", requireAdmin, ah(async (req, res) => {
+    const parsed = goalSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
+    const goal = await storage.createGoal(req.params.id, {
+      title: parsed.data.title,
+      description: parsed.data.description || null,
+      targetDate: parsed.data.targetDate ? new Date(parsed.data.targetDate) : null,
+      status: parsed.data.status,
+    });
+    res.status(201).json(goal);
+  }));
+
+  app.patch("/api/admin/startups/:id/goals/:goalId", requireAdmin, ah(async (req, res) => {
+    const owned = await storage.getOwnedGoal(req.params.goalId, req.params.id);
+    if (!owned) return res.status(404).json({ message: "Not found" });
+    const parsed = goalSchema.partial().safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
+    const goal = await storage.updateGoal(owned.id, {
+      ...(parsed.data.title !== undefined ? { title: parsed.data.title } : {}),
+      ...(parsed.data.description !== undefined ? { description: parsed.data.description || null } : {}),
+      ...(parsed.data.targetDate !== undefined
+        ? { targetDate: parsed.data.targetDate ? new Date(parsed.data.targetDate) : null }
+        : {}),
+      ...(parsed.data.status !== undefined ? { status: parsed.data.status } : {}),
+    });
+    res.json(goal);
+  }));
+
+  app.delete("/api/admin/startups/:id/goals/:goalId", requireAdmin, ah(async (req, res) => {
+    const owned = await storage.getOwnedGoal(req.params.goalId, req.params.id);
+    if (!owned) return res.status(404).json({ message: "Not found" });
+    await storage.deleteGoal(owned.id);
+    res.json({ ok: true });
+  }));
+
   /* ---------------- Metrics & KPIs (Dashboard tab) ---------------- */
   app.get("/api/metrics", requireAuth, ah(async (req, res) => {
     const startup = await requireActiveStartup(req, res);
