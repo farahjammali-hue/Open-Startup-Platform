@@ -174,3 +174,50 @@ describe("admin startups ?missingUpdate filter (A5)", () => {
     expect(body.missingUpdate).toBeUndefined();
   });
 });
+
+describe("sent-message log (A7)", () => {
+  it("cohort sends are logged with track and sender", async () => {
+    const logs: any[] = [];
+    Object.assign(fake.storage, {
+      listCohortMessageRecipients: async () => [{ email: "a@x.io" }, { email: "b@x.io" }],
+      logMessage: async (row: any) => logs.push(row),
+    });
+    const res = await post("/api/admin/messages/cohort", { track: "seed", subject: "Hello", body: "World", asSelf: false });
+    expect(res.status).toBe(200);
+    expect(logs[0]).toMatchObject({
+      kind: "cohort_message",
+      recipientEmails: ["a@x.io", "b@x.io"],
+      subject: "Hello",
+      sentBy: "admin@open-startup.org",
+      meta: { track: "seed", asSelf: false, total: 2 },
+    });
+  });
+
+  it("a send with zero recipients is not logged", async () => {
+    const logs: any[] = [];
+    Object.assign(fake.storage, {
+      listCohortMessageRecipients: async () => [],
+      logMessage: async (row: any) => logs.push(row),
+    });
+    const res = await post("/api/admin/messages/cohort", { track: "all", subject: "Hi", body: "There" });
+    expect(res.status).toBe(200);
+    expect(logs).toHaveLength(0);
+  });
+
+  it("startup sends log the startup id; /messages/log returns the history", async () => {
+    const logs: any[] = [];
+    Object.assign(fake.storage, {
+      getStartupById: async (id: string) => ({ id, userId: "u1", companyName: "Acme" }),
+      listStartupMessageRecipients: async () => [{ email: "founder@acme.io" }],
+      logMessage: async (row: any) => logs.push(row),
+      listMessageLog: async (opts: any) => [{ id: "l1", kind: opts.kind ?? "startup_message", subject: "S", recipientEmails: ["founder@acme.io"], sentBy: "admin@open-startup.org", meta: {}, sentAt: new Date().toISOString(), startupId: "s1", startupName: "Acme", bodyPreview: null }],
+    });
+    const send = await post("/api/admin/messages/startup/s1", { subject: "S", body: "B" });
+    expect(send.status).toBe(200);
+    expect(logs[0]).toMatchObject({ kind: "startup_message", startupId: "s1" });
+
+    const list = await fetch(`${base}/api/admin/messages/log?kind=cohort_message`);
+    const body = await list.json();
+    expect(body.messages[0].kind).toBe("cohort_message");
+  });
+});

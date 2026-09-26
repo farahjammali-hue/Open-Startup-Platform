@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../../lib/auth";
 import { api } from "../../lib/utils";
 import { AppShell } from "../../components/AppShell";
 import { BackLink, PageHeader } from "../../components/PageHeader";
 import { showToast } from "../../lib/toast";
-import { PaperPlaneTilt as Send, CircleNotch as Loader2 } from "@phosphor-icons/react";
+import { PaperPlaneTilt as Send, CircleNotch as Loader2, PencilSimple as Compose, ClockCounterClockwise as History } from "@phosphor-icons/react";
+import { MessageHistory } from "../../components/admin/MessageHistory";
 
 interface StartupOption {
   id: string;
@@ -26,12 +27,14 @@ const TRACK_OPTIONS: { value: Track; label: string }[] = [
 
 export default function AdminMessages() {
   const { user } = useAuth();
+  const qc = useQueryClient();
   const { data } = useQuery<{ startups: StartupOption[] }>({
     queryKey: ["admin-startups"],
     queryFn: () => api("/api/admin/startups"),
   });
   const startups = data?.startups ?? [];
 
+  const [view, setView] = useState<"compose" | "history">("compose");
   const [audience, setAudience] = useState<Audience>("cohort");
   const [track, setTrack] = useState<Track>("all");
   const [startupId, setStartupId] = useState("");
@@ -72,6 +75,7 @@ export default function AdminMessages() {
         showToast(`Sent to ${result.sent}/${result.total} recipient${result.total > 1 ? "s" : ""}.`);
         setSubject("");
         setBody("");
+        qc.invalidateQueries({ queryKey: ["admin-message-log"] });
       }
     } catch (e: any) {
       showToast(e.message || "Couldn't send that message");
@@ -88,8 +92,29 @@ export default function AdminMessages() {
           eyebrow="Administration"
           title="Message founders"
           subtitle="Email a whole cohort or a single startup, as the platform or from your own address."
+          action={
+            <div className="flex items-center gap-1 rounded-lg border border-slate-200 p-1">
+              <button
+                onClick={() => setView("compose")}
+                className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition ${view === "compose" ? "bg-secondary text-white" : "text-slate-500 hover:text-primary"}`}
+              >
+                <Compose className="h-3.5 w-3.5" /> Compose
+              </button>
+              <button
+                onClick={() => setView("history")}
+                className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition ${view === "history" ? "bg-secondary text-white" : "text-slate-500 hover:text-primary"}`}
+              >
+                <History className="h-3.5 w-3.5" /> History
+              </button>
+            </div>
+          }
         />
 
+        {view === "history" ? (
+        <div className="mt-8 max-w-2xl">
+          <MessageHistory />
+        </div>
+        ) : (
         <div className="mt-8 max-w-2xl space-y-6">
           <div className="ost-card space-y-5 p-6">
             <div>
@@ -198,6 +223,7 @@ export default function AdminMessages() {
             </button>
           </div>
         </div>
+        )}
       </main>
     </AppShell>
   );

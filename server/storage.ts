@@ -46,6 +46,7 @@ import {
   startupPartnerDetails,
   mcpOauthClients,
   mcpOauthTokens,
+  messageLog,
   type McpOauthClient,
   type User,
   type Startup,
@@ -2961,6 +2962,52 @@ export const storage = {
     if (existing) return existing;
     const [row] = await db.insert(expertCatalogSettings).values({}).returning();
     return row;
+  },
+
+  /** A7: record one sent (or attempted) admin/system/connector message. */
+  async logMessage(data: {
+    kind: string;
+    startupId?: string | null;
+    recipientEmails: string[];
+    subject: string;
+    bodyPreview?: string | null;
+    sentBy: string;
+    meta?: Record<string, unknown>;
+  }): Promise<void> {
+    await db.insert(messageLog).values({
+      kind: data.kind,
+      startupId: data.startupId ?? null,
+      recipientEmails: data.recipientEmails,
+      subject: data.subject,
+      bodyPreview: data.bodyPreview ?? null,
+      sentBy: data.sentBy,
+      meta: data.meta ?? {},
+    });
+  },
+
+  /** Newest first, optionally narrowed to one kind. */
+  async listMessageLog(opts: { kind?: string; limit?: number } = {}): Promise<
+    (typeof messageLog.$inferSelect & { startupName: string | null })[]
+  > {
+    const rows = await db
+      .select({
+        id: messageLog.id,
+        kind: messageLog.kind,
+        startupId: messageLog.startupId,
+        recipientEmails: messageLog.recipientEmails,
+        subject: messageLog.subject,
+        bodyPreview: messageLog.bodyPreview,
+        sentBy: messageLog.sentBy,
+        meta: messageLog.meta,
+        sentAt: messageLog.sentAt,
+        startupName: startups.companyName,
+      })
+      .from(messageLog)
+      .leftJoin(startups, eq(startups.id, messageLog.startupId))
+      .where(opts.kind ? eq(messageLog.kind, opts.kind) : undefined)
+      .orderBy(desc(messageLog.sentAt))
+      .limit(Math.min(opts.limit ?? 100, 200));
+    return rows;
   },
 
   async updateExpertCatalogSettings(data: { visibleToAll: boolean; visibleStartupIds?: string[] }): Promise<ExpertCatalogSettings> {

@@ -3160,6 +3160,16 @@ export function registerRoutes(app: Express) {
       senderEmail: admin.email,
       asSelf: parsed.data.asSelf,
     });
+    if (recipients.length > 0) {
+      await storage.logMessage({
+        kind: "cohort_message",
+        recipientEmails: recipients.map((r) => r.email),
+        subject: parsed.data.subject,
+        bodyPreview: parsed.data.body.slice(0, 300),
+        sentBy: admin.email,
+        meta: { track: parsed.data.track, asSelf: parsed.data.asSelf, sent, total: recipients.length },
+      });
+    }
     res.json({ sent, total: recipients.length });
   }));
 
@@ -3181,7 +3191,24 @@ export function registerRoutes(app: Express) {
       senderEmail: admin.email,
       asSelf: parsed.data.asSelf,
     });
+    if (recipients.length > 0) {
+      await storage.logMessage({
+        kind: "startup_message",
+        startupId: startup.id,
+        recipientEmails: recipients.map((r) => r.email),
+        subject: parsed.data.subject,
+        bodyPreview: parsed.data.body.slice(0, 300),
+        sentBy: admin.email,
+        meta: { asSelf: parsed.data.asSelf, sent, total: recipients.length },
+      });
+    }
     res.json({ sent, total: recipients.length });
+  }));
+
+  // A7: the sent-message history behind those two routes above.
+  app.get("/api/admin/messages/log", requireAdmin, ah(async (req, res) => {
+    const kind = typeof req.query.kind === "string" ? req.query.kind : undefined;
+    res.json({ messages: await storage.listMessageLog({ kind }) });
   }));
 
   /* ---------------- Admin: signup approvals ---------------- */
