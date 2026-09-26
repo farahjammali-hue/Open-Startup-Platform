@@ -11,6 +11,9 @@ import {
   jsonb,
   bigint,
   real,
+  index,
+  uniqueIndex,
+  unique,
 } from "drizzle-orm/pg-core";
 import { z } from "zod";
 import {
@@ -281,7 +284,9 @@ export const expertPriorities = pgTable("expert_priorities", {
   priority: integer("priority").notNull(),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
-});
+}, (t) => ({
+  pairUq: uniqueIndex("expert_priorities_expert_startup_uq").on(t.expertId, t.startupId),
+}));
 
 // Singleton row (there's only ever one) controlling which startups can see
 // the "Other experts" catalog at all. visibleStartupIds is only consulted
@@ -291,7 +296,9 @@ export const expertCatalogSettings = pgTable("expert_catalog_settings", {
   visibleToAll: boolean("visible_to_all").notNull().default(true),
   visibleStartupIds: uuid("visible_startup_ids").array().notNull().default(sql`'{}'::uuid[]`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
-});
+}, () => ({
+  singleton: uniqueIndex("expert_catalog_settings_singleton").on(sql`(true)`),
+}));
 
 /* =========================================================
  * Startups (one user can own many)
@@ -490,7 +497,9 @@ export const startupMetricEntries = pgTable("startup_metric_entries", {
   values: jsonb("values").$type<Record<string, number | string>>().notNull().default({}),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
-});
+}, (t) => ({
+  startupPeriodKey: unique("startup_metric_entries_startup_id_period_key").on(t.startupId, t.period),
+}));
 
 // One row per startup — the 5 section notes plus Section VI's point-in-time
 // data (Data Room checklist, company profile). Created on first save.
@@ -576,7 +585,7 @@ export const documents = pgTable("documents", {
   sizeBytes: integer("size_bytes"),
   status: documentStatusEnum("status").notNull().default("pending"),
   reviewNote: text("review_note"),
-  uploadedBy: uuid("uploaded_by").references(() => users.id),
+  uploadedBy: uuid("uploaded_by").references(() => users.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
@@ -592,7 +601,7 @@ export const documentEvents = pgTable("document_events", {
     .notNull(),
   action: documentActionEnum("action").notNull(),
   note: text("note"),
-  actorId: uuid("actor_id").references(() => users.id),
+  actorId: uuid("actor_id").references(() => users.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
@@ -612,7 +621,7 @@ export const dataRoomShares = pgTable("data_room_shares", {
   revokedAt: timestamp("revoked_at"),
   viewCount: integer("view_count").notNull().default(0),
   lastViewedAt: timestamp("last_viewed_at"),
-  createdBy: uuid("created_by").references(() => users.id),
+  createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
@@ -672,7 +681,9 @@ export const trainingProgress = pgTable("training_progress", {
   completedAt: timestamp("completed_at"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
-});
+}, (t) => ({
+  pairUq: uniqueIndex("training_progress_training_startup_uq").on(t.trainingId, t.startupId),
+}));
 
 // Shared by both Mentorship and Training sessions' visibilityTrack column
 // below — a session can target a whole track instead of (or as a narrower
@@ -741,7 +752,9 @@ export const mentorshipSessionStartups = pgTable("mentorship_session_startups", 
     .references(() => startups.id, { onDelete: "cascade" })
     .notNull(),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
-});
+}, (t) => ({
+  pairUq: uniqueIndex("mentorship_session_startups_session_startup_uq").on(t.sessionId, t.startupId),
+}));
 
 // Per-(session, startup) recap — the mentor's notes and rating for THIS
 // startup's relationship. One row per pair, created on first save (not
@@ -778,7 +791,9 @@ export const mentorshipSessionNotes = pgTable("mentorship_session_notes", {
   mentorFeedback: text("mentor_feedback"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
-});
+}, (t) => ({
+  pairUq: uniqueIndex("mentorship_session_notes_session_startup_uq").on(t.sessionId, t.startupId),
+}));
 
 /* =========================================================
  * Training (Modules + Sessions) — a duplicate of the Mentorship
@@ -823,7 +838,9 @@ export const trainingModuleStartups = pgTable("training_module_startups", {
     .references(() => startups.id, { onDelete: "cascade" })
     .notNull(),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
-});
+}, (t) => ({
+  pairUq: uniqueIndex("training_module_startups_module_startup_uq").on(t.moduleId, t.startupId),
+}));
 
 export const trainingModuleSessions = pgTable("training_module_sessions", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -870,7 +887,9 @@ export const trainingSessionStartups = pgTable("training_session_startups", {
     .references(() => startups.id, { onDelete: "cascade" })
     .notNull(),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
-});
+}, (t) => ({
+  pairUq: uniqueIndex("training_session_startups_session_startup_uq").on(t.sessionId, t.startupId),
+}));
 
 // Per-(session, startup) recap — the trainer's notes and rating for THIS
 // startup's relationship. One row per pair, created on first save (not
@@ -902,7 +921,9 @@ export const trainingSessionNotes = pgTable("training_session_notes", {
   trainerFeedback: text("trainer_feedback"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
-});
+}, (t) => ({
+  pairUq: uniqueIndex("training_session_notes_session_startup_uq").on(t.sessionId, t.startupId),
+}));
 
 // Per-(module, startup) homework — one OST-assigned doc + one startup
 // submission per module (not per session). One row per pair, created on
@@ -922,7 +943,9 @@ export const trainingModuleHomework = pgTable("training_module_homework", {
   submissionFileName: text("submission_file_name"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
-});
+}, (t) => ({
+  pairUq: uniqueIndex("training_module_homework_module_startup_uq").on(t.moduleId, t.startupId),
+}));
 
 /* =========================================================
  * Contract & KYS (Priority lane, step 1 + admin review)
@@ -942,7 +965,7 @@ export const contracts = pgTable("contracts", {
   uploadedAt: timestamp("uploaded_at"),
   status: documentStatusEnum("status").notNull().default("pending"),
   reviewNote: text("review_note"),
-  reviewedBy: uuid("reviewed_by").references(() => users.id),
+  reviewedBy: uuid("reviewed_by").references(() => users.id, { onDelete: "set null" }),
   reviewedAt: timestamp("reviewed_at"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
@@ -958,7 +981,7 @@ export const contractEvents = pgTable("contract_events", {
     .notNull(),
   action: contractActionEnum("action").notNull(),
   note: text("note"),
-  actorId: uuid("actor_id").references(() => users.id),
+  actorId: uuid("actor_id").references(() => users.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
@@ -1001,7 +1024,7 @@ export const kysProfiles = pgTable("kys_profiles", {
   submittedAt: timestamp("submitted_at").notNull().default(sql`now()`),
   status: documentStatusEnum("status").notNull().default("pending"),
   reviewNote: text("review_note"),
-  reviewedBy: uuid("reviewed_by").references(() => users.id),
+  reviewedBy: uuid("reviewed_by").references(() => users.id, { onDelete: "set null" }),
   reviewedAt: timestamp("reviewed_at"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
@@ -1018,7 +1041,7 @@ export const kysEvents = pgTable("kys_events", {
     .notNull(),
   action: kysActionEnum("action").notNull(),
   note: text("note"),
-  actorId: uuid("actor_id").references(() => users.id),
+  actorId: uuid("actor_id").references(() => users.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
@@ -1252,7 +1275,9 @@ export const messageLog = pgTable("message_log", {
   sentBy: text("sent_by").notNull(),
   meta: jsonb("meta").$type<Record<string, unknown>>().notNull().default({}),
   sentAt: timestamp("sent_at").notNull().default(sql`now()`),
-});
+}, (t) => ({
+  kindSentAtIdx: index("message_log_kind_sent_at_idx").on(t.kind, t.sentAt.desc()),
+}));
 export type MessageLogEntry = typeof messageLog.$inferSelect;
 
 /** Every Claude-connector tool call, success or failure — the durable audit
@@ -1266,7 +1291,9 @@ export const mcpAuditLog = pgTable("mcp_audit_log", {
   error: text("error"),
   resultSummary: text("result_summary"),
   ts: timestamp("ts").notNull().default(sql`now()`),
-});
+}, (t) => ({
+  tsIdx: index("mcp_audit_log_ts_idx").on(t.ts.desc()),
+}));
 export type McpAuditEntry = typeof mcpAuditLog.$inferSelect;
 
 /* =========================================================
@@ -1300,11 +1327,13 @@ export const investmentApplications = pgTable("investment_applications", {
   snapshot: jsonb("snapshot").$type<Record<string, unknown>>().notNull().default({}),
   submittedAt: timestamp("submitted_at"),
   decidedAt: timestamp("decided_at"),
-  decidedBy: uuid("decided_by").references(() => users.id),
+  decidedBy: uuid("decided_by").references(() => users.id, { onDelete: "set null" }),
   decisionNote: text("decision_note"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
-});
+}, (t) => ({
+  statusIdx: index("investment_applications_status_idx").on(t.status, t.submittedAt.desc()),
+}));
 export type InvestmentApplication = typeof investmentApplications.$inferSelect;
 
 export const investmentApplicationAnswersSchema = z.object({

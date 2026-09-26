@@ -157,12 +157,12 @@ For each fact: **CANONICAL** store first, then the fallbacks in order, then the 
 
 **Dead code paths (candidates to delete or revive — decide in Phase 4.9):** founder School routes/page, KYS-document upload route, document/share routes without UI callers, `client/src/lib/dataRoomChecklist.ts`, `BUSINESS_MODEL_LABELS`/`CUSTOMER_BASE_LABELS`.
 
-## 6. Integrity gaps (fixed in Phase 3c)
+## 6. Integrity (hardened in Phase 3c — Schema Batch 3)
 
-- **"One row per pair" enforced only in code** (no DB UNIQUE): mentorship/training session notes, training_module_homework, training_progress, expert_priorities, the three `*_startups` link tables, the expert_catalog_settings singleton.
-- **`NO ACTION` FKs to `users`** block deleting a referenced (usually departed-admin) account: documents.uploaded_by, document/contract/kys `actor_id`, contracts/kys `reviewed_by`, data_room_shares.created_by, investment_applications.decided_by. → become SET NULL.
-- **uuid[] without referential integrity:** data_room_shares.document_ids (danglers after doc deletion), expert_catalog_settings.visible_startup_ids.
-- **In DB but not declared in schema.ts:** UNIQUE(startup_id, period) on metric entries; indexes on message_log, mcp_audit_log, investment_applications.
+- **"One row per pair" is now DB-enforced**: unique indexes on mentorship/training session notes, the three `*_startups` link tables, training_module_homework, training_progress, expert_priorities, plus a singleton index on expert_catalog_settings. The migration dedupes first (keeping the newest row per pair), so it cannot fail on legacy duplicates.
+- **Audit/review FKs to `users` are `ON DELETE SET NULL`** (documents.uploaded_by, document/contract/kys `actor_id`, contracts/kys `reviewed_by`, data_room_shares.created_by, investment_applications.decided_by): deleting a departed admin no longer blocks; their records survive with an empty reference. The migration converts each FK by table+column lookup, so it works whatever the constraint happened to be named.
+- **uuid[] columns:** the migration scrubs dangling ids from data_room_shares.document_ids (no route deletes documents today — add an app-level scrub if one ever appears). expert_catalog_settings.visible_startup_ids still has no referential integrity; readers must filter (unchanged).
+- **schema.ts now declares what the DB has**: UNIQUE(startup_id, period) on metric entries, the message_log / mcp_audit_log / investment_applications indexes, and every unique index above. This is documentation-of-truth only — `drizzle-kit push` stays forbidden against prod.
 
 ## 7. Migration hazards & conventions
 

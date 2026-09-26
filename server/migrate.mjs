@@ -1136,6 +1136,116 @@ CREATE TABLE IF NOT EXISTS investment_applications (
   updated_at timestamp NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS investment_applications_status_idx ON investment_applications (status, submitted_at DESC);
+
+-- Schema Batch 3 (Phase 3c): integrity — the database now enforces what the
+-- code has always assumed. Everything below is idempotent; the dedupe
+-- DELETEs keep the NEWEST row per pair and only fire when duplicates exist.
+
+-- 3c.1 "One row per pair", previously enforced only in code.
+DELETE FROM mentorship_session_notes a USING mentorship_session_notes b
+  WHERE a.session_id = b.session_id AND a.startup_id = b.startup_id
+    AND a.id <> b.id AND (a.updated_at, a.id) < (b.updated_at, b.id);
+CREATE UNIQUE INDEX IF NOT EXISTS mentorship_session_notes_session_startup_uq
+  ON mentorship_session_notes (session_id, startup_id);
+
+DELETE FROM training_session_notes a USING training_session_notes b
+  WHERE a.session_id = b.session_id AND a.startup_id = b.startup_id
+    AND a.id <> b.id AND (a.updated_at, a.id) < (b.updated_at, b.id);
+CREATE UNIQUE INDEX IF NOT EXISTS training_session_notes_session_startup_uq
+  ON training_session_notes (session_id, startup_id);
+
+DELETE FROM training_module_homework a USING training_module_homework b
+  WHERE a.module_id = b.module_id AND a.startup_id = b.startup_id
+    AND a.id <> b.id AND (a.updated_at, a.id) < (b.updated_at, b.id);
+CREATE UNIQUE INDEX IF NOT EXISTS training_module_homework_module_startup_uq
+  ON training_module_homework (module_id, startup_id);
+
+DELETE FROM training_progress a USING training_progress b
+  WHERE a.training_id = b.training_id AND a.startup_id = b.startup_id
+    AND a.id <> b.id AND (a.updated_at, a.id) < (b.updated_at, b.id);
+CREATE UNIQUE INDEX IF NOT EXISTS training_progress_training_startup_uq
+  ON training_progress (training_id, startup_id);
+
+DELETE FROM expert_priorities a USING expert_priorities b
+  WHERE a.expert_id = b.expert_id AND a.startup_id = b.startup_id
+    AND a.id <> b.id AND (a.updated_at, a.id) < (b.updated_at, b.id);
+CREATE UNIQUE INDEX IF NOT EXISTS expert_priorities_expert_startup_uq
+  ON expert_priorities (expert_id, startup_id);
+
+DELETE FROM mentorship_session_startups a USING mentorship_session_startups b
+  WHERE a.session_id = b.session_id AND a.startup_id = b.startup_id
+    AND a.id <> b.id AND (a.created_at, a.id) < (b.created_at, b.id);
+CREATE UNIQUE INDEX IF NOT EXISTS mentorship_session_startups_session_startup_uq
+  ON mentorship_session_startups (session_id, startup_id);
+
+DELETE FROM training_session_startups a USING training_session_startups b
+  WHERE a.session_id = b.session_id AND a.startup_id = b.startup_id
+    AND a.id <> b.id AND (a.created_at, a.id) < (b.created_at, b.id);
+CREATE UNIQUE INDEX IF NOT EXISTS training_session_startups_session_startup_uq
+  ON training_session_startups (session_id, startup_id);
+
+DELETE FROM training_module_startups a USING training_module_startups b
+  WHERE a.module_id = b.module_id AND a.startup_id = b.startup_id
+    AND a.id <> b.id AND (a.created_at, a.id) < (b.created_at, b.id);
+CREATE UNIQUE INDEX IF NOT EXISTS training_module_startups_module_startup_uq
+  ON training_module_startups (module_id, startup_id);
+
+-- The experts-catalog settings row is a singleton by design.
+DELETE FROM expert_catalog_settings a USING expert_catalog_settings b
+  WHERE a.id <> b.id AND (a.updated_at, a.id) < (b.updated_at, b.id);
+CREATE UNIQUE INDEX IF NOT EXISTS expert_catalog_settings_singleton
+  ON expert_catalog_settings ((true));
+
+-- 3c.2 Audit/review references to users were NO ACTION, so deleting a
+-- departed admin's account was blocked by every review they ever made. They
+-- become SET NULL: the record survives, the reference empties. Each FK is
+-- found by table+column (constraint names vary by origin) and only touched
+-- while still NO ACTION, so re-runs are no-ops.
+DO $$
+DECLARE
+  target record;
+  fk_name text;
+BEGIN
+  FOR target IN
+    SELECT * FROM (VALUES
+      ('documents', 'uploaded_by'),
+      ('document_events', 'actor_id'),
+      ('data_room_shares', 'created_by'),
+      ('contracts', 'reviewed_by'),
+      ('contract_events', 'actor_id'),
+      ('kys_profiles', 'reviewed_by'),
+      ('kys_events', 'actor_id'),
+      ('investment_applications', 'decided_by')
+    ) AS v(tbl, col)
+  LOOP
+    SELECT c.conname INTO fk_name
+    FROM pg_constraint c
+    JOIN pg_class r ON r.oid = c.conrelid
+    JOIN pg_attribute a ON a.attrelid = r.oid AND a.attnum = ANY (c.conkey)
+    WHERE c.contype = 'f' AND r.relname = target.tbl AND a.attname = target.col
+      AND c.confdeltype = 'a';
+    IF fk_name IS NOT NULL THEN
+      EXECUTE format('ALTER TABLE %I DROP CONSTRAINT %I', target.tbl, fk_name);
+      EXECUTE format(
+        'ALTER TABLE %I ADD CONSTRAINT %I FOREIGN KEY (%I) REFERENCES users(id) ON DELETE SET NULL',
+        target.tbl, target.tbl || '_' || target.col || '_fkey', target.col);
+    END IF;
+  END LOOP;
+END $$;
+
+-- 3c.3 data_room_shares.document_ids is a plain uuid[] with no referential
+-- integrity; drop any ids whose document no longer exists. (No route deletes
+-- documents today — this clears history and re-runs as a no-op.)
+UPDATE data_room_shares s
+SET document_ids = coalesce((
+  SELECT array_agg(x.id ORDER BY x.ord)
+  FROM unnest(s.document_ids) WITH ORDINALITY AS x(id, ord)
+  WHERE EXISTS (SELECT 1 FROM documents d WHERE d.id = x.id)
+), '{}'::uuid[])
+WHERE EXISTS (
+  SELECT 1 FROM unnest(s.document_ids) AS y(id)
+  WHERE NOT EXISTS (SELECT 1 FROM documents d WHERE d.id = y.id)
+);
 `;
 
 try {
