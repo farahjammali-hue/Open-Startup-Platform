@@ -492,7 +492,7 @@ export const startupMetricEntries = pgTable("startup_metric_entries", {
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
 
-// One row per startup — the 4 section notes plus Section VI's point-in-time
+// One row per startup — the 5 section notes plus Section VI's point-in-time
 // data (Data Room checklist, company profile). Created on first save.
 export const startupMetricsProfile = pgTable("startup_metrics_profile", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -755,7 +755,7 @@ export const mentorshipSessionNotes = pgTable("mentorship_session_notes", {
     .references(() => startups.id, { onDelete: "cascade" })
     .notNull(),
   // AI-generated from the session's Zoom transcript once one is available
-  // (see server/ai.ts) — no longer filled in by hand by anyone. Matches the
+  // (via the Claude connector, server/aiTools.ts) — no longer filled in by hand. Matches the
   // OST team's own pre/post-session recap prompt structure. pointsDiscussed,
   // whatIsGoingWell and whatIsNotGoingWell are superseded by the five fields
   // below and left in place, unused, per the project's non-destructive
@@ -1716,7 +1716,7 @@ export const mentorshipModuleSessionSchema = z.object({
 
 // The startup's own free-text notes on a session, editable any time from
 // scheduling onward. The recap fields (team members presence, points
-// discussed, action items) are AI-generated instead — see server/ai.ts.
+// discussed, action items) are AI-generated via the Claude connector instead — see server/aiTools.ts.
 export const mentorshipFounderCommentsSchema = z.object({
   founderComments: z.string().max(2000).optional().or(z.literal("")),
 });
@@ -1789,7 +1789,8 @@ export const trainingModuleSessionSchema = z.object({
   startupIds: z.array(z.string().uuid()).max(1000).optional(),
 });
 
-// Filled in by the startup itself, briefly, after a session is held.
+// Legacy founder-filled recap fields (superseded by the AI recap fields the
+// Claude connector writes; trainer rating/feedback stay admin-owned).
 export const trainingSessionRecapSchema = z.object({
   teamMembersPresence: z.string().max(500).optional().or(z.literal("")),
   pointsDiscussed: z.string().max(2000).optional().or(z.literal("")),
