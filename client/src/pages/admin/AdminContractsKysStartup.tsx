@@ -44,6 +44,7 @@ export default function AdminContractsKysStartup() {
   const [, params] = useRoute("/admin/contracts-kys/:startupId");
   const startupId = params?.startupId ?? "";
   const qc = useQueryClient();
+  const [uploadingDeclaration, setUploadingDeclaration] = useState(false);
 
   const { data, isLoading } = useQuery<{ startup: StartupBasic; contract: ContractRow | null; kysProfile: KysRow | null }>({
     queryKey: ["admin-startup-basic", startupId],
@@ -71,6 +72,25 @@ export default function AdminContractsKysStartup() {
     qc.invalidateQueries({ queryKey: ["admin-startup-basic", startupId] });
   }
 
+  async function handleDeclarationUpload(file: File) {
+    setUploadingDeclaration(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch(`/api/admin/startups/${startup.id}/declaration/upload`, { method: "POST", credentials: "include", body: fd });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.message || "Couldn't upload the signed declaration");
+      }
+      showToast("Signed declaration filed.");
+      invalidate();
+    } catch (e: any) {
+      showToast(e.message || "Couldn't upload the signed declaration");
+    } finally {
+      setUploadingDeclaration(false);
+    }
+  }
+
   return (
     <AppShell>
       <main className="ost-page">
@@ -95,18 +115,35 @@ export default function AdminContractsKysStartup() {
               : kysProfile
                 ? "Signed within the earlier KYS form (before the declaration became its own step)."
                 : "Not signed yet."}
-            {startup.declarationSignedAt && !startup.declarationHasFile && " The signed copy is in Adobe Acrobat Sign."}
+            {startup.declarationSignedAt && !startup.declarationHasFile &&
+              " Our Adobe Sign plan can't send us the signed copy automatically — find it in Adobe Sign's Manage tab (search the startup's or signer's name) and upload it below to file it here."}
           </p>
-          {startup.declarationHasFile && (
-            <a
-              href={`/api/admin/startups/${startup.id}/declaration/file`}
-              target="_blank"
-              rel="noreferrer"
-              className="mt-3 inline-flex items-center gap-2 ost-btn-ghost !px-3 !py-1.5 text-xs"
-            >
-              <ExternalLink className="h-4 w-4" /> View signed declaration
-            </a>
-          )}
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            {startup.declarationHasFile && (
+              <a
+                href={`/api/admin/startups/${startup.id}/declaration/file`}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-2 ost-btn-ghost !px-3 !py-1.5 text-xs"
+              >
+                <ExternalLink className="h-4 w-4" /> View signed declaration
+              </a>
+            )}
+            <label className={`ost-btn-ghost !px-3 !py-1.5 text-xs ${uploadingDeclaration ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}>
+              {uploadingDeclaration ? "Uploading…" : startup.declarationHasFile ? "Replace with a different PDF" : "Upload the signed PDF"}
+              <input
+                type="file"
+                accept="application/pdf"
+                className="hidden"
+                disabled={uploadingDeclaration}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  e.target.value = "";
+                  if (file) handleDeclarationUpload(file);
+                }}
+              />
+            </label>
+          </div>
         </div>
 
         <div className="ost-card mt-8 p-6">

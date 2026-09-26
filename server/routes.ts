@@ -239,6 +239,21 @@ const contractUpload = multer({
       : cb(new Error("Only PDF files are allowed") as any, false),
 }).single("file");
 
+// Our Adobe Sign plan has no webhooks (Business-tier feature), so the signed
+// declaration can't be pushed to us automatically. Adobe still emails it to
+// the signer and offers a download on its own confirmation screen, so the
+// founder (or an admin, from Adobe's Manage tab) uploads that PDF here —
+// same storage the webhook would have used, so preview/download just work
+// however the file arrives.
+const declarationUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 20 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) =>
+    file.mimetype === "application/pdf"
+      ? cb(null, true)
+      : cb(new Error("Only PDF files are allowed") as any, false),
+}).single("file");
+
 const KYS_DIR = path.resolve(__dirname, "..", "uploads", "kys");
 fs.mkdirSync(KYS_DIR, { recursive: true });
 
@@ -1484,7 +1499,7 @@ export function registerRoutes(app: Express) {
 
   // Step 1 of Contract & KYS: the founder signed the declaration in the
   // embedded Acrobat Sign form (the page hears Adobe's ESIGN event). The
-  // signed PDF itself arrives separately through the Adobe Sign webhook.
+  // signed PDF itself is filed later by an admin (see the admin upload route).
   app.post("/api/declaration/signed", requireAuth, ah(async (req, res) => {
     const startup = await requireActiveStartup(req, res);
     if (!startup) return;
@@ -1498,7 +1513,10 @@ export function registerRoutes(app: Express) {
     res.json({ signedAt: startup.declarationSignedAt, hasFile: hasDeclarationFile(startup.id) });
   }));
 
-  // The founder's own signed declaration PDF (from the Adobe Sign webhook).
+  // The founder's own signed declaration PDF. Our Adobe Sign plan is
+  // individual/Pro, which has neither webhooks nor API access (both
+  // Enterprise-only), so the platform can't fetch this itself. It's only
+  // populated by an admin uploading it (below) — founders are never asked to.
   app.get("/api/declaration/file", requireAuth, ah(async (req, res) => {
     const startup = await requireActiveStartup(req, res);
     if (!startup) return;
@@ -1513,6 +1531,24 @@ export function registerRoutes(app: Express) {
     res.setHeader("Content-Disposition", 'inline; filename="declaration.pdf"');
     res.type("application/pdf").sendFile(declarationFilePath(startup.id));
   }));
+
+  // Admin fallback: file it themselves after downloading it from Adobe Sign's
+  // Manage tab, for a startup that didn't upload its own copy.
+  app.post("/api/admin/startups/:id/declaration/upload", requireAdmin, (req, res, next) => {
+    declarationUpload(req, res, async (err) => {
+      if (err) return res.status(400).json({ message: err.message });
+      try {
+        const startup = await storage.getStartupById(req.params.id);
+        if (!startup) return res.status(404).json({ message: "Not found" });
+        if (!req.file) return res.status(400).json({ message: "Upload the signed declaration as a PDF" });
+        fs.writeFileSync(declarationFilePath(startup.id), req.file.buffer);
+        await storage.markDeclarationSigned(startup.id);
+        res.status(201).json({ ok: true });
+      } catch (e) {
+        next(e);
+      }
+    });
+  });
 
   app.post("/api/kys", requireAuth, ah(async (req, res) => {
     const startup = await requireActiveStartup(req, res);
