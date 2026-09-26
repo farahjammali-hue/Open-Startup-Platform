@@ -2985,6 +2985,20 @@ export const storage = {
     });
   },
 
+  /** A8: startups already reminded for this period+trigger — the scheduler's
+   * idempotency check, so restarts and same-day re-runs never double-send. */
+  async listRemindedStartupIds(period: string, trigger: string): Promise<string[]> {
+    const rows = await db
+      .select({ id: messageLog.startupId })
+      .from(messageLog)
+      .where(and(
+        eq(messageLog.kind, "reminder"),
+        sql`${messageLog.meta}->>'period' = ${period}`,
+        sql`${messageLog.meta}->>'trigger' = ${trigger}`,
+      ));
+    return rows.map((r) => r.id).filter((id): id is string => !!id);
+  },
+
   /** Newest first, optionally narrowed to one kind. */
   async listMessageLog(opts: { kind?: string; limit?: number } = {}): Promise<
     (typeof messageLog.$inferSelect & { startupName: string | null })[]

@@ -8,6 +8,7 @@ import { registerRoutes } from "./routes";
 import { registerMcp } from "./mcp";
 import { registerTypeform } from "./typeform";
 import { registerAdobeSign } from "./adobeSign";
+import { startScheduler } from "./scheduler";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -57,6 +58,7 @@ configureGoogleAuth(app);
 registerMcp(app);
 registerTypeform(app);
 registerAdobeSign(app);
+startScheduler();
 registerRoutes(app);
 
 async function start() {

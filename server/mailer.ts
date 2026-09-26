@@ -547,6 +547,60 @@ export async function sendApplicationDecision(opts: {
   }
 }
 
+/** A8: nudges a founder whose current month's metrics are still empty. */
+export async function sendMetricsReminder(opts: {
+  to: string;
+  name: string | null;
+  startupName: string;
+  monthLabel: string;
+  /** true on the last day of the month — firmer wording. */
+  lastCall: boolean;
+  link: string;
+}): Promise<boolean> {
+  const subject = opts.lastCall
+    ? `Last call: ${opts.monthLabel} metrics for ${opts.startupName}`
+    : `Reminder: ${opts.monthLabel} metrics for ${opts.startupName}`;
+
+  if (!transporter) {
+    console.log(`[mailer] (SMTP off) metrics reminder to ${opts.to} — ${subject}`);
+    return false;
+  }
+
+  const html = `
+  <div style="font-family:Montserrat,Arial,sans-serif;max-width:520px;margin:0 auto;color:${BRAND}">
+    <div style="background:${BRAND};border-radius:14px 14px 0 0;padding:28px 32px;color:#fff">
+      <div style="font-size:20px;font-weight:800">Open Startup</div>
+      <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:${ACCENT}">Platform</div>
+    </div>
+    <div style="border:1px solid #eef0f6;border-top:0;border-radius:0 0 14px 14px;padding:32px">
+      <h1 style="font-size:20px;margin:0 0 12px">${opts.lastCall ? "Last call for this month's update" : "Your monthly update is due"}</h1>
+      <p style="font-size:14px;line-height:1.6;color:#475569">
+        Hi ${opts.name || "there"}, ${escapeHtml(opts.startupName)}'s metrics for <strong>${opts.monthLabel}</strong> haven't been saved yet.
+        It takes a few minutes and keeps your progress visible to the Open Startup team.
+      </p>
+      <p style="margin:24px 0 0">
+        <a href="${opts.link}" style="background:${BRAND};color:#fff;text-decoration:none;padding:12px 22px;border-radius:10px;font-weight:700;font-size:14px;display:inline-block">
+          Fill in ${opts.monthLabel}
+        </a>
+      </p>
+    </div>
+  </div>`;
+
+  try {
+    await transporter.sendMail({
+      from: `"Open Startup" <${FROM}>`,
+      to: opts.to,
+      subject,
+      html,
+      text: `${opts.startupName}'s metrics for ${opts.monthLabel} haven't been saved yet. Fill them in: ${opts.link}`,
+    });
+    return true;
+  } catch (error) {
+    console.error(`[mailer] metrics reminder to ${opts.to} failed:`, error);
+    return false;
+  }
+}
+
 /**
  * A1: tells the founder an admin decided on something they submitted for
  * review (program agreement, KYS profile, or a data-room document). Before
