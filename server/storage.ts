@@ -46,6 +46,7 @@ import {
   startupPartnerDetails,
   mcpOauthClients,
   mcpOauthTokens,
+  mcpAuditLog,
   messageLog,
   type McpOauthClient,
   type User,
@@ -2977,6 +2978,25 @@ export const storage = {
     if (existing) return existing;
     const [row] = await db.insert(expertCatalogSettings).values({}).returning();
     return row;
+  },
+
+  /** B1: one durable row per Claude-connector tool call, success or failure. */
+  async logMcpAudit(data: {
+    userEmail: string;
+    tool: string;
+    input: Record<string, unknown>;
+    ok: boolean;
+    error?: string | null;
+    resultSummary?: string | null;
+  }): Promise<void> {
+    await db.insert(mcpAuditLog).values({
+      userEmail: data.userEmail,
+      tool: data.tool,
+      input: data.input,
+      ok: data.ok,
+      error: data.error ?? null,
+      resultSummary: data.resultSummary ?? null,
+    });
   },
 
   /** A7: record one sent (or attempted) admin/system/connector message. */

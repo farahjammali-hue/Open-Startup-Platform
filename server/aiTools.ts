@@ -11,13 +11,30 @@ import { readTranscriptFile, vttToPlainText } from "./transcripts";
  * session's six recap fields and nothing else.
  */
 
+export const READ_SCOPE = "platform:read";
 export const RECAP_WRITE_SCOPE = "recaps:write";
+
+/**
+ * B1: the single source of truth for connector scopes. The OAuth server
+ * derives everything from this list — what a new connection is granted, the
+ * consent-page bullets, both discovery documents' scopes_supported, and the
+ * "what can it change" sentence in the server instructions — so none of them
+ * can drift from what the tools actually enforce. Adding a scope here (plus
+ * requiredScope on its tools) is the whole wiring; existing connections keep
+ * their old grant until the admin reconnects and re-approves.
+ */
+export const SCOPE_REGISTRY: { id: string; consent: string }[] = [
+  { id: READ_SCOPE, consent: "Read startups, founders, tracks, metrics, review status and mentorship session transcripts" },
+  { id: RECAP_WRITE_SCOPE, consent: "Save mentorship session recaps (nothing else)" },
+];
 
 export interface AiToolDef {
   name: string;
   description: string;
   /** false only for tools that change platform data. */
   readOnly: boolean;
+  /** Write tools name the scope the connection must carry; reads leave it unset. */
+  requiredScope?: string;
   parameters: {
     type: "object";
     properties: Record<string, unknown>;
@@ -148,6 +165,7 @@ export const AI_TOOLS: AiToolDef[] = [
   {
     name: "save_session_recap",
     readOnly: false,
+    requiredScope: RECAP_WRITE_SCOPE,
     description:
       "Save the recap of one mentorship session to the platform, where the startup and admins see it. Base it " +
       "only on the session transcript (get_session_transcript). Use concise bullet points separated by \"\\n\" " +
@@ -166,7 +184,66 @@ export const AI_TOOLS: AiToolDef[] = [
   },
 ];
 
+/**
+ * Every call goes through here: one central scope gate (from the tool's
+ * requiredScope) and one durable audit row, success or failure. The audit
+ * write itself is best-effort — a logging hiccup must never break a tool.
+ */
 export async function executeAiTool(name: string, input: any, ctx: AiToolContext): Promise<unknown> {
+  const def = AI_TOOLS.find((t) => t.name === name);
+  let result: unknown;
+  try {
+    if (def?.requiredScope && !ctx.scopes.includes(def.requiredScope)) {
+      result = {
+        error:
+          `This connection wasn't approved for "${def.requiredScope}". Disconnect and reconnect the Platform ` +
+          "connector in Claude, then approve the updated permissions.",
+      };
+    } else {
+      result = await runTool(name, input, ctx);
+    }
+  } catch (e: any) {
+    result = { error: "The tool failed unexpectedly. The team can check the server logs." };
+    console.error(`[mcp] ${name} threw:`, e);
+  }
+  await auditToolCall(name, input, ctx, result);
+  return result;
+}
+
+function summarizeResult(result: unknown): string {
+  if (Array.isArray(result)) return `array of ${result.length}`;
+  if (result && typeof result === "object") {
+    const err = (result as any).error;
+    if (typeof err === "string") return `error: ${err.slice(0, 200)}`;
+    return `keys: ${Object.keys(result).slice(0, 8).join(", ")}`;
+  }
+  return String(result).slice(0, 200);
+}
+
+async function auditToolCall(name: string, input: any, ctx: AiToolContext, result: unknown): Promise<void> {
+  try {
+    let auditInput: Record<string, unknown> = {};
+    try {
+      const json = JSON.stringify(input ?? {});
+      auditInput = json.length <= 4000 ? JSON.parse(json) : { truncated: true, chars: json.length };
+    } catch {
+      auditInput = { unserializable: true };
+    }
+    const err = (result as any)?.error;
+    await storage.logMcpAudit({
+      userEmail: ctx.userEmail,
+      tool: name,
+      input: auditInput,
+      ok: typeof err !== "string",
+      error: typeof err === "string" ? err.slice(0, 500) : null,
+      resultSummary: summarizeResult(result),
+    });
+  } catch (e) {
+    console.error("[mcp] audit write failed:", e);
+  }
+}
+
+async function runTool(name: string, input: any, ctx: AiToolContext): Promise<unknown> {
   switch (name) {
     case "list_startups":
       return (await storage.listStartupsWithOwners()).map((s) => ({
@@ -229,13 +306,7 @@ export async function executeAiTool(name: string, input: any, ctx: AiToolContext
     }
 
     case "save_session_recap": {
-      if (!ctx.scopes.includes(RECAP_WRITE_SCOPE)) {
-        return {
-          error:
-            "This connection is read-only. To let Claude save recaps, disconnect and reconnect the Platform " +
-            "connector in Claude, then approve the updated permissions.",
-        };
-      }
+      // Scope already checked centrally in executeAiTool (requiredScope).
       const parsed = saveRecapInput.safeParse(input);
       if (!parsed.success) {
         const issue = parsed.error.errors[0];

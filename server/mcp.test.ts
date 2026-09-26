@@ -14,7 +14,8 @@ const fake = vi.hoisted(() => {
   const notices: any[] = [];
   const sessions = new Map<string, any>();
   const notes = new Map<string, any>();
-  return { users, clients, tokens, notices, sessions, notes };
+  const audit: any[] = [];
+  return { users, clients, tokens, notices, sessions, notes, audit };
 });
 
 vi.mock("./mailer", () => ({
@@ -52,6 +53,9 @@ vi.mock("./storage", () => ({
     countStartups: async () => 7,
     getMentorshipModuleSessionById: async (id: string) => fake.sessions.get(id),
     getMentorshipSessionNotes: async (sessionId: string, startupId: string) => fake.notes.get(`${sessionId}:${startupId}`),
+    logMcpAudit: async (row: any) => {
+      fake.audit.push(row);
+    },
     upsertMentorshipSessionNotes: async (sessionId: string, startupId: string, data: any) => {
       const key = `${sessionId}:${startupId}`;
       const row = { ...(fake.notes.get(key) ?? {}), sessionId, startupId, ...data };
@@ -441,5 +445,31 @@ describe("Claude connector: session recaps (the only write)", () => {
     const html = await (await authorizePage(client_id, pkce().challenge, "admin")).text();
     expect(html).toContain("Save mentorship session recaps (nothing else)");
     expect(html).not.toContain("No ability to change anything");
+  });
+});
+
+describe("audit log (B1)", () => {
+  it("every tool call writes a durable audit row, reads and writes alike", async () => {
+    fake.audit.length = 0;
+    const { access_token } = await connect();
+    await callTool(access_token, "count_startups", {});
+    const okRow = fake.audit.find((r) => r.tool === "count_startups");
+    expect(okRow).toMatchObject({ userEmail: "ghazi@open-startup.org", ok: true });
+
+    await callTool(access_token, "get_startup_profile", { startupId: "not-a-uuid" });
+    const errRow = fake.audit.find((r) => r.tool === "get_startup_profile");
+    expect(errRow.ok).toBe(false);
+    expect(errRow.error).toMatch(/startupId/);
+    expect(errRow.input).toEqual({ startupId: "not-a-uuid" });
+  });
+
+  it("a scope denial is audited as a failure", async () => {
+    fake.audit.length = 0;
+    const { access_token } = await connect();
+    for (const t of fake.tokens) t.scope = "platform:read";
+    await callTool(access_token, "save_session_recap", { sessionId: SESSION_ID, ...RECAP });
+    const row = fake.audit.find((r) => r.tool === "save_session_recap");
+    expect(row.ok).toBe(false);
+    expect(row.error).toMatch(/recaps:write/);
   });
 });

@@ -5,7 +5,7 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { storage } from "./storage";
-import { AI_TOOLS, RECAP_WRITE_SCOPE, executeAiTool } from "./aiTools";
+import { AI_TOOLS, SCOPE_REGISTRY, executeAiTool } from "./aiTools";
 import { sendMcpConnectedNotice } from "./mailer";
 
 /**
@@ -24,11 +24,19 @@ import { sendMcpConnectedNotice } from "./mailer";
 
 const APP_URL = (process.env.APP_URL || "http://localhost:5000").replace(/\/+$/, "");
 const MCP_URL = `${APP_URL}/mcp`;
-const READ_SCOPE = "platform:read";
-// What an admin grants by clicking Allow on the approval page (the page lists
-// exactly this). Connections approved before recap-saving existed carry only
-// READ_SCOPE and stay read-only until reconnected.
-const GRANTED_SCOPE = `${READ_SCOPE} ${RECAP_WRITE_SCOPE}`;
+// What an admin grants by clicking Allow on the approval page — the page's
+// bullet list, both discovery documents and the server instructions are all
+// generated from SCOPE_REGISTRY (server/aiTools.ts), so they can't drift.
+// MCP_GRANTED_SCOPES (space-separated, optional) narrows what NEW connections
+// are granted; unknown ids are ignored. Existing connections always keep the
+// scope they were approved with until the admin reconnects.
+const GRANTED_SCOPES: string[] = (() => {
+  const known = SCOPE_REGISTRY.map((s) => s.id);
+  const fromEnv = (process.env.MCP_GRANTED_SCOPES ?? "").split(/\s+/).filter(Boolean);
+  const chosen = fromEnv.length > 0 ? fromEnv.filter((s) => known.includes(s)) : known;
+  return chosen.length > 0 ? chosen : known;
+})();
+const GRANTED_SCOPE = GRANTED_SCOPES.join(" ");
 const ACCESS_TTL_S = 60 * 60; // 1 hour
 const REFRESH_TTL_S = 60 * 60 * 24 * 30; // 30 days
 const CODE_TTL_MS = 10 * 60 * 1000;
@@ -226,7 +234,7 @@ export function registerMcp(app: Express) {
   const protectedResource = {
     resource: MCP_URL,
     authorization_servers: [APP_URL],
-    scopes_supported: [READ_SCOPE, RECAP_WRITE_SCOPE],
+    scopes_supported: GRANTED_SCOPES,
     bearer_methods_supported: ["header"],
     resource_name: "Open Startup Platform",
   };
@@ -243,7 +251,7 @@ export function registerMcp(app: Express) {
       grant_types_supported: ["authorization_code", "refresh_token"],
       code_challenge_methods_supported: ["S256"],
       token_endpoint_auth_methods_supported: ["none", "client_secret_basic", "client_secret_post"],
-      scopes_supported: [READ_SCOPE, RECAP_WRITE_SCOPE],
+      scopes_supported: GRANTED_SCOPES,
     }),
   );
 
@@ -328,8 +336,7 @@ export function registerMcp(app: Express) {
     return page(res, 200, "Connect Claude", `<h1>Connect to the Open Startup Platform?</h1>
       <p><strong>${appName}</strong> wants to use the platform as <strong>${escapeHtml(admin.email)}</strong>.</p>
       <ul>
-        <li>Read startups, founders, tracks, metrics, review status and mentorship session transcripts</li>
-        <li>Save mentorship session recaps (nothing else)</li>
+        ${SCOPE_REGISTRY.filter((sc) => GRANTED_SCOPES.includes(sc.id)).map((sc) => `<li>${escapeHtml(sc.consent)}</li>`).join("")}
         <li>No access to contract or document files</li>
         <li>Can't change or delete anything else</li>
       </ul>
@@ -468,8 +475,8 @@ export function registerMcp(app: Express) {
           "mentorship sessions with their Zoom transcripts. Use list_startups to find a startup's id before " +
           "get_startup_profile. To recap a session: list_mentorship_sessions (needsRecap: true), " +
           "get_session_transcript, draft the recap, show it to the user, and only then save_session_recap. " +
-          "Saving recaps is the only change this connector can make. Contract and document file contents are " +
-          "never available.",
+          `This connection's only write abilities: ${SCOPE_REGISTRY.filter((sc) => sc.id !== "platform:read" && GRANTED_SCOPES.includes(sc.id)).map((sc) => sc.consent).join("; ") || "none (read-only)"}. ` +
+          "Contract and document file contents are never available.",
       },
     );
     server.setRequestHandler(ListToolsRequestSchema, async () => ({
