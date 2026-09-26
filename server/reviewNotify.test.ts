@@ -37,6 +37,9 @@ vi.mock("./mailer", () => ({
   sendAdminBroadcast: vi.fn(async () => true),
   sendMcpConnectedNotice: vi.fn(async () => true),
   sendReviewDecision: vi.fn(async (opts: any) => { fake.reviewMails.push(opts); return true; }),
+  sendMetricsReminder: vi.fn(async () => true),
+  sendInvestmentApplicationNotice: vi.fn(async () => true),
+  sendInvestmentDecision: vi.fn(async () => true),
 }));
 vi.mock("./zoom", () => ({
   verifyZoomWebhookSignature: () => false,
@@ -72,8 +75,9 @@ async function reviewMail() {
 beforeAll(async () => {
   const app = express();
   app.use(express.json());
-  // Every request runs as a signed-in admin.
-  app.use((req: any, _res, next) => { req.session = { userId: "admin1" }; next(); });
+  // Every request runs as a signed-in admin, unless the test names another
+  // user via the x-test-user header (for role-gate tests).
+  app.use((req: any, _res, next) => { req.session = { userId: (req.headers["x-test-user"] as string) || "admin1" }; next(); });
   registerRoutes(app);
   await new Promise<void>((r) => { server = app.listen(0, () => r()); });
   base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
@@ -252,5 +256,185 @@ describe("portfolio metrics + office-hours admin (A11)", () => {
     const ok = await post("/api/admin/office-hours/slots", { hostName: "Team", topic: "", startsAt: "2026-10-01T10:00", endsAt: "2026-10-01T10:30", capacity: "3" });
     expect(ok.status).toBe(201);
     expect(created[0]).toMatchObject({ hostName: "Team", capacity: 3 });
+  });
+});
+
+
+describe("alumni role gates + graduation (Phase D)", () => {
+  function users(role: string) {
+    Object.assign(fake.storage, {
+      getUserById: async (id: string) =>
+        id === "admin1"
+          ? { id, email: "admin@open-startup.org", role: "admin", isActive: true }
+          : { id, email: "alum@x.io", name: "Alum", role, isActive: true },
+    });
+  }
+
+  it("training/mentorship/office-hours/school are 403 for alumni, open for startups", async () => {
+    users("alumni");
+    for (const path of ["/api/mentorship", "/api/training", "/api/office-hours/slots", "/api/school"]) {
+      const res = await fetch(`${base}${path}`, { headers: { "x-test-user": "u9" } });
+      expect(res.status, path).toBe(403);
+    }
+    users("startup");
+    Object.assign(fake.storage, {
+      resolveActiveStartup: async () => undefined, // stops after the role gate
+    });
+    const res = await fetch(`${base}/api/mentorship`, { headers: { "x-test-user": "u9" } });
+    expect(res.status).not.toBe(403);
+  });
+
+  it("graduating flips the owner to alumni, restores complete onboarding, stamps graduatedAt", async () => {
+    const calls: any[] = [];
+    users("startup");
+    Object.assign(fake.storage, {
+      getStartupById: async (id: string) => ({ id, userId: "u9", companyName: "Acme" }),
+      setUserRole: async (id: string, role: string) => calls.push(["setUserRole", id, role]),
+      approveUser: async (id: string) => calls.push(["approveUser", id]),
+      updateStartup: async (id: string, data: any) => {
+        calls.push(["updateStartup", id, !!data.graduatedAt]);
+        return { id, graduatedAt: data.graduatedAt };
+      },
+    });
+    const res = await post("/api/admin/startups/s1/graduate", {});
+    expect(res.status).toBe(200);
+    expect(calls).toEqual([
+      ["setUserRole", "u9", "alumni"],
+      ["approveUser", "u9"],
+      ["updateStartup", "s1", true],
+    ]);
+  });
+
+  it("refuses to graduate an admin demo startup", async () => {
+    users("admin");
+    Object.assign(fake.storage, {
+      getStartupById: async (id: string) => ({ id, userId: "u9", companyName: "Demo" }),
+    });
+    const res = await post("/api/admin/startups/s1/graduate", {});
+    expect(res.status).toBe(400);
+  });
+});
+
+describe("investment applications (Phase D5)", () => {
+  const READY = {
+    id: "s1",
+    userId: "u9",
+    companyName: "Acme",
+    shortDescription: "x",
+    detailedDescription: "y",
+    location: "Tunis",
+    stage: "growth",
+    dataRoomLink: null,
+    revenueLast12Months: 240000,
+    totalFundingRaised: 100000,
+    lastValuation: 2000000,
+    graduatedAt: "2026-06-01",
+  };
+  const CURRENT = new Date().toISOString().slice(0, 7);
+  const ANSWERS = {
+    amountSought: "$250k",
+    roundType: "SAFE",
+    useOfFunds: "Sales team",
+    tractionNarrative: "Growing 15% MoM",
+    timeline: "",
+  };
+
+  function alumniWorld(over: Record<string, any> = {}) {
+    const state: { apps: any[]; logs: any[] } = { apps: [], logs: [] };
+    Object.assign(fake.storage, {
+      getUserById: async (id: string) =>
+        id === "admin1"
+          ? { id, email: "admin@open-startup.org", role: "admin", isActive: true }
+          : { id, email: "alum@x.io", firstName: "Alum", name: "Alum A", role: "alumni", isActive: true },
+      resolveActiveStartup: async () => READY,
+      getKysProfile: async () => ({ id: "k1" }),
+      getContract: async () => ({ id: "c1" }),
+      listMetricEntries: async () => [{ period: CURRENT, values: { rev_cumulative: 1 } }],
+      listDocuments: async () => [{ id: "d1" }],
+      listInvestmentApplicationsForStartup: async () => state.apps,
+      saveInvestmentDraft: async (startupId: string, userId: string, answers: any) => {
+        let draft = state.apps.find((a) => a.status === "draft");
+        if (!draft) {
+          draft = { id: "app1", startupId, userId, status: "draft", answers };
+          state.apps.push(draft);
+        } else draft.answers = answers;
+        return draft;
+      },
+      submitInvestmentApplication: async (id: string, answers: any, snapshot: any) => {
+        const found = state.apps.find((a) => a.id === id)!;
+        Object.assign(found, { status: "submitted", answers, snapshot, submittedAt: new Date() });
+        return found;
+      },
+      listAdminEmails: async () => [{ email: "admin@open-startup.org", name: null }],
+      getInvestmentApplication: async (id: string) => state.apps.find((a) => a.id === id),
+      decideInvestmentApplication: async (id: string, data: any) => {
+        const found = state.apps.find((a) => a.id === id)!;
+        Object.assign(found, { status: data.status, decisionNote: data.note });
+        return found;
+      },
+      getStartupById: async () => READY,
+      logMessage: async (row: any) => state.logs.push(row),
+      ...over,
+    });
+    return state;
+  }
+
+  it("startup-role users get 403 from the application APIs", async () => {
+    alumniWorld({
+      getUserById: async (id: string) =>
+        id === "admin1"
+          ? { id, email: "admin@open-startup.org", role: "admin", isActive: true }
+          : { id, email: "f@x.io", role: "startup", isActive: true },
+    });
+    const res = await fetch(`${base}/api/investment-applications`, { headers: { "x-test-user": "u9" } });
+    expect(res.status).toBe(403);
+  });
+
+  it("submit enforces readiness server-side and freezes the snapshot", async () => {
+    alumniWorld({
+      listDocuments: async () => [],
+      resolveActiveStartup: async () => ({ ...READY, dataRoomLink: null }),
+    });
+    const notReady = await fetch(`${base}/api/investment-applications/submit`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-test-user": "u9" },
+      body: JSON.stringify({ answers: ANSWERS }),
+    });
+    expect(notReady.status).toBe(400);
+    expect((await notReady.json()).message).toMatch(/Data room/);
+
+    alumniWorld(); // fully ready now
+    const ok = await fetch(`${base}/api/investment-applications/submit`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-test-user": "u9" },
+      body: JSON.stringify({ answers: ANSWERS }),
+    });
+    expect(ok.status).toBe(201);
+    const body = await ok.json();
+    expect(body.status).toBe("submitted");
+    expect(body.snapshot.headline.companyName).toBe("Acme");
+    expect(body.snapshot.readiness.ready).toBe(true);
+  });
+
+  it("a pending application blocks another submission", async () => {
+    alumniWorld({
+      listInvestmentApplicationsForStartup: async () => [{ id: "old", status: "under_review" }],
+    });
+    const res = await fetch(`${base}/api/investment-applications/submit`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-test-user": "u9" },
+      body: JSON.stringify({ answers: ANSWERS }),
+    });
+    expect(res.status).toBe(409);
+  });
+
+  it("an admin decision emails the founder and lands in the message log", async () => {
+    const state = alumniWorld();
+    state.apps.push({ id: "app9", startupId: "s1", userId: "u9", status: "submitted", answers: ANSWERS });
+    const res = await post("/api/admin/investment-applications/app9/decision", { status: "accepted", note: "Welcome aboard" });
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe("accepted");
+    for (let i = 0; i < 50 && state.logs.length === 0; i++) await new Promise((r) => setTimeout(r, 10));
+    expect(state.logs[0]).toMatchObject({ kind: "investment_decision", startupId: "s1", meta: expect.objectContaining({ status: "accepted" }) });
   });
 });

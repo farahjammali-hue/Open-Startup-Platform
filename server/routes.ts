@@ -63,8 +63,10 @@ import {
   partnerStatSchema,
   partnerDetailSchema,
   type StartupProfileOverviewInput,
+  investmentApplicationAnswersSchema,
 } from "@shared/schema";
 import { ALL_METRIC_KEYS } from "@shared/metricsCatalog";
+import { computeApplicationReadiness } from "@shared/applicationReadiness";
 import {
   sendVerificationEmail,
   smtpConfigured,
@@ -73,7 +75,7 @@ import {
   sendSessionInvite,
   sendApplicationNotice,
   sendApplicationDecision,
-  sendAdminBroadcast, sendReviewDecision } from "./mailer";
+  sendAdminBroadcast, sendReviewDecision, sendInvestmentApplicationNotice, sendInvestmentDecision } from "./mailer";
 import { dispatchSessionInvite, createMentorshipSessionCore, createTrainingSessionCore } from "./sessions";
 import {
   parseZoomMeetingId,
@@ -445,6 +447,29 @@ async function notifyReviewDecision(
   }
 }
 
+/**
+ * D2: role gate for program-only areas. Alumni keep their data (dashboard,
+ * data room, CRM, KYS) but training, mentorship, office hours and school are
+ * program benefits — blocked server-side here, not just hidden in the nav.
+ * Admins pass (they preview the founder app with their own session).
+ */
+function requireRole(...roles: ("startup" | "mentor" | "investor" | "admin" | "alumni")[]) {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.session?.userId) return res.status(401).json({ message: "Not authenticated" });
+      const user = await storage.getUserById(req.session.userId);
+      if (!user || !user.isActive) return res.status(401).json({ message: "Not authenticated" });
+      if (!user.role || !roles.includes(user.role)) {
+        return res.status(403).json({ message: "This area isn't part of the alumni program" });
+      }
+      next();
+    } catch (e) {
+      next(e);
+    }
+  };
+}
+const requireProgramMember = requireRole("startup", "admin");
+
 // Gate a :id-scoped route on the caller owning that startup, BEFORE any
 // upload middleware runs — file uploads must never write to disk ahead of
 // the ownership check, or a non-owner could overwrite another startup's file.
@@ -759,12 +784,12 @@ export function registerRoutes(app: Express) {
     if (!parsed.success) {
       return res.status(400).json({ message: parsed.error.errors[0].message });
     }
-    if (parsed.data.role !== "startup") {
+    if (parsed.data.role !== "startup" && parsed.data.role !== "alumni") {
       return res.status(403).json({
-        message: "That role isn't available yet. Please choose Startup.",
+        message: "That role isn't available yet. Please choose Startup or Alumni.",
       });
     }
-    const user = await storage.setUserRole(req.session.userId!, "startup");
+    const user = await storage.setUserRole(req.session.userId!, parsed.data.role);
     res.json(toPublicUser(user));
   }));
 
@@ -775,8 +800,8 @@ export function registerRoutes(app: Express) {
       return res.status(400).json({ message: parsed.error.errors[0].message });
     }
     const user = await storage.getUserById(req.session.userId!);
-    if (user?.role !== "startup") {
-      return res.status(403).json({ message: "Startup role required" });
+    if (user?.role !== "startup" && user?.role !== "alumni") {
+      return res.status(403).json({ message: "Startup or alumni role required" });
     }
     // Reuse the startup from an earlier attempt at this step (e.g. after
     // using the onboarding "Back" button and resubmitting) instead of
@@ -1905,7 +1930,7 @@ export function registerRoutes(app: Express) {
   /* ---------------- Mentorship (flat list of sessions, no modules/locking) ---------------- */
   // Session content is program-wide, but each session embeds this startup's
   // own recap/feedback notes, so active-startup context is needed.
-  app.get("/api/mentorship", requireAuth, ah(async (req, res) => {
+  app.get("/api/mentorship", requireAuth, requireProgramMember, ah(async (req, res) => {
     const startup = await requireActiveStartup(req, res);
     if (!startup) return;
     const [sessions, mentor] = await Promise.all([
@@ -1918,7 +1943,7 @@ export function registerRoutes(app: Express) {
   // The startup's own free-text comments on a session, editable any time
   // from scheduling onward. Never touches the AI-generated recap fields or
   // the mentor's rating/feedback, both of which stay out of founder control.
-  app.patch("/api/mentorship/sessions/:sessionId/notes", requireAuth, ah(async (req, res) => {
+  app.patch("/api/mentorship/sessions/:sessionId/notes", requireAuth, requireProgramMember, ah(async (req, res) => {
     const startup = await requireActiveStartup(req, res);
     if (!startup) return;
     const session = await storage.getMentorshipModuleSessionById(req.params.sessionId);
@@ -1965,7 +1990,7 @@ export function registerRoutes(app: Express) {
   }));
 
   /* ---------------- Training (Modules + Sessions) — duplicate of Mentorship ---------------- */
-  app.get("/api/training", requireAuth, ah(async (req, res) => {
+  app.get("/api/training", requireAuth, requireProgramMember, ah(async (req, res) => {
     const startup = await requireActiveStartup(req, res);
     if (!startup) return;
     const [modules, trainer] = await Promise.all([
@@ -1975,7 +2000,7 @@ export function registerRoutes(app: Express) {
     res.json({ modules, trainer: trainer ?? null });
   }));
 
-  app.post("/api/training/modules/:moduleId/homework", requireAuth, (req, res, next) => {
+  app.post("/api/training/modules/:moduleId/homework", requireAuth, requireProgramMember, (req, res, next) => {
     homeworkUpload(req, res, async (err) => {
       if (err) return res.status(400).json({ message: err.message });
       try {
@@ -1998,7 +2023,7 @@ export function registerRoutes(app: Express) {
 
   // Founder's own brief recap of a session they held. Never touches the
   // trainer's rating/feedback, which stays admin-owned.
-  app.patch("/api/training/sessions/:sessionId/notes", requireAuth, ah(async (req, res) => {
+  app.patch("/api/training/sessions/:sessionId/notes", requireAuth, requireProgramMember, ah(async (req, res) => {
     const startup = await requireActiveStartup(req, res);
     if (!startup) return;
     const parsed = trainingSessionRecapSchema.safeParse(req.body);
@@ -2017,17 +2042,17 @@ export function registerRoutes(app: Express) {
   }));
 
   /* ---------------- Office Hours ---------------- */
-  app.get("/api/office-hours/slots", requireAuth, ah(async (_req, res) => {
+  app.get("/api/office-hours/slots", requireAuth, requireProgramMember, ah(async (_req, res) => {
     res.json({ slots: await storage.listUpcomingOfficeHourSlots() });
   }));
 
-  app.get("/api/office-hours/bookings", requireAuth, ah(async (req, res) => {
+  app.get("/api/office-hours/bookings", requireAuth, requireProgramMember, ah(async (req, res) => {
     const startup = await requireActiveStartup(req, res);
     if (!startup) return;
     res.json({ bookings: await storage.listOfficeHourBookingsByStartup(startup.id) });
   }));
 
-  app.post("/api/office-hours/bookings", requireAuth, ah(async (req, res) => {
+  app.post("/api/office-hours/bookings", requireAuth, requireProgramMember, ah(async (req, res) => {
     const startup = await requireActiveStartup(req, res);
     if (!startup) return;
     const parsed = officeHourBookingSchema.safeParse(req.body);
@@ -2044,7 +2069,7 @@ export function registerRoutes(app: Express) {
     res.status(201).json(booking);
   }));
 
-  app.post("/api/office-hours/bookings/:id/cancel", requireAuth, ah(async (req, res) => {
+  app.post("/api/office-hours/bookings/:id/cancel", requireAuth, requireProgramMember, ah(async (req, res) => {
     const startup = await requireActiveStartup(req, res);
     if (!startup) return;
     const owned = await storage.getOwnedOfficeHourBooking(req.params.id, startup.id);
@@ -2094,13 +2119,13 @@ export function registerRoutes(app: Express) {
   }));
 
   /* ---------------- Open Startup School ---------------- */
-  app.get("/api/school", requireAuth, ah(async (req, res) => {
+  app.get("/api/school", requireAuth, requireProgramMember, ah(async (req, res) => {
     const startup = await requireActiveStartup(req, res);
     if (!startup) return;
     res.json({ trainings: await storage.listSchoolForStartup(startup) });
   }));
 
-  app.post("/api/school/:trainingId/progress", requireAuth, ah(async (req, res) => {
+  app.post("/api/school/:trainingId/progress", requireAuth, requireProgramMember, ah(async (req, res) => {
     const startup = await requireActiveStartup(req, res);
     if (!startup) return;
     const parsed = trainingProgressSchema.safeParse(req.body);
@@ -2805,6 +2830,172 @@ export function registerRoutes(app: Express) {
     const updated = await storage.setKysTrack(req.params.id, parsed.data.track);
     if (!updated) return res.status(404).json({ message: "Not found" });
     res.json(updated);
+  }));
+
+  /* ---------------- Investment applications (alumni, PHASE D) ---------------- */
+
+  /** The live readiness picture + this startup's applications and draft. */
+  async function investmentReadinessFor(startup: { id: string } & Record<string, any>) {
+    const [kys, contract, entries, documents] = await Promise.all([
+      storage.getKysProfile(startup.id),
+      storage.getContract(startup.id),
+      storage.listMetricEntries(startup.id),
+      storage.listDocuments(startup.id),
+    ]);
+    return computeApplicationReadiness({
+      startup: {
+        shortDescription: startup.shortDescription,
+        detailedDescription: startup.detailedDescription,
+        location: startup.location,
+        stage: startup.stage,
+        dataRoomLink: startup.dataRoomLink,
+      },
+      kysSubmitted: !!kys,
+      contractUploaded: !!contract,
+      metricPeriodsWithValues: entries.filter((e) => Object.keys(e.values ?? {}).length > 0).map((e) => e.period),
+      documentsCount: documents.length,
+    });
+  }
+
+  const requireAlumni = requireRole("alumni", "admin");
+
+  app.get("/api/investment-applications", requireAuth, requireAlumni, ah(async (req, res) => {
+    const startup = await requireActiveStartup(req, res);
+    if (!startup) return;
+    const [applications, readiness] = await Promise.all([
+      storage.listInvestmentApplicationsForStartup(startup.id),
+      investmentReadinessFor(startup),
+    ]);
+    res.json({ applications, readiness });
+  }));
+
+  // Save (or update) the one live draft.
+  app.post("/api/investment-applications/draft", requireAuth, requireAlumni, ah(async (req, res) => {
+    const startup = await requireActiveStartup(req, res);
+    if (!startup) return;
+    const parsed = investmentApplicationAnswersSchema.partial().safeParse(req.body?.answers ?? {});
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
+    const draft = await storage.saveInvestmentDraft(startup.id, req.session.userId!, parsed.data);
+    res.status(201).json(draft);
+  }));
+
+  app.post("/api/investment-applications/submit", requireAuth, requireAlumni, ah(async (req, res) => {
+    const startup = await requireActiveStartup(req, res);
+    if (!startup) return;
+    const parsed = investmentApplicationAnswersSchema.safeParse(req.body?.answers ?? {});
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
+
+    // A decided-or-pending application blocks a new submission; re-applying is
+    // allowed only once the last one is accepted/rejected.
+    const existing = await storage.listInvestmentApplicationsForStartup(startup.id);
+    const pending = existing.find((a) => a.status === "submitted" || a.status === "under_review");
+    if (pending) return res.status(409).json({ message: "An application is already being reviewed." });
+
+    // Server-side enforcement of the same checklist the page shows.
+    const readiness = await investmentReadinessFor(startup);
+    if (!readiness.ready) {
+      return res.status(400).json({ message: `Not ready to apply yet — missing: ${readiness.missing.join("; ")}` });
+    }
+
+    // Frozen at submit time so the decision stays auditable later.
+    const snapshot = {
+      readiness,
+      headline: {
+        companyName: startup.companyName,
+        stage: startup.stage,
+        location: startup.location,
+        revenueLast12Months: startup.revenueLast12Months ?? null,
+        totalFundingRaised: startup.totalFundingRaised ?? null,
+        lastValuation: startup.lastValuation ?? null,
+        graduatedAt: startup.graduatedAt ?? null,
+      },
+      at: new Date().toISOString(),
+    };
+
+    const draft = await storage.saveInvestmentDraft(startup.id, req.session.userId!, parsed.data);
+    const submitted = await storage.submitInvestmentApplication(draft.id, parsed.data, snapshot);
+
+    postOps(`💰 Investment application: ${startup.companyName} is seeking ${parsed.data.amountSought} — ${APP_URL}/admin/investment-applications`);
+    void (async () => {
+      try {
+        const admins = await storage.listAdminEmails();
+        await sendInvestmentApplicationNotice({
+          admins: admins.map((a) => a.email),
+          startupName: startup.companyName,
+          applicantEmail: (await storage.getUserById(req.session.userId!))?.email ?? "",
+          amountSought: parsed.data.amountSought,
+          reviewUrl: `${APP_URL}/admin/investment-applications`,
+        });
+      } catch (e) {
+        console.error("[investment] admin notice failed:", e);
+      }
+    })();
+    res.status(201).json(submitted);
+  }));
+
+  app.get("/api/admin/investment-applications", requireAdmin, ah(async (req, res) => {
+    const status = typeof req.query.status === "string" ? req.query.status : undefined;
+    res.json({ applications: await storage.listInvestmentApplicationsAdmin(status) });
+  }));
+
+  app.post("/api/admin/investment-applications/:id/decision", requireAdmin, ah(async (req, res) => {
+    const parsed = z
+      .object({ status: z.enum(["under_review", "accepted", "rejected"]), note: z.string().max(2000).optional().or(z.literal("")) })
+      .safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0].message });
+    const app_ = await storage.getInvestmentApplication(req.params.id);
+    if (!app_ || app_.status === "draft") return res.status(404).json({ message: "Not found" });
+    const updated = await storage.decideInvestmentApplication(app_.id, {
+      status: parsed.data.status,
+      decidedBy: req.session.userId!,
+      note: parsed.data.note || null,
+    });
+    // Tell the alumni founder, and keep the send in the message history.
+    void (async () => {
+      try {
+        const startup = await storage.getStartupById(app_.startupId);
+        const owner = startup ? await storage.getUserById(startup.userId) : undefined;
+        if (!startup || !owner?.email) return;
+        const sent = await sendInvestmentDecision({
+          to: owner.email,
+          name: owner.firstName || owner.name || null,
+          startupName: startup.companyName,
+          status: parsed.data.status,
+          note: parsed.data.note || null,
+          link: `${APP_URL}/apply`,
+        });
+        await storage.logMessage({
+          kind: "investment_decision",
+          startupId: startup.id,
+          recipientEmails: [owner.email],
+          subject: `Investment application: ${parsed.data.status.replace("_", " ")}`,
+          bodyPreview: parsed.data.note || null,
+          sentBy: (await storage.getUserById(req.session.userId!))?.email ?? "admin",
+          meta: { applicationId: app_.id, status: parsed.data.status, delivered: sent },
+        });
+      } catch (e) {
+        console.error("[investment] decision notify failed:", e);
+      }
+    })();
+    res.json(updated);
+  }));
+
+  /* ---------------- Graduation (PHASE D4) ---------------- */
+  // Flip a startup's owner to the alumni role and stamp graduatedAt. All the
+  // startup's data stays put and becomes the alumni baseline.
+  app.post("/api/admin/startups/:id/graduate", requireAdmin, ah(async (req, res) => {
+    const startup = await storage.getStartupById(req.params.id);
+    if (!startup) return res.status(404).json({ message: "Not found" });
+    const owner = await storage.getUserById(startup.userId);
+    if (!owner) return res.status(404).json({ message: "Owner not found" });
+    if (owner.role === "admin") return res.status(400).json({ message: "That's an admin's demo startup" });
+    await storage.setUserRole(owner.id, "alumni");
+    // setUserRole resets onboardingStatus to needs_profile (it's built for
+    // signup); a graduate is already fully onboarded, so restore complete.
+    await storage.approveUser(owner.id);
+    const updated = await storage.updateStartup(startup.id, { graduatedAt: new Date() });
+    postOps(`🎓 ${startup.companyName} was marked as alumni`);
+    res.json({ ok: true, startup: updated });
   }));
 
   // A11: portfolio-wide sums per month for a handful of headline metrics.

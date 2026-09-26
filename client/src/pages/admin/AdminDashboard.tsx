@@ -15,6 +15,7 @@ function greeting() {
 interface Stats {
   users: number; startups: number; pendingDeletions: number;
   pendingContracts: number; pendingKys: number; startupsMissingMetrics: number;
+  pendingInvestmentApps: number;
   upcomingMentorshipSessions: number;
   upcomingTrainingSessions: number; schoolDocs: number;
 }
@@ -41,6 +42,7 @@ export default function AdminDashboard() {
     { label: "Contracts & KYS to review", value: pendingReviews, icon: FileSignature, to: "/admin/contracts-kys" },
     // Deep-links the same period the count was computed for.
     { label: "Startups missing this month's update", value: data?.startupsMissingMetrics, icon: LineChart, to: `/admin/startups?missingUpdate=${new Date().toISOString().slice(0, 7)}` },
+    { label: "Investment applications to review", value: data?.pendingInvestmentApps, icon: Rocket, to: "/admin/investment-applications" },
   ];
 
   const platform: CardDef[] = [

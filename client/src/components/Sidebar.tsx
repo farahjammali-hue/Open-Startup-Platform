@@ -30,6 +30,7 @@ const ADMIN_GROUPS: { label: string; items: Item[] }[] = [
       { label: "Users", to: "/admin/users", icon: Users },
       { label: "Signup Approvals", to: "/admin/approvals", icon: UserCheck },
       { label: "Message founders", to: "/admin/messages", icon: MessagesSquare },
+      { label: "Investment Applications", to: "/admin/investment-applications", icon: Wallet },
       { label: "Deletion Requests", to: "/admin/deletion-requests", icon: Trash2 },
     ],
   },
@@ -106,7 +107,29 @@ export function Sidebar() {
     },
   ];
 
-  const groups = isAdmin ? ADMIN_GROUPS : STARTUP_GROUPS;
+  // Alumni: same data areas, no "Program resources", plus the investment plan.
+  const ALUMNI_GROUPS: { label: string; items: Item[] }[] = [
+    { label: "Overview", items: [{ label: "Home", to: "/", icon: HomeIcon }] },
+    {
+      label: "Onboarding",
+      items: [{ label: "Contract & KYS", to: "/contract-kys", icon: FileText, lockedIf: noStartup }],
+    },
+    {
+      label: "Startups data",
+      items: [
+        { label: "Dashboard", to: "/dashboard", icon: LayoutDashboard, lockedIf: !onboardingComplete },
+        { label: "Data Room", to: "/data-room", icon: FolderLock, lockedIf: !onboardingComplete },
+        { label: "CRM", to: "/crm", icon: Handshake, lockedIf: !onboardingComplete },
+      ],
+    },
+    {
+      label: "Investment",
+      items: [{ label: "Apply for investment", to: "/apply", icon: Wallet, lockedIf: noStartup }],
+    },
+  ];
+
+  const effectiveRole = useEffectiveRole();
+  const groups = isAdmin ? ADMIN_GROUPS : effectiveRole === "alumni" ? ALUMNI_GROUPS : STARTUP_GROUPS;
 
   function go(to?: string, lockedIf?: boolean) {
     if (!to) return;

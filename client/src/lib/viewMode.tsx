@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { useAuth } from "./auth";
 
-export type ViewMode = "admin" | "startup";
+export type ViewMode = "admin" | "startup" | "alumni";
 
 const STORAGE_KEY = "ost-admin-view-mode";
 
@@ -23,7 +23,8 @@ export function ViewModeProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [viewMode, setViewModeState] = useState<ViewMode>(() => {
     try {
-      return localStorage.getItem(STORAGE_KEY) === "startup" ? "startup" : "admin";
+      const stored = localStorage.getItem(STORAGE_KEY);
+      return stored === "startup" || stored === "alumni" ? stored : "admin";
     } catch {
       return "admin";
     }
@@ -59,10 +60,10 @@ export function useViewMode() {
 }
 
 /** The role to actually route/render as, folding in the admin's view toggle. */
-export function useEffectiveRole(): "startup" | "mentor" | "investor" | "admin" | null {
+export function useEffectiveRole(): "startup" | "mentor" | "investor" | "admin" | "alumni" | null {
   const { user } = useAuth();
   const { viewMode } = useViewMode();
   if (!user) return null;
-  if (user.role === "admin" && viewMode === "startup") return "startup";
+  if (user.role === "admin" && (viewMode === "startup" || viewMode === "alumni")) return viewMode;
   return user.role;
 }

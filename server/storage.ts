@@ -48,6 +48,7 @@ import {
   mcpOauthTokens,
   mcpAuditLog,
   messageLog,
+  investmentApplications,
   type McpOauthClient,
   type User,
   type Startup,
@@ -239,7 +240,7 @@ export const storage = {
 
   async setUserRole(
     userId: string,
-    role: "startup" | "mentor" | "investor" | "admin",
+    role: "startup" | "mentor" | "investor" | "admin" | "alumni",
   ): Promise<User> {
     const [row] = await db
       .update(users)
@@ -940,6 +941,10 @@ export const storage = {
       .select({ c: sql<number>`count(*)::int` })
       .from(trainings)
       .where(isNotNull(trainings.resourceUrl));
+    const [inv] = await db
+      .select({ c: sql<number>`count(*)::int` })
+      .from(investmentApplications)
+      .where(inArray(investmentApplications.status, ["submitted", "under_review"]));
     return {
       users: u?.c ?? 0,
       startups: s?.c ?? 0,
@@ -950,6 +955,7 @@ export const storage = {
       upcomingMentorshipSessions: ms?.c ?? 0,
       upcomingTrainingSessions: ts?.c ?? 0,
       schoolDocs: tr?.c ?? 0,
+      pendingInvestmentApps: inv?.c ?? 0,
     };
   },
 
@@ -3054,6 +3060,90 @@ export const storage = {
     const [existing] = await db.select().from(expertCatalogSettings).limit(1);
     if (existing) return existing;
     const [row] = await db.insert(expertCatalogSettings).values({}).returning();
+    return row;
+  },
+
+  /* ---------------- Investment applications (alumni, PHASE D) ---------------- */
+  async listInvestmentApplicationsForStartup(startupId: string) {
+    return db
+      .select()
+      .from(investmentApplications)
+      .where(eq(investmentApplications.startupId, startupId))
+      .orderBy(desc(investmentApplications.createdAt));
+  },
+
+  async getInvestmentApplication(id: string) {
+    const [row] = await db.select().from(investmentApplications).where(eq(investmentApplications.id, id));
+    return row;
+  },
+
+  /** One live draft per startup: updates it if present, else creates it. */
+  async saveInvestmentDraft(startupId: string, userId: string, answers: Record<string, unknown>) {
+    const [existing] = await db
+      .select()
+      .from(investmentApplications)
+      .where(and(eq(investmentApplications.startupId, startupId), eq(investmentApplications.status, "draft")));
+    if (existing) {
+      const [row] = await db
+        .update(investmentApplications)
+        .set({ answers, updatedAt: new Date() })
+        .where(eq(investmentApplications.id, existing.id))
+        .returning();
+      return row;
+    }
+    const [row] = await db
+      .insert(investmentApplications)
+      .values({ startupId, userId, status: "draft", answers })
+      .returning();
+    return row;
+  },
+
+  /** Freezes answers + snapshot and moves the draft to submitted. */
+  async submitInvestmentApplication(id: string, answers: Record<string, unknown>, snapshot: Record<string, unknown>) {
+    const [row] = await db
+      .update(investmentApplications)
+      .set({ answers, snapshot, status: "submitted", submittedAt: new Date(), updatedAt: new Date() })
+      .where(eq(investmentApplications.id, id))
+      .returning();
+    return row;
+  },
+
+  async listInvestmentApplicationsAdmin(status?: string) {
+    return db
+      .select({
+        id: investmentApplications.id,
+        startupId: investmentApplications.startupId,
+        companyName: startups.companyName,
+        ownerName: users.name,
+        ownerEmail: users.email,
+        status: investmentApplications.status,
+        answers: investmentApplications.answers,
+        snapshot: investmentApplications.snapshot,
+        submittedAt: investmentApplications.submittedAt,
+        decidedAt: investmentApplications.decidedAt,
+        decisionNote: investmentApplications.decisionNote,
+        createdAt: investmentApplications.createdAt,
+      })
+      .from(investmentApplications)
+      .innerJoin(startups, eq(startups.id, investmentApplications.startupId))
+      .innerJoin(users, eq(users.id, investmentApplications.userId))
+      .where(status ? eq(investmentApplications.status, status as any) : ne(investmentApplications.status, "draft"))
+      .orderBy(desc(investmentApplications.submittedAt));
+  },
+
+  async decideInvestmentApplication(id: string, data: { status: "under_review" | "accepted" | "rejected"; decidedBy: string; note?: string | null }) {
+    const decided = data.status === "accepted" || data.status === "rejected";
+    const [row] = await db
+      .update(investmentApplications)
+      .set({
+        status: data.status,
+        decisionNote: data.note ?? null,
+        decidedBy: decided ? data.decidedBy : null,
+        decidedAt: decided ? new Date() : null,
+        updatedAt: new Date(),
+      })
+      .where(eq(investmentApplications.id, id))
+      .returning();
     return row;
   },
 

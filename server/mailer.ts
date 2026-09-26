@@ -547,6 +547,115 @@ export async function sendApplicationDecision(opts: {
   }
 }
 
+/** PHASE D: tells admins an alumni startup applied to the investment plan. */
+export async function sendInvestmentApplicationNotice(opts: {
+  admins: string[];
+  startupName: string;
+  applicantEmail: string;
+  amountSought: string;
+  reviewUrl: string;
+}): Promise<boolean> {
+  if (!transporter || opts.admins.length === 0) {
+    console.log(`[mailer] (SMTP off or no admins) investment application from ${opts.startupName}`);
+    return false;
+  }
+  try {
+    await transporter.sendMail({
+      from: `"Open Startup" <${FROM}>`,
+      to: opts.admins.join(", "),
+      subject: `Investment application: ${opts.startupName}`,
+      html: `
+  <div style="font-family:Montserrat,Arial,sans-serif;max-width:520px;margin:0 auto;color:${BRAND}">
+    <div style="background:${BRAND};border-radius:14px 14px 0 0;padding:28px 32px;color:#fff">
+      <div style="font-size:20px;font-weight:800">Open Startup</div>
+      <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:${ACCENT}">Platform</div>
+    </div>
+    <div style="border:1px solid #eef0f6;border-top:0;border-radius:0 0 14px 14px;padding:32px">
+      <h1 style="font-size:20px;margin:0 0 12px">New investment application</h1>
+      <p style="font-size:14px;line-height:1.6;color:#475569">
+        <strong>${escapeHtml(opts.startupName)}</strong> (${escapeHtml(opts.applicantEmail)}) applied to the investment plan,
+        seeking <strong>${escapeHtml(opts.amountSought)}</strong>.
+      </p>
+      <p style="margin:24px 0 0">
+        <a href="${opts.reviewUrl}" style="background:${BRAND};color:#fff;text-decoration:none;padding:12px 22px;border-radius:10px;font-weight:700;font-size:14px;display:inline-block">
+          Review the application
+        </a>
+      </p>
+    </div>
+  </div>`,
+      text: `${opts.startupName} applied to the investment plan (seeking ${opts.amountSought}). Review: ${opts.reviewUrl}`,
+    });
+    return true;
+  } catch (error) {
+    console.error("[mailer] investment application notice failed:", error);
+    return false;
+  }
+}
+
+/** PHASE D: the decision email to the alumni founder. */
+export async function sendInvestmentDecision(opts: {
+  to: string;
+  name: string | null;
+  startupName: string;
+  status: "under_review" | "accepted" | "rejected";
+  note: string | null;
+  link: string;
+}): Promise<boolean> {
+  const subject =
+    opts.status === "accepted"
+      ? `Your investment application was accepted`
+      : opts.status === "rejected"
+        ? `About ${opts.startupName}'s investment application`
+        : `${opts.startupName}'s investment application is under review`;
+
+  if (!transporter) {
+    console.log(`[mailer] (SMTP off) investment decision ${opts.status} to ${opts.to}`);
+    return false;
+  }
+
+  const lead =
+    opts.status === "accepted"
+      ? `Good news: <strong>${escapeHtml(opts.startupName)}</strong>'s application to the investment plan has been accepted. The team will reach out on next steps.`
+      : opts.status === "rejected"
+        ? `After review, we won't be moving forward with <strong>${escapeHtml(opts.startupName)}</strong>'s investment application this time. You can apply again in a future window.`
+        : `<strong>${escapeHtml(opts.startupName)}</strong>'s investment application is now under review. We'll come back to you with a decision.`;
+  const noteHtml = opts.note
+    ? `<div style="margin:16px 0;padding:14px 16px;background:#f8fafc;border-left:3px solid ${ACCENT};border-radius:0 8px 8px 0">
+         <div style="font-size:11px;letter-spacing:1px;text-transform:uppercase;color:#94a3b8;margin-bottom:4px">Note from the team</div>
+         <div style="font-size:14px;line-height:1.6;color:#475569;white-space:pre-wrap">${escapeHtml(opts.note)}</div>
+       </div>`
+    : "";
+  try {
+    await transporter.sendMail({
+      from: `"Open Startup" <${FROM}>`,
+      to: opts.to,
+      subject,
+      html: `
+  <div style="font-family:Montserrat,Arial,sans-serif;max-width:520px;margin:0 auto;color:${BRAND}">
+    <div style="background:${BRAND};border-radius:14px 14px 0 0;padding:28px 32px;color:#fff">
+      <div style="font-size:20px;font-weight:800">Open Startup</div>
+      <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:${ACCENT}">Platform</div>
+    </div>
+    <div style="border:1px solid #eef0f6;border-top:0;border-radius:0 0 14px 14px;padding:32px">
+      <h1 style="font-size:20px;margin:0 0 12px">${opts.status === "accepted" ? "Accepted" : opts.status === "rejected" ? "Application update" : "Under review"}</h1>
+      <p style="font-size:14px;line-height:1.6;color:#475569">Hi ${opts.name || "there"}, ${lead}</p>
+      ${noteHtml}
+      <p style="margin:24px 0 0">
+        <a href="${opts.link}" style="background:${BRAND};color:#fff;text-decoration:none;padding:12px 22px;border-radius:10px;font-weight:700;font-size:14px;display:inline-block">
+          Open the platform
+        </a>
+      </p>
+    </div>
+  </div>`,
+      text: `${opts.startupName} investment application: ${opts.status}.${opts.note ? ` Note: ${opts.note}` : ""} ${opts.link}`,
+    });
+    return true;
+  } catch (error) {
+    console.error(`[mailer] investment decision to ${opts.to} failed:`, error);
+    return false;
+  }
+}
+
 /** A8: nudges a founder whose current month's metrics are still empty. */
 export async function sendMetricsReminder(opts: {
   to: string;

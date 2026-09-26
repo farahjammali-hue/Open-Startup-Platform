@@ -5,14 +5,14 @@ import { useViewMode } from "../lib/viewMode";
 import { api } from "../lib/utils";
 import { confirmLeave } from "../lib/navGuard";
 import { Dropdown } from "./Dropdown";
-import { CaretDown as ChevronDown, Check, Buildings as Building2, SignOut as LogOut, Gear as Settings, ShieldCheck, Rocket } from "@phosphor-icons/react";
+import { CaretDown as ChevronDown, Check, Buildings as Building2, SignOut as LogOut, Gear as Settings, ShieldCheck, Rocket, GraduationCap } from "@phosphor-icons/react";
 
 /** Admin-only: flip between the admin console and a preview of the founder-facing app. */
 function AdminViewSwitch() {
   const { viewMode, setViewMode } = useViewMode();
   const [, navigate] = useLocation();
 
-  function go(mode: "admin" | "startup") {
+  function go(mode: "admin" | "startup" | "alumni") {
     if (mode === viewMode) return;
     if (!confirmLeave()) return;
     setViewMode(mode);
@@ -32,6 +32,12 @@ function AdminViewSwitch() {
         className={`flex items-center gap-1.5 rounded-full px-3 py-1 ${viewMode === "startup" ? "bg-secondary text-white" : "text-slate-500 hover:text-primary"}`}
       >
         <Rocket className="h-3.5 w-3.5" /> Startup view
+      </button>
+      <button
+        onClick={() => go("alumni")}
+        className={`flex items-center gap-1.5 rounded-full px-3 py-1 ${viewMode === "alumni" ? "bg-secondary text-white" : "text-slate-500 hover:text-primary"}`}
+      >
+        <GraduationCap className="h-3.5 w-3.5" /> Alumni view
       </button>
     </div>
   );
@@ -71,7 +77,7 @@ export function AppHeader() {
   // Admins have their own demo startup once they've ever toggled to Startup
   // view, but there's nothing to switch between while looking at the admin
   // console itself — so only show (and fetch) this in Startup view.
-  const showStartupSwitcher = user?.role !== "admin" || viewMode === "startup";
+  const showStartupSwitcher = user?.role !== "admin" || viewMode === "startup" || viewMode === "alumni";
   const { data } = useQuery<StartupsResponse>({
     queryKey: ["startups"],
     queryFn: () => api("/api/startups"),

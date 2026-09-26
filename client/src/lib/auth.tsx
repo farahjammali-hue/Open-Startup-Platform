@@ -7,7 +7,7 @@ import {
 } from "react";
 import { api } from "./utils";
 
-export type Role = "startup" | "mentor" | "investor" | "admin";
+export type Role = "startup" | "mentor" | "investor" | "admin" | "alumni";
 export type OnboardingStatus = "needs_role" | "needs_profile" | "pending_approval" | "complete";
 
 export interface RegisterInput {

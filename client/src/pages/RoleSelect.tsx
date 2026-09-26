@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { useAuth } from "../lib/auth";
 import { api } from "../lib/utils";
 import { AuthHeader } from "../components/Brand";
-import { Rocket, Users, ChartLine as LineChart, Lock, CircleNotch as Loader2 } from "@phosphor-icons/react";
+import { Rocket, Users, ChartLine as LineChart, Lock, CircleNotch as Loader2, GraduationCap } from "@phosphor-icons/react";
 
 const ROLES = [
   {
@@ -19,6 +19,13 @@ const ROLES = [
     icon: Users,
     available: false,
     blurb: "Guide startups, run office hours, and log session feedback.",
+  },
+  {
+    id: "alumni",
+    label: "Alumni",
+    icon: GraduationCap,
+    available: true,
+    blurb: "Graduated from an Open Startup program? Keep your data, track progress, and apply for the investment plan.",
   },
   {
     id: "investor",

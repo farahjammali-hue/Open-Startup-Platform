@@ -5,12 +5,13 @@ import { api } from "../lib/utils";
 import { AppShell } from "../components/AppShell";
 import { RoadGlow } from "../components/Brand";
 import { useKysStatus } from "../lib/kysStatus";
+import { useEffectiveRole } from "../lib/viewMode";
 import { showToast } from "../lib/toast";
 import { StatusBadge, TONE_CLASSES, type StatusTone } from "../components/StatusBadge";
 import { Skeleton } from "../components/Skeleton";
 import { EmptyState } from "../components/EmptyState";
 import { GoalsPanel } from "../components/dashboard/GoalsPanel";
-import { FileText, SquaresFour as LayoutDashboard, FolderLock, Lock, Stack as Layers, Presentation, Handshake, Warning as AlertTriangle, CheckCircle as CheckCircle2, ArrowRight, VideoCamera as Video } from "@phosphor-icons/react";
+import { FileText, SquaresFour as LayoutDashboard, FolderLock, Lock, Stack as Layers, Presentation, Handshake, Warning as AlertTriangle, CheckCircle as CheckCircle2, ArrowRight, VideoCamera as Video, Wallet } from "@phosphor-icons/react";
 
 interface StartupProfile {
   companyName: string;
@@ -48,8 +49,18 @@ const EXPLORE_TOOLS = [
   { icon: Handshake, title: "CRM", desc: "Investors, clients & partners", to: "/crm", gated: true },
 ];
 
+// Alumni keep the data tools and gain the investment application; the
+// program-only areas disappear (their APIs are closed to alumni anyway).
+const ALUMNI_TOOLS = [
+  { icon: Handshake, title: "CRM", desc: "Investors, clients & partners", to: "/crm", gated: true },
+  { icon: Wallet, title: "Investment plan", desc: "Apply with your live data", to: "/apply", gated: false },
+];
+
 export default function Home() {
   const [, navigate] = useLocation();
+  // Alumni keep the data side of Home; mentorship/training/office hours are
+  // program benefits (their APIs 403 for alumni), so skip them entirely.
+  const isAlumni = useEffectiveRole() === "alumni";
   const { onboardingComplete, contractRejected, kysRejected, isLoading: kysLoading } = useKysStatus();
   const needsAttention = contractRejected || kysRejected;
 
@@ -62,7 +73,7 @@ export default function Home() {
   const { data: mentorshipData, isLoading: mentorshipLoading } = useQuery<{ sessions: MentorshipSessionLite[] }>({
     queryKey: ["mentorship"],
     queryFn: () => api("/api/mentorship"),
-    enabled: onboardingComplete,
+    enabled: onboardingComplete && !isAlumni,
   });
 
   // A5: nudge for the current month's metrics. Same emptiness rule as the
@@ -79,9 +90,10 @@ export default function Home() {
   const { data: officeHoursData, isLoading: officeHoursLoading } = useQuery<{ bookings: OfficeHourBookingLite[] }>({
     queryKey: ["office-hours-bookings"],
     queryFn: () => api("/api/office-hours/bookings"),
+    enabled: !isAlumni,
   });
 
-  const upcomingLoading = officeHoursLoading || (onboardingComplete && mentorshipLoading);
+  const upcomingLoading = !isAlumni && (officeHoursLoading || (onboardingComplete && mentorshipLoading));
 
   const upcoming = useMemo<UpcomingItem[]>(() => {
     const now = Date.now();
@@ -210,7 +222,7 @@ export default function Home() {
         ) : null}
 
         {/* Tier 3 — Progress */}
-        <ProgressSummary onboardingComplete={onboardingComplete} needsAttention={needsAttention} />
+        <ProgressSummary onboardingComplete={onboardingComplete} needsAttention={needsAttention} isAlumni={isAlumni} />
 
         {/* A9: quarterly goals — the two or three things the startup is driving at. */}
         {onboardingComplete && (
@@ -223,7 +235,7 @@ export default function Home() {
         <section className="mt-10">
           <h2 className="ost-section-label mb-3">Explore tools</h2>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {EXPLORE_TOOLS.map((t) => {
+            {(isAlumni ? ALUMNI_TOOLS : EXPLORE_TOOLS).map((t) => {
               const locked = t.gated && !onboardingComplete;
               return (
                 <button
@@ -322,7 +334,7 @@ function UpcomingRow({ item }: { item: UpcomingItem }) {
   );
 }
 
-function ProgressSummary({ onboardingComplete, needsAttention }: { onboardingComplete: boolean; needsAttention: boolean }) {
+function ProgressSummary({ onboardingComplete, needsAttention, isAlumni }: { onboardingComplete: boolean; needsAttention: boolean; isAlumni: boolean }) {
   const items: { label: string; tone: StatusTone; text: string }[] = [
     {
       label: "Contract & KYS",
@@ -331,7 +343,9 @@ function ProgressSummary({ onboardingComplete, needsAttention }: { onboardingCom
     },
     { label: "Dashboard", tone: onboardingComplete ? "teal" : "gray", text: onboardingComplete ? "Available" : "Locked" },
     { label: "Data room", tone: onboardingComplete ? "teal" : "gray", text: onboardingComplete ? "Available" : "Locked" },
-    { label: "Mentorship", tone: onboardingComplete ? "teal" : "gray", text: onboardingComplete ? "Available" : "Locked" },
+    isAlumni
+      ? { label: "Investment plan", tone: onboardingComplete ? "teal" : "gray", text: onboardingComplete ? "Open to apply" : "Locked" }
+      : { label: "Mentorship", tone: onboardingComplete ? "teal" : "gray", text: onboardingComplete ? "Available" : "Locked" },
   ];
 
   return (

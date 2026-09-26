@@ -9,6 +9,9 @@ import { STAGE_LABELS, type StartupStage } from "../../lib/stageLabels";
 import { REVIEW_STATUS_TONES, REVIEW_STATUS_ICONS } from "../../lib/statusTones";
 import { Buildings as Building2, Globe, MapPin, ChartLine as LineChart, FolderLock, Signature as FileSignature, ShieldCheck, Stack as Layers, Handshake, ArrowRight } from "@phosphor-icons/react";
 import { GoalsPanel } from "../../components/dashboard/GoalsPanel";
+import { useQueryClient } from "@tanstack/react-query";
+import { showToast } from "../../lib/toast";
+import { GraduationCap } from "@phosphor-icons/react";
 
 interface ReviewEntity { status: "pending" | "approved" | "rejected"; reviewNote: string | null }
 
@@ -18,8 +21,9 @@ interface Detail {
     stage: string | null; logoUrl: string | null;
     dataRoomLink: string | null; mentorId: string | null;
     declarationSignedAt: string | null;
+    graduatedAt: string | null;
   };
-  owner: { name: string; email: string } | null;
+  owner: { name: string; email: string; role?: string | null } | null;
   contract: (ReviewEntity & { signerName: string; signedAt: string }) | null;
   kysProfile: (ReviewEntity & { track: string; submittedAt: string }) | null;
 }
@@ -28,6 +32,20 @@ export default function AdminStartupDetail() {
   const [, params] = useRoute("/admin/startups/:id");
   const id = params?.id ?? "";
   const [, navigate] = useLocation();
+  const qc = useQueryClient();
+
+  // D4: flip the owner to the alumni role. Their data stays put and becomes
+  // the alumni baseline; training and mentorship close for them.
+  async function graduate(companyName: string) {
+    if (!confirm(`Mark ${companyName} as alumni? The founder keeps all their data and gains the investment application, but loses training and mentorship access.`)) return;
+    try {
+      await api(`/api/admin/startups/${id}/graduate`, { method: "POST" });
+      showToast(`${companyName} is now alumni.`);
+      qc.invalidateQueries({ queryKey: ["admin-startup-detail", id] });
+    } catch (e: any) {
+      showToast(e.message || "Couldn't mark as alumni");
+    }
+  }
   const { data, isLoading } = useQuery<Detail>({
     queryKey: ["admin-startup-detail", id],
     queryFn: () => api(`/api/admin/startups/${id}`),
@@ -127,6 +145,11 @@ export default function AdminStartupDetail() {
         />
 
         <div className="mt-4 flex flex-wrap items-center gap-2">
+          {startup.graduatedAt && (
+            <StatusBadge tone="teal" icon={GraduationCap}>
+              Alumni since {new Date(startup.graduatedAt).toLocaleDateString()}
+            </StatusBadge>
+          )}
           <StatusBadge tone={declarationSigned ? REVIEW_STATUS_TONES.approved : "gray"} icon={declarationSigned ? REVIEW_STATUS_ICONS.approved : FileSignature}>
             Declaration {declarationSigned ? "signed" : "not signed"}
           </StatusBadge>
@@ -163,6 +186,20 @@ export default function AdminStartupDetail() {
         <div className="mt-6">
           <GoalsPanel apiBase={`/api/admin/startups/${id}/goals`} title="Goals" />
         </div>
+
+        {!startup.graduatedAt && owner?.role !== "admin" && (
+          <div className="ost-card mt-6 flex flex-wrap items-center justify-between gap-3 p-5">
+            <div>
+              <div className="font-semibold text-primary">Finished the program?</div>
+              <p className="text-sm text-slate-500">
+                Mark this startup as alumni: they keep every bit of their data as their baseline and can apply for the investment plan; training and mentorship close.
+              </p>
+            </div>
+            <button onClick={() => graduate(startup.companyName)} className="ost-btn-ghost">
+              <GraduationCap className="h-4 w-4" /> Mark as alumni
+            </button>
+          </div>
+        )}
       </main>
     </AppShell>
   );
